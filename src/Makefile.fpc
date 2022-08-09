@@ -3,7 +3,8 @@ programs=berserk
 
 [prerules]
 VALKYRIEPATH := ../../fpcvalkyrie/src/
-LUAPATH := ../../fpcvalkyrie/lua
+LIBSPATH := ../../fpcvalkyrie/libs/
+LUAPATH := ../../fpcvalkyrie/lua/
 
 [require]
 packages=
@@ -12,11 +13,11 @@ packages=
 fpcpackage=n
 
 [compiler]
-unitdir=$(VALKYRIEPATH) $(LUAPATH)
+unitdir=$(VALKYRIEPATH) $(LUAPATH) $(LIBSPATH)
 unittargetdir=../temp
 includedir=../bin/lua
 targetdir=../bin
-version=2.2.4
+version=3.2.2
 options=-Mobjfpc
 
 [dist]
@@ -26,4 +27,4 @@ ziptarget=all
 
 [clean]
 files=$(wildcard *$(OEXT)) $(wildcard *$(PPUEXT)) $(wildcard *$(RSTEXT)) \
-	  $(wildcard ../temp/*$(OEXT)) $(wildcard ../temp/*$(PPUEXT)) $(wildcard ../temp/*$(RSTEXT)) \
+	  $(wildcard ../temp/*$(OEXT)) $(wildcard ../temp/*$(PPUEXT)) $(wildcard ../temp/*$(RSTEXT)) \q
