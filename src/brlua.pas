@@ -69,7 +69,8 @@ begin
   RegisterRectClass( FState );
 
   RegisterDungenClass( FState, 'generator' );
-  TSound.RegisterLuaAPI( FState );
+  if Assigned( Sound ) then 
+    TSound.RegisterLuaAPI( FState );
 
   RegisterUIClass( FState );
   TBerserkUI.RegisterLuaAPI();

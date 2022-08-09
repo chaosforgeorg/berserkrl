@@ -89,12 +89,15 @@ begin
     UI := TBerserkGUI.Create(CP.isSet('fullscreen'))
   else
     UI := TBerserkTextUI.Create;
-  if Config.Configure( 'audio.driver', 'SDL' ) = 'FMOD'
-    then Sound := TFMODSound.Create( Config )
-    else Sound := TSDLSound.Create( Config );
-  Sound.Configure( Config );
-  LoadAudio;
-  Sound.PlayMusic('menu');
+  if not CP.isSet('nosound') then
+  begin
+    if Config.Configure( 'audio.driver', 'SDL' ) = 'FMOD'
+      then Sound := TFMODSound.Create( Config )
+      else Sound := TSDLSound.Create( Config );
+    Sound.Configure( Config );
+    LoadAudio;
+    Sound.PlayMusic('menu');
+  end;
   UIDs := Systems.Add( TUIDStore.Create ) as TUIDStore;
 
 
@@ -173,11 +176,13 @@ begin
     end;
     UI.Screen := Game;
     UI.Shift := Clamp( Player.Position.x-11, 0, MAP_MAXX-21 ) * 24;
-    Sound.PlayMusic('passive');
+    if Assigned( Sound ) then
+      Sound.PlayMusic('passive');
     repeat
       Level.Tick;
     until Escape or Level.Flags[ LF_CLEARED ];
-    Sound.PlayMusic('menu');
+    if Assigned( Sound ) then
+      Sound.PlayMusic('menu');
     UI.Screen := Menu;
   until Escape;
   if not SaveExists then UI.RunUILoop( 'ui_hof_screen' );
@@ -201,6 +206,8 @@ var iSearchRec : TSearchRec;
     iName      : AnsiString;
     iExt       : AnsiString;
 begin
+  if not Assigned( Sound ) then Exit;
+
   if FindFirst(DataPath+'sound' + PathDelim + '*.*',faAnyFile,iSearchRec) = 0 then
   repeat
     iName := iSearchRec.Name;

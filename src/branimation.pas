@@ -144,7 +144,7 @@ end;
 
 procedure TSoundAnimation.OnStart;
 begin
-  if Sound.SampleExists( FSoundID ) then
+  if Assigned( Sound ) and Sound.SampleExists( FSoundID ) then
     Sound.PlaySample( FSoundID, FPosition );
 end;
 

@@ -738,7 +738,7 @@ procedure TBeing.PlaySound(const aSoundID: AnsiString);
 var iSound : AnsiString;
 begin
   iSound := UI.ResolveSoundID( FID, aSoundID );
-  if iSound <> '' then Sound.PlaySample( iSound, FPosition );
+  if Assigned( Sound ) and ( iSound <> '' ) then Sound.PlaySample( iSound, FPosition );
 end;
 
 procedure TBeing.ApplyDamage(Amount : Word; DType : Byte);
