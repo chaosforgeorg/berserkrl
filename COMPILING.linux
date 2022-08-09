@@ -1,0 +1,33 @@
+This file is up to date as of svn revision 177.
+
+In order to compile Berserk under Linux you will need the following:
+
+packages (Debian names):
+- build-essential
+- fpc
+- liblua5.1-0-dev
+- subversion
+
+other:
+- FPC Valkyrie (at least svn revision 118) - get it from: http://sourceforge.net/projects/fpcvalkyrie/
+
+Next you need to arrange the project directories like this:
+
+|
++-berserkrl
+| +-bin
+| +-src
+|
++-fpcvalkyrie
+  +-lua
+  +-src
+
+When ready you open the terminal in berserkrl/src directory and execute:
+
+$ FPCDIR=/usr/lib/fpc/2.4.0/ fpcmake
+
+and after it finishes:
+
+$ make
+
+This should create a "berserk" executable file inside berserkrl/bin directory. You can run it from there.

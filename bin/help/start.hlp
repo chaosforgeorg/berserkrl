@@ -1,0 +1,97 @@
+@yGetting Started
+
+Here is a rough guide on how to start playing BerserkRL.
+
+First off, create a new character. You will be asked for a name, which is 
+how your character will be known. For the sake of this example, let's say 
+you are called "Gatsu".
+
+Next you distribute your points into your characteristics. Depending on 
+game mode they can or cannot be enhanced in-game. Until you're more adept
+at the game, consider putting most points in Strenght, and some in 
+Dexterity (14/12/10/10 in case of Endless mode).
+
+Next you have a skill choice. Skills are very important in Berserk! - most
+of them allow you to do attacks/moves that would not be possible without 
+them. Ironman is an almost worthless skill, in case you don't meet the 
+prerequisites of any other skill. By the skill description you will also
+see a visual representation of the skill. On the picture, the blue stars
+represent the attack pattern, and the blue character is the place where 
+you'll find yourself after the skill usage. All pictures are drawn as 
+you would be attacking to the left.
+
+You're on the game now! Keep in mind that this is a turn-based game, so 
+Gatsu should better think his movements before actually doing anything - 
+that will make him last longer. He cannot win the game, so he has to make 
+sure to take as many demons to Hell with him as he can!
+
+Take a look first on the right side of the screen. Here you've got 
+information about your character:
+
+ * Health is Gatsu's life. When it gets to 0, he's deader than dead. The 
+   health bar charges with a darker colour - that is your berserk status.
+   When it reaches the top end of the bar, Gatsu enters a berserk rage to
+   kill everything in sight!
+
+ * The Energy bar is just below. It gets depleted when you use skills, and 
+   slowly recharges.
+
+ * Next comes Gatsu's inventory. This is what it's good for:
+
+     o The crossbow shoots 3 arrows at a time to a single target. Snipe 
+       them down! The first number is the ammo inside the crossbow, the 
+       second number is the total ammo you have on your backpack.
+
+     o The cannon shoots a deadly fire explosion towards the direction you 
+       point. It can take multiple targets on a single shot, so try to 
+       make it land on as many hellspawn as you can! The first number is 
+       the ammo inside the cannon, the second number is the total ammo you 
+       have on your backpack.
+
+     o Knives are another way of taking Gatsu's enemies from a distance.
+       They have the advantage that they can be used while Berserking, and
+       while in melee combat. Also their damage is based on Strength!
+
+     o Bombs are just that - bombs. You throw them and them explode. And 
+       hopefully they will take out some enemies when they do!
+
+     o Fairydust is Gatsu's only way of healing. It heals full health, so 
+       try to use it when you are really desperate. 
+
+Now take a look at the keybindings from 'h'elp. Don't worry, you can look 
+at this every time you need without spending a turn, so do so when you don't 
+remember a certain keybinding.
+
+Now it's time to take Gatsu on adventure. Move with the numpad, making sure 
+NumLock is off, every number will move you one square on the direction you 
+press. Try hitting "TAB", that will turn on running mode, which makes you 
+move faster: helpful to run away when things are going bad!
+
+When you first encounter a letter, 'l'ook at it, because it's an enemy! 
+Don't worry, as looking will not waste a turn. You will get the monster's
+name. Different monsters have different behaviours and power ratings,
+and most of them have some special ability, so beware!
+
+To attack a monster with your sword, just move into his position and Gatsu 
+will try to hit him hard. Read the text on the bottom right of the screen, 
+it shows how combat is going. Most probably, you will kill your first 
+monsters after some blows, and a red % will appear. This is a corpse, 
+but you don't have to mind corpses in this game. At least until some 
+special monsters show up...
+
+Go and try to kill the monsters you see, but beware - Gatsu will get hit 
+too! When that happens, sometimes "Pain (-#)" will get written on the 
+screen in red. The higher is #, the worst you'll be doing in combat 
+because of the pain Gatsu feels! So when you see that number is high, 
+flee from combat by running (tab key) and when fully prepared again, 
+charge into combat to dish your revenge.
+
+Now you are ready for playing on your way!
+
+When Gatsu dies - because he will die, sooner or later - a mortem file 
+will get generated on a .txt in the folder of the game. Here you can look 
+the statistics of the just played game, to compare it with other to see 
+how you are progressing each time.
+
+Thanks for playing! 
+Now go, and sell your soul as costly as you can!

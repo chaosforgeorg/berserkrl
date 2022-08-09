@@ -1,0 +1,120 @@
+0.9.0 BETA 1s
+-- [add] Graphics!
+-- [add] Music and Sound!
+-- [add] Async animation in text mode!
+-- [add] Survival skill
+-- [mod] Universal skill system including ammo as skills
+-- [mod] Kills without taking damage tracked
+-- [mod] Targeting enhanced -- use TAB to cycle through targets
+-- [mod] walls are twice as durable now
+-- [mod] different walls for town maps
+-- [mod] ice devil damage is constant
+-- [fix] fixed targeting issue
+-- [fix] Pain and Freeze don't go over to the next night anymore (Malek)
+-- [fix] civilians no longer prevent ending of night
+
+0.8.5
+19.XI.2007 (SVN r81)
+-- [add] Save and Load for non-Massacre modes
+-- [add] freezing condition (lowers speed and defense)
+-- [add] Snow, River and Bridge arenas
+-- [add] three snow-specific monsters with new skills
+-- [add] hapless townpeople in towns
+-- [add] Demons!
+-- [add] random quotes for every night
+-- [mod] lowered whirlwind cost
+-- [mod] move cost differs depending on terrain for player only
+-- [mod] additional 50% miss chance for firing at running characters
+-- [mod] Berserking re- and degeneration dependant on killing stuff
+
+0.8
+20.I.2007
+-- [add] Endless Mode!
+-- [add] advancement and skill/trait system
+-- [add] new skills (whirlwind attack, impale, jump attack)
+-- [add] character screen ("@");
+-- [add] highscore tables dependant on modes
+-- [add] added message coloring and "P"ast message viewer
+-- [add] added ini options : AlwaysRandomName, ClearMessages,
+  MessageColoring, MessageBuffer, MortemMessages, KillCounter
+-- [add] Recording of the gameplay (berserk.rec)
+         ("berserk -play" to replay)
+-- [add] five new monsters with special skills
+-- [add] screenshot in mortem
+-- [add] visual clues for the skills at skill choice
+-- [add] help system and help files
+-- [add] three new forest only monsters ;]
+-- [mod] mandagores, bulldemons have a special skill now
+-- [mod] removed unnecessary monsters - now all monsters
+         except the beast have something special
+-- [mod] changed attr costs
+-- [mod] tweaked the existing level generators to provide more
+         interesting results
+-- [mod] Increased bomb damage by 50%
+-- [mod] enhanced mortem.txt
+-- [mod] seperated the code from the UI
+-- [mod] increased number of knives in Massacre mode to 10
+-- [mod] nerfed willpower
+-- [fix] fixed berserk regeneration exploit
+-- [fix] fixed damage calculation mod
+-- [fix] attacking on-edge monsters now possible
+-- [fix] missile hits outside sight range are no longer reported
+
+7DRL DEVELOPEMENT:
+
+[DAY 1]
+-- basic application framework
+-- speed system
+-- map
+-- display
+-- message system
+-- basic player and being classes
+-- dieing
+-- bleeding and spawning
+-- basic combat system
+-- knockback
+-- pain
+
+[DAY 2]
+-- basic playability (DAY 1 tester release)
+-- basic missle handling
+-- basic missle combat
+-- look command
+
+[DAY 3]
+-- knives
+-- explosions
+-- bombs
+-- crossbow reloading
+-- revised knockback
+-- proper combat system
+-- corpses
+-- energy regeneration
+-- running
+
+[DAY 4]
+-- fixed a bug that gave no defense to the critters :>
+-- sweep skill added!
+-- damage on knives dependant on strength
+-- cannon!
+
+[DAY 5]
+-- various fixes (damage by ST 17 was way overboard)
+-- upped sweep
+-- moving/running/waiting increases defense
+-- added armor
+
+[DAY 6]
+-- berserk mode!
+-- help screen
+-- Hall of Fame!
+-- attribute choices
+-- name entry
+-- Cannon twice as effective
+-- post mortem (also in file)
+
+[DAY 7]
+-- terrain damage
+-- alternative area generators
+-- intro, outro
+-- release

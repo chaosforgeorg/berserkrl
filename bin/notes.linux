@@ -1,0 +1,3 @@
+This version of Berserk has beed built on Kubuntu 10.04 and tested to run on Kubuntu 10.04 and Fedora 13 live cd's.
+
+In case the provided startup scripts (berserk_gnome, berserk_konsole, berserk_xterm) fail to run just open your terminal emulator, set it's size to 80x25 characters or more (works best with 80x25 though) and run ./berserk in this directory. If you get a notice about missing libraries either install them on your system or run "./run_berserk_with_provided_libs.sh" to use the bundled versions.

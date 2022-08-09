@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+
+konsole --vt_sz 80x25 -e ./berserk

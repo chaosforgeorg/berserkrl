@@ -1,0 +1,20 @@
+Berserk! is a small roguelike game created for the 2006 October Seven Day Roguelike challange. It is a fantasy survival game of tactical bloodshed, loosely based on Kentaro Miura's Berserk manga.
+
+http://berserk.chaosforge.org/
+https://sourceforge.net/p/berserkrl
+
+Berserk! was created using the Free Pascal Compiler:
+http://freepascal.org/
+
+To compile Berserk!, you will need the SVN HEAD version of the Valkyrie library (FreePascal version)
+http://valkyrie.chaosforge.org/
+
+The SVN HEAD version may be obtained by using svn command:
+svn co https://libvalkyrie.svn.sourceforge.net/svnroot/libvalkyrie/fp valkyrie
+(the /fp downloads the FreePascal version of the library, that's all that you need)
+
+For the graphical version you will also need the SDL library and JEDI-SDL Pascal bindings:
+http://libsdl.org/
+http://sourceforge.net/projects/jedi-sdl
+
+
