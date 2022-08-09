@@ -284,7 +284,9 @@ register_skill "fairydust"
 		p.freeze = 0
 		if p.flags[ BF_BERSERK ] then
 			ui.msg( "You calm down." )
-			audio.play_music("passive")
+			if audio then
+				audio.play_music("passive")
+			end
 			p.flags[ BF_BERSERK ] = false
 			p.health_mark = 0
 		end

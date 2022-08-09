@@ -91,7 +91,9 @@ register_klass "berserker"
 				p.health_mark = math.min( hmark + 1, hp_max )
 				if p.health_mark == hp_max and hp > p.wp then 
 					ui.msg( "You calm down." )
-					audio.play_music("passive")
+					if audio then
+						audio.play_music("passive")
+					end
 					p.flags[ BF_BERSERK ] = false
 					p.health_mark = 0
 				end
@@ -101,7 +103,9 @@ register_klass "berserker"
 				p.health_mark = hmark + 1
 			end
 			if p.health_mark > hp then
-				audio.play_music("berserk")
+				if audio then
+					audio.play_music("berserk")
+				end
 				ui.blink( RED, 150, 0 )
 				ui.blink( RED, 200, 300 )
 				ui.msg( "You go BERSERK!" )

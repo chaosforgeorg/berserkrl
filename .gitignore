@@ -8,3 +8,4 @@ temp/
 src/Makefile
 src/liblua5.1.a
 src/fpcmade.x86_64-linux
+src/backup/

@@ -289,7 +289,8 @@ end;
 
 function TBerserkUI.GetCommand(Valid : TCommandSet) : byte;
 begin
-  Sound.Listener := Player.Position;
+  if Assigned( Sound ) then
+    Sound.Listener := Player.Position;
   FStatus.Enabled := True;
   //Draw;
   Exit( WaitForCommand( Valid ) );

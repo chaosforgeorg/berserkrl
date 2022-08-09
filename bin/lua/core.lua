@@ -35,7 +35,9 @@ function being:play_sound( sound, id2 )
 		sid = ui.resolve_sound_id( self.id, sid )
 	end
 	if sid ~= "" then
-		audio.play_sound( sid, self.position )
+		if audio then
+			audio.play_sound( sid, self.position )
+		end
 	end
 end
 
