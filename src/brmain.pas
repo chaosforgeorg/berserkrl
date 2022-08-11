@@ -198,6 +198,7 @@ begin
   FreeAndNil(Config);
   FreeAndNil(Level);
   FreeAndNil(Player);
+  FreeAndNil(UI);
   inherited Destroy;
 end;
 
@@ -239,7 +240,9 @@ finalization
     Writeln('to help get rid Berserk! of all those bugs! You only need');
     Writeln('to write down the filenames and linenumbers.');
     if (Player <> nil) and (Player.FMode <> Mode_Massacre) then Berserk.Save;
+    {$IFNDEF UNIX}
     Readln;
+    {$ENDIF}
   end;
 end.
 

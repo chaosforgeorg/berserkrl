@@ -63,15 +63,23 @@ type
 
 implementation
 
-uses vsystems, vuid, vvision, vioconsole, vtextio, vtextconsole, vuiconsole,
+uses vsystems, vuid, vvision, vioconsole, vcursesio,
+{$IFDEF UNIX}
+     vcursesconsole, vuiconsole,
+{$ENDIF}
      branimation, brlevel, brdata, brbeing, brplayer;
 
 { TBerserkTextUI }
 
 constructor TBerserkTextUI.Create;
 begin
+{$IFDEF UNIX}
+  FIODriver := TCursesIODriver.Create( 80, 25 );
+  FConsole := TCursesConsoleRenderer.Create( 80, 25, [VIO_CON_BGCOLOR, VIO_CON_CURSOR] );
+{$ELSE}
   FIODriver := TTextIODriver.Create( 80, 25 );
   FConsole := TTextConsoleRenderer.Create( 80, 25, [VIO_CON_BGCOLOR, VIO_CON_CURSOR] );
+{$ENDIF}
   inherited Create;
   FConsole.Clear;
   FMap := TConUIMapArea.Create( Root, Rectangle( 0,0, 50,25 ), Self );
@@ -178,7 +186,7 @@ end;
 
 procedure TBerserkTextUI.Blink( aColor : Byte; aDuration : Word; aSequence : Word );
 begin
-  FMap.AddAnimation( TConUIBlinkAnimation.Create( IOGylph( 'Û', aColor ), aDuration, aSequence ) );
+  FMap.AddAnimation( TConUIBlinkAnimation.Create( IOGylph( Char( 219 ), aColor ), aDuration, aSequence ) );
 end;
 
 procedure TBerserkTextUI.AddAttack(aWho: TUID; aHit: Boolean; const aFrom,  aTo: TCoord2D);
