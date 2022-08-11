@@ -1,0 +1,20 @@
+{
+	"folders": [
+		{
+			"path": "src"
+		},
+		{
+			"path": "bin\\lua"
+		},
+		{
+			"path": "..\\fpcvalkyrie\\src"
+		},
+		{
+			"path": "..\\fpcvalkyrie\\libs"
+		},
+		{
+			"path": "..\\fpcvalkyrie\\lua"
+		}
+	],
+	"settings": {}
+}
