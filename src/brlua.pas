@@ -70,7 +70,9 @@ begin
 
   RegisterDungenClass( FState, 'generator' );
   if Assigned( Sound ) then 
-    TSound.RegisterLuaAPI( FState );
+    TSound.RegisterLuaAPI( FState )
+  else
+    SetValue('audio',false);
 
   RegisterUIClass( FState );
   TBerserkUI.RegisterLuaAPI();

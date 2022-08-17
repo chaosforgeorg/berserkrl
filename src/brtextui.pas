@@ -63,7 +63,7 @@ type
 
 implementation
 
-uses vsystems, vuid, vvision, vioconsole, vcursesio,
+uses vsystems, vsound, vuid, vvision, vioconsole, vcursesio,
 {$IFDEF UNIX}
      vcursesconsole, vuiconsole,
 {$ENDIF}
@@ -193,7 +193,8 @@ procedure TBerserkTextUI.AddAttack(aWho: TUID; aHit: Boolean; const aFrom,  aTo:
 var iBeing : TBeing;
 begin
   iBeing := UIDs.Get( aWho ) as TBeing;
-  FMap.AddAnimation( TSoundAnimation.Create( 0, iBeing.Position, ResolveSoundID( iBeing.id, Iif( aHit, 'hit', 'miss' ) ) ) );
+  if Assigned( Sound ) then
+    FMap.AddAnimation( TSoundAnimation.Create( 0, iBeing.Position, ResolveSoundID( iBeing.id, Iif( aHit, 'hit', 'miss' ) ) ) );
 end;
 
 type

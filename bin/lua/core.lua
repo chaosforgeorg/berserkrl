@@ -28,14 +28,14 @@ function being:set_stat( num, amount )
 end
 
 function being:play_sound( sound, id2 )
-	local sid
-	if id2 then
-		sid = ui.resolve_sound_id( sid, id2 )
-	else 
-		sid = ui.resolve_sound_id( self.id, sid )
-	end
-	if sid ~= "" then
-		if audio then
+	if audio then
+		local sid
+		if id2 then
+			sid = ui.resolve_sound_id( sid, id2 )
+		else 
+			sid = ui.resolve_sound_id( self.id, sid )
+		end
+		if sid ~= "" then
 			audio.play_sound( sid, self.position )
 		end
 	end
