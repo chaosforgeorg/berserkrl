@@ -185,8 +185,14 @@ begin
 end;
 
 procedure TBerserkTextUI.Blink( aColor : Byte; aDuration : Word; aSequence : Word );
+var aBox : TIOGylph;
 begin
-  FMap.AddAnimation( TConUIBlinkAnimation.Create( IOGylph( Char( 219 ), aColor ), aDuration, aSequence ) );
+  {$IFDEF UNIX}
+  aBox := IOGylph( '#', aColor );
+  {$ELSE}
+  aBox := IOGylph( #219, aColor )
+  {$ENDIF}
+  FMap.AddAnimation( TConUIBlinkAnimation.Create( aBox, aDuration, aSequence ) );
 end;
 
 procedure TBerserkTextUI.AddAttack(aWho: TUID; aHit: Boolean; const aFrom,  aTo: TCoord2D);
