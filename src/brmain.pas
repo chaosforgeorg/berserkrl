@@ -72,7 +72,8 @@ uses SysUtils, vmath, vuid, vioevent, vsound, vsdlsound, vfmodsound,
 { TBerserk }
 
 constructor TBerserk.Create;
-var CP : TParams;
+var CP     : TParams;
+    iAudio : AnsiString;
 begin
   inherited Create;
   Berserk := Self;
@@ -82,16 +83,18 @@ begin
   if CP.isSet('quick') then QuickStart := True;
 
   Config := TGameConfig.Create(ConfigurationPath+'config.lua');
-  GraphicsMode := Config.Configure('GraphicsMode',True);
+  GraphicsMode := Config.Configure( 'GraphicsMode',True );
+  iAudio       := Config.Configure( 'audio.driver', 'SDL' );
+  if CP.isSet('nosound')  then iAudio       := 'NONE';
   if CP.isSet('console')  then GraphicsMode := False;
   if CP.isSet('graphics') then GraphicsMode := True;
   if GraphicsMode then
     UI := TBerserkGUI.Create(CP.isSet('fullscreen'))
   else
     UI := TBerserkTextUI.Create;
-  if not CP.isSet('nosound') then
+  if iAudio <> 'NONE' then
   begin
-    if Config.Configure( 'audio.driver', 'SDL' ) = 'FMOD'
+    if iAudio = 'FMOD'
       then Sound := TFMODSound.Create( Config )
       else Sound := TSDLSound.Create( Config );
     Sound.Configure( Config );

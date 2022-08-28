@@ -1,6 +1,7 @@
 
 
 audio = {
+	-- Set to "NONE" to disable audio altogether
 	driver            = "FMOD",
 	-- Common parameters
 	sound_enabled     = true,
@@ -22,7 +23,6 @@ audio = {
 
 -- Set to false to always play in ASCII mode
 GraphicsMode     = true
-
 
 -- Setting to TRUE will skip name entry procedure and choose a random name
 -- instead
