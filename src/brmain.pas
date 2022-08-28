@@ -84,10 +84,12 @@ begin
 
   Config := TGameConfig.Create(ConfigurationPath+'config.lua');
   GraphicsMode := Config.Configure( 'GraphicsMode',True );
+  HighASCII    := Config.Configure( 'HighASCII', True );
   iAudio       := Config.Configure( 'audio.driver', 'SDL' );
-  if CP.isSet('nosound')  then iAudio       := 'NONE';
-  if CP.isSet('console')  then GraphicsMode := False;
-  if CP.isSet('graphics') then GraphicsMode := True;
+  if CP.isSet('nosound')   then iAudio       := 'NONE';
+  if CP.isSet('console')   then GraphicsMode := False;
+  if CP.isSet('graphics')  then GraphicsMode := True;
+  if CP.isSet('lowascii')  then HighASCII    := False;
   if GraphicsMode then
     UI := TBerserkGUI.Create(CP.isSet('fullscreen'))
   else

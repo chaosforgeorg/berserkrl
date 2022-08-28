@@ -24,6 +24,9 @@ audio = {
 -- Set to false to always play in ASCII mode
 GraphicsMode     = true
 
+-- Do we use the extended ASCII character set
+HighASCII        = true
+
 -- Setting to TRUE will skip name entry procedure and choose a random name
 -- instead
 AlwaysRandomName = false

@@ -45,6 +45,8 @@ var
     QuickStart   : Boolean = False;
     // Whether we are in Graphics mode or not
     GraphicsMode : Boolean = True;
+    // Whether we use High ASCII or not
+    HighASCII    : Boolean = True;
 
 
 const // Number of entries in the hall of fame. If changed then score.dat needs

@@ -172,8 +172,10 @@ begin
   iStyle.Add('','scroll_chars', '^v' );
   iStyle.Add('','icon_color', LightGray );
   iStyle.Add('','opaque', False );
-  //iStyle.Add('','frame_chars', '-|-|/\\/-|^v' )
-  iStyle.Add('','frame_chars', #196+#179+#196+#179+#218+#191+#192+#217+#196+#179+'^v' );
+  if HighASCII then
+    iStyle.Add('','frame_chars', #196+#179+#196+#179+#218+#191+#192+#217+#196+#179+'^v' )
+  else
+    iStyle.Add('','frame_chars', '-|-|/\\/-|^v' );
   iStyle.Add('window','fore_color', LightGray );
   iStyle.Add('full_window','fore_color', LightGray );
   iStyle.Add('','frame_color', DarkGray );

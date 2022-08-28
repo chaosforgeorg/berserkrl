@@ -189,11 +189,10 @@ end;
 procedure TBerserkTextUI.Blink( aColor : Byte; aDuration : Word; aSequence : Word );
 var aBox : TIOGylph;
 begin
-  {$IFDEF UNIX}
-  aBox := IOGylph( '#', aColor );
-  {$ELSE}
-  aBox := IOGylph( #219, aColor );
-  {$ENDIF}
+  if HighASCII then
+    aBox := IOGylph( #219, aColor )
+  else
+    aBox := IOGylph( '#', aColor );
   FMap.AddAnimation( TConUIBlinkAnimation.Create( aBox, aDuration, aSequence ) );
 end;
 
