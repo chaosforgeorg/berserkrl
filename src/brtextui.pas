@@ -63,9 +63,11 @@ type
 
 implementation
 
-uses vsystems, vsound, vuid, vvision, vioconsole, vcursesio,
+uses vsystems, vsound, vuid, vvision, vioconsole, vuiconsole,
 {$IFDEF UNIX}
-     vcursesconsole, vuiconsole,
+     vcursesio, vcursesconsole,
+{$ELSE}
+     vtextio, vtextconsole,
 {$ENDIF}
      branimation, brlevel, brdata, brbeing, brplayer;
 
@@ -190,7 +192,7 @@ begin
   {$IFDEF UNIX}
   aBox := IOGylph( '#', aColor );
   {$ELSE}
-  aBox := IOGylph( #219, aColor )
+  aBox := IOGylph( #219, aColor );
   {$ENDIF}
   FMap.AddAnimation( TConUIBlinkAnimation.Create( aBox, aDuration, aSequence ) );
 end;
@@ -211,7 +213,6 @@ var
   Temp :  TGFXScreen;
   x, y, Count, limit : byte;
   ishift : shortint;
-  iCon :  TUIConsole;
   iSeed : Cardinal;
 const
   RedFire    = Ord( '#' ) + 256 * Red;
