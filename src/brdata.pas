@@ -47,6 +47,10 @@ var
     GraphicsMode : Boolean = True;
     // Whether we use High ASCII or not
     HighASCII    : Boolean = True;
+    // Whether to start in fullscreen (Graphics only)
+    FullScreen   : Boolean = False;
+    // Audio driver to use
+    AudioDriver  : AnsiString = 'SDL';
 
 
 const // Number of entries in the hall of fame. If changed then score.dat needs

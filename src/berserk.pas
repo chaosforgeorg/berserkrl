@@ -30,11 +30,12 @@
 program berserkrl;
 uses
   {$ifdef HEAPTRACE} heaptrc, {$endif}
-  SysUtils, vos, vlog, vutil,
-  vsystems, vglquadbuffer,
-  brdata, brmain;
+  SysUtils, vsystems, vos, vlog, vutil, vparams, 
+  brdata, brconfig, brmain;
   
 var RootPath : AnsiString = '';
+    Config   : TGameConfig;
+    CmdLine  : TParams;
 
 begin
   Randomize;
@@ -55,13 +56,34 @@ begin
   SaveFilePath      := RootPath;
   {$ENDIF}
 
-  Logger.AddSink( TTextFileLogSink.Create( LOGDEBUG, RootPath+'log.txt', False ) );
+  Logger.AddSink( TTextFileLogSink.Create( LOGDEBUG, RootPath + 'log.txt', False ) );
   LogSystemInfo();
   Logger.Log( LOGINFO, 'Root path set to - '+RootPath );
 
-  {$ifdef HEAPTRACE} SetHeapTraceOutput('heap.txt'); {$endif}
-  Berserk := TBerserk.Create;
+  {$IFDEF HEAPTRACE}
+  SetHeapTraceOutput('heap.txt');
+  {$ENDIF}
+
+  Version := ReadVersion( DataPath + 'version.txt' );
+
+  CmdLine := TParams.Create;
+  if CmdLine.isSet('god')  then GodMode := True;
+  if CmdLine.isSet('quick') then QuickStart := True;
+
+  Config  := TGameConfig.Create( ConfigurationPath + 'config.lua' );
+  GraphicsMode := Config.Configure( 'GraphicsMode',True );
+  HighASCII    := Config.Configure( 'HighASCII', True );
+  AudioDriver  := Config.Configure( 'audio.driver', 'SDL' );
+  if CmdLine.isSet('nosound')    then AudioDriver  := 'NONE';
+  if CmdLine.isSet('console')    then GraphicsMode := False;
+  if CmdLine.isSet('graphics')   then GraphicsMode := True;
+  if CmdLine.isSet('lowascii')   then HighASCII    := False;
+  if CmdLine.isSet('fullscreen') then FullScreen   := True;
+  FreeAndNil( CmdLine );
+
+  Berserk := TBerserk.Create( Config );
   try
+
     Berserk.Run;
   finally
     FreeAndNil( Berserk );

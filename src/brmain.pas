@@ -46,7 +46,7 @@ TBerserk = class(TSystem)
        // Persistence
        Persistence : TPersistence;
        // Initialization of all data.
-       constructor Create; override;
+       constructor Create( aConfig : TGameConfig ); 
        // Saves the data after night is over
        procedure Save;
        // Loads the data
@@ -66,37 +66,23 @@ var Berserk : TBerserk = nil;
 implementation
 
 uses SysUtils, vmath, vuid, vioevent, vsound, vsdlsound, vfmodsound,
-     vluasystem, vutil, vsystems, vparams, vrltools,
+     vluasystem, vutil, vsystems, vrltools,
      brui, brviews;
 
 { TBerserk }
 
-constructor TBerserk.Create;
-var CP     : TParams;
-    iAudio : AnsiString;
+constructor TBerserk.Create( aConfig : TGameConfig );
 begin
   inherited Create;
   Berserk := Self;
-  Version := ReadVersion(DataPath+'version.txt');
-  CP := TParams.Create;
-  if CP.isSet('god')  then GodMode := True;
-  if CP.isSet('quick') then QuickStart := True;
-
-  Config := TGameConfig.Create(ConfigurationPath+'config.lua');
-  GraphicsMode := Config.Configure( 'GraphicsMode',True );
-  HighASCII    := Config.Configure( 'HighASCII', True );
-  iAudio       := Config.Configure( 'audio.driver', 'SDL' );
-  if CP.isSet('nosound')   then iAudio       := 'NONE';
-  if CP.isSet('console')   then GraphicsMode := False;
-  if CP.isSet('graphics')  then GraphicsMode := True;
-  if CP.isSet('lowascii')  then HighASCII    := False;
+  Config  := aConfig;
   if GraphicsMode then
-    UI := TBerserkGUI.Create(CP.isSet('fullscreen'))
+    UI := TBerserkGUI.Create( FullScreen )
   else
     UI := TBerserkTextUI.Create;
-  if iAudio <> 'NONE' then
+  if AudioDriver <> 'NONE' then
   begin
-    if iAudio = 'FMOD'
+    if AudioDriver = 'FMOD'
       then Sound := TFMODSound.Create( Config )
       else Sound := TSDLSound.Create( Config );
     Sound.Configure( Config );
@@ -112,8 +98,6 @@ begin
   Persistence := TPersistence.Create;
 
   UI.Screen := Menu;
-
-  FreeAndNil(CP);
 
   if GodMode then
     UI.RegisterDebugConsole( VKEY_BQUOTE );
