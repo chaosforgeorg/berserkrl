@@ -30,7 +30,7 @@
 program berserkrl;
 uses
   {$ifdef HEAPTRACE} heaptrc, {$endif}
-  SysUtils, vsystems, vos, vlog, vutil, vparams, 
+  SysUtils, vsystems, vos, vlog, vutil, vparams, vdebug,
   brdata, brconfig, brmain;
   
 var RootPath : AnsiString = '';
@@ -92,6 +92,7 @@ begin
   FreeAndNil( CmdLine );
 
   if ScorePath = '' then ScorePath := WritePath;
+  ErrorLogFileName := WritePath + 'error.log';
 
   Berserk := TBerserk.Create( Config );
   try
