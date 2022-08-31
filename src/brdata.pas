@@ -28,9 +28,22 @@ unit brdata;
 interface
 uses vutil;
 
-const ConfigurationPath : AnsiString = '';
+const 
+
+      // All the below paths can be set from the command line (see berserk.pas),
+      // all except config can be set from the configuration file.
+
+      // This is the full path to the configuration file ("config.lua" by default)
+      ConfigurationPath : AnsiString = 'config.lua';
+      // This is the directory path to the read only data folder ("" by default, 
+      // needs slash at end)
       DataPath          : AnsiString = '';
-      SaveFilePath      : AnsiString = '';
+      // This is the directory path for writing (save, log, crash) ("" by default, 
+      // needs slash at end)
+      WritePath         : AnsiString = '';
+      // This is the directory path for score table (by default it will be the
+      // same as WritePath, change for multi-user systems
+      ScorePath         : AnsiString = '';
 
 const
 {$INCLUDE ../bin/lua/const.lua}

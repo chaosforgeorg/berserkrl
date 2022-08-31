@@ -116,7 +116,7 @@ procedure TBerserk.Save;
 var SaveFile  : TGZFileStream;
 begin
   Dec(Player.FNight);
-  SaveFile := TGZFileStream.Create(SaveFilePath+'berserk.sav',gzOpenWrite);
+  SaveFile := TGZFileStream.Create( WritePath + 'berserk.sav',gzOpenWrite );
   UIDs.WriteToStream( SaveFile );
   Player.WriteToStream( SaveFile );
   SaveFile.Destroy;
@@ -127,16 +127,16 @@ var SaveFile : TGZFileStream;
 begin
   FreeAndNil( Player );
   FreeAndNil( UIDs );
-  SaveFile := TGZFileStream.Create(SaveFilePath+'berserk.sav',gzOpenRead);
+  SaveFile := TGZFileStream.Create( WritePath + 'berserk.sav',gzOpenRead );
   UIDs   := Systems.Add( TUIDStore.CreateFromStream( SaveFile ) ) as TUIDStore;
   Player := TPlayer.CreateFromStream( SaveFile );
   SaveFile.Destroy;
-  DeleteFile(SaveFilePath+'berserk.sav');
+  DeleteFile( WritePath + 'berserk.sav' );
 end;
 
 function TBerserk.SaveExists: Boolean;
 begin
-  Exit(FileExists(SaveFilePath+'berserk.sav'));
+  Exit( FileExists( WritePath + 'berserk.sav' ) );
 end;
 
 procedure TBerserk.Run;
@@ -216,7 +216,7 @@ begin
     if (iExt = '.mp3') or (iExt = '.wav') or (iExt = '.ogg') or (iExt = '.mod') then
     begin
       Delete(iName,Length(iName)-3,4);
-      Sound.RegisterMusic(DataPath+'music' + PathDelim + iSearchRec.Name,iName);
+      Sound.RegisterMusic( DataPath+'music' + PathDelim + iSearchRec.Name, iName );
     end;
   until (FindNext(iSearchRec) <> 0);
 end;

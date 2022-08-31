@@ -48,22 +48,36 @@ uses SysUtils, Classes, vutil, brdata;
 
 constructor TPersistence.Create;
 begin
-  FScoreFile := TScoreFile.Create( SaveFilePath+SCORE_FILE_NAME, MAX_SCORE_ENTRIES );
-  FScoreFile.Load;
+  FScoreFile := TScoreFile.Create( ScorePath + SCORE_FILE_NAME, MAX_SCORE_ENTRIES );
+  FScoreFile.Lock;
+  try
+    FScoreFile.Load;
+  finally
+    FScoreFile.Unlock;
+  end;
 end;
 
 procedure TPersistence.Add( aScore : LongInt; const aName : AnsiString; aMode, aKlass, aKills, aTurns, aNights, aResult : DWord );
 var iEntry   : TScoreEntry;
 begin
-  iEntry := FScoreFile.Add( aScore );
-  if iEntry = nil then Exit;
-  iEntry.SetAttribute('name',  aName );
-  iEntry.SetAttribute('mode',  IntToStr(aMode) );
-  iEntry.SetAttribute('klass', IntToStr(aKlass) );
-  iEntry.SetAttribute('kills', IntToStr(aKills) );
-  iEntry.SetAttribute('turns', IntToStr(aTurns) );
-  iEntry.SetAttribute('nights', IntToStr(aNights) );
-  iEntry.SetAttribute('result', IntToStr(aResult) );
+  FScoreFile.Lock;
+  try
+    FScoreFile.Load;
+    iEntry := FScoreFile.Add( aScore );
+    if iEntry <> nil then 
+    begin
+      iEntry.SetAttribute('name',  aName );
+      iEntry.SetAttribute('mode',  IntToStr(aMode) );
+      iEntry.SetAttribute('klass', IntToStr(aKlass) );
+      iEntry.SetAttribute('kills', IntToStr(aKills) );
+      iEntry.SetAttribute('turns', IntToStr(aTurns) );
+      iEntry.SetAttribute('nights', IntToStr(aNights) );
+      iEntry.SetAttribute('result', IntToStr(aResult) );
+      FScoreFile.Save;
+    end;
+  finally
+    FScoreFile.Unlock;
+  end;
 end;
 
 function TPersistence.Get(aId: DWord): TScoreEntry;

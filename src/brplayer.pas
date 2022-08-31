@@ -288,7 +288,7 @@ var Mortem  : Text;
     Count   : byte;
     Count2  : byte;
 begin
-  Assign(Mortem,SaveFilePath+'mortem.txt');
+  Assign(Mortem, WritePath + 'mortem.txt' );
   Rewrite(Mortem);
   FFlags := []; // reset berserk and running
   Writeln(Mortem,Padded('-- Berserk! ('+Version+') Post Mortem ',70,'-'));

@@ -1,5 +1,3 @@
-
-
 audio = {
 	-- Set to "NONE" to disable audio altogether
 	driver            = "FMOD",
@@ -137,3 +135,24 @@ sounds = {
 --  yeti, blizzard, demon, 
 --  cannon (fire,reload), crossbow (fire,reload), knives (throw), bombs (throw), fairydust (use)
 -- if a specific id's sound is "", then the general one will not be used!
+
+-- == Path configuration ==
+-- You can use command line switch -config=/something/something/config.lua 
+-- to load a different config!
+
+-- Uncomment the following paths if needed:
+
+-- This is the directory path to the read only data folder (current dir by
+-- default, needs slash at end if changed). -datapath= to override on 
+-- command line.
+--DataPath = ""
+
+-- This is the directory path for writing (save, log) (current dir by
+-- default, needs slash at end if changed). -writepath= to override on 
+-- command line.
+--WritePath = ""
+
+-- This is the directory path for score table (by default it will be the
+-- same as WritePath, change for multi-user systems. -scorepath= to override
+-- on command line.
+--ScorePath = ""

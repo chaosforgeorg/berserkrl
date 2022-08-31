@@ -452,7 +452,7 @@ function lua_ui_get_mortem_file(L: Plua_State): Integer; cdecl;
 var State : TLuaGameState;
 begin
   State.Init(L);
-  State.Push( SaveFilePath + 'mortem.txt' );
+  State.Push( WritePath + 'mortem.txt' );
   Result := 1;
 end;
 
