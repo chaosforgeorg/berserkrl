@@ -1,4 +1,4 @@
-0.9.0 BETA 1s
+0.9.0 BETA 2
 -- [add] Graphics!
 -- [add] Music and Sound!
 -- [add] Async animation in text mode!
@@ -9,6 +9,8 @@
 -- [mod] walls are twice as durable now
 -- [mod] different walls for town maps
 -- [mod] ice devil damage is constant
+-- [mod] Linux console version uses ncurses
+-- [mod] path configuration for data, writeable and score files
 -- [fix] fixed targeting issue
 -- [fix] Pain and Freeze don't go over to the next night anymore (Malek)
 -- [fix] civilians no longer prevent ending of night
