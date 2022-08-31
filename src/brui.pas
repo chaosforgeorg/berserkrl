@@ -35,6 +35,8 @@ uses vutil, vio, viorl, vsystem, vrltools, vglquadsheet,
 const
     // Option that makes the name always "random"
     Option_AlwaysRandomName : Boolean = False;
+    // Option that sets the name always to given string
+    Option_AlwaysName       : AnsiString = '';
     // Option that turns on message coloring
     Option_MessageColoring  : Boolean = False;
     // Option for the kill count showing

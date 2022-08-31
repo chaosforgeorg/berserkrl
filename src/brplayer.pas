@@ -209,8 +209,8 @@ begin
   end
   else
   begin
-    FName := '';
-    if not Option_AlwaysRandomName then
+    FName := Option_AlwaysName;
+    if (FName = '') and (not Option_AlwaysRandomName) then
       UI.RunUILoop( 'ui_name_screen' );
     UI.Console.HideCursor;
     if FName = '' then

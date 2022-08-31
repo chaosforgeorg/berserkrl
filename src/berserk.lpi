@@ -1,7 +1,7 @@
-<?xml version="1.0"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <CONFIG>
   <ProjectOptions>
-    <Version Value="9"/>
+    <Version Value="11"/>
     <PathDelim Value="\"/>
     <General>
       <Flags>
@@ -18,17 +18,21 @@
     </BuildModes>
     <PublishOptions>
       <Version Value="2"/>
-      <IncludeFileFilter Value="*.(pas|pp|inc|lfm|lpr|lrs|lpi|lpk|sh|xml)"/>
-      <ExcludeFileFilter Value="*.(bak|ppu|ppw|o|so);*~;backup"/>
     </PublishOptions>
     <RunParams>
       <local>
-        <FormatVersion Value="1"/>
-        <CommandLineParams Value="-god"/>
-        <LaunchingApplication PathPlusParams="C:\Windows\system32\cmd.exe /C ${TargetCmdLine}"/>
+        <CommandLineParams Value="-god -console -nosound"/>
       </local>
+      <FormatVersion Value="2"/>
+      <Modes Count="1">
+        <Mode0 Name="default">
+          <local>
+            <CommandLineParams Value="-god -console -nosound"/>
+          </local>
+        </Mode0>
+      </Modes>
     </RunParams>
-    <Units Count="22">
+    <Units Count="23">
       <Unit0>
         <Filename Value="berserk.pas"/>
         <IsPartOfProject Value="True"/>
@@ -37,7 +41,6 @@
       <Unit1>
         <Filename Value="brmain.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="brmain"/>
       </Unit1>
       <Unit2>
         <Filename Value="..\bin\version.txt"/>
@@ -46,37 +49,30 @@
       <Unit3>
         <Filename Value="brdata.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="brdata"/>
       </Unit3>
       <Unit4>
         <Filename Value="brlevel.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="brlevel"/>
       </Unit4>
       <Unit5>
         <Filename Value="brbeing.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="brbeing"/>
       </Unit5>
       <Unit6>
         <Filename Value="brplayer.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="brplayer"/>
       </Unit6>
       <Unit7>
         <Filename Value="brui.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="brui"/>
       </Unit7>
       <Unit8>
         <Filename Value="brtextui.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="brtextui"/>
       </Unit8>
       <Unit9>
         <Filename Value="brgui.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="brgui"/>
       </Unit9>
       <Unit10>
         <Filename Value="brinclude.inc"/>
@@ -85,7 +81,6 @@
       <Unit11>
         <Filename Value="brlua.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="brlua"/>
       </Unit11>
       <Unit12>
         <Filename Value="..\bin\lua\const.lua"/>
@@ -94,48 +89,43 @@
       <Unit13>
         <Filename Value="brconfig.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="brconfig"/>
       </Unit13>
       <Unit14>
         <Filename Value="brviews.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="brviews"/>
       </Unit14>
       <Unit15>
         <Filename Value="brgviews.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="brgviews"/>
       </Unit15>
       <Unit16>
-        <Filename Value="..\..\fpcvalkyrie\src\vluaui.pas"/>
+        <Filename Value="F:\fpcvalkyrie\src\vluaui.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="vluaui"/>
       </Unit16>
       <Unit17>
-        <Filename Value="..\..\fpcvalkyrie\src\vglquadbuffer.pas"/>
+        <Filename Value="F:\fpcvalkyrie\src\vglquadbuffer.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="vglquadbuffer"/>
       </Unit17>
       <Unit18>
-        <Filename Value="..\..\fpcvalkyrie\src\vglprogram.pas"/>
+        <Filename Value="F:\fpcvalkyrie\src\vglprogram.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="vglprogram"/>
       </Unit18>
       <Unit19>
         <Filename Value="branimation.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="branimation"/>
       </Unit19>
       <Unit20>
         <Filename Value="brpersistence.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="brpersistence"/>
       </Unit20>
       <Unit21>
-        <Filename Value="..\..\fpcvalkyrie\src\vconfiguration.pas"/>
+        <Filename Value="F:\fpcvalkyrie\src\vconfiguration.pas"/>
         <IsPartOfProject Value="True"/>
-        <UnitName Value="vconfiguration"/>
       </Unit21>
+      <Unit22>
+        <Filename Value="F:\fpcvalkyrie\src\vcursesio.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit22>
     </Units>
   </ProjectOptions>
   <CompilerOptions>
@@ -166,10 +156,6 @@
       <Verbosity>
         <ShowWarn Value="False"/>
       </Verbosity>
-      <CompilerMessages>
-        <UseMsgFile Value="True"/>
-      </CompilerMessages>
-      <CompilerPath Value="$(CompPath)"/>
     </Other>
   </CompilerOptions>
 </CONFIG>

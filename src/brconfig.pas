@@ -74,6 +74,7 @@ begin
   //if GodMode then Load( 'godmode.lua' );
 
   Option_AlwaysRandomName := Entries['AlwaysRandomName'];
+  Option_AlwaysName       := Entries['AlwaysName'];
   Option_MessageColoring  := Entries['MessageColoring'];
   Option_MessageBuffer    := Entries['MessageBuffer'];
   Option_KillCount        := Entries['KillCount'];

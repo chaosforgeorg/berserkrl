@@ -31,7 +31,7 @@ program berserkrl;
 uses
   {$ifdef HEAPTRACE} heaptrc, {$endif}
   SysUtils, vsystems, vos, vlog, vutil, vparams, vdebug,
-  brdata, brconfig, brmain;
+  brdata, brconfig, brmain, brui;
   
 var RootPath : AnsiString = '';
     Config   : TGameConfig;
@@ -85,9 +85,11 @@ begin
   if CmdLine.isSet('graphics')   then GraphicsMode := True;
   if CmdLine.isSet('lowascii')   then HighASCII    := False;
   if CmdLine.isSet('fullscreen') then FullScreen   := True;
-  if CmdLine.isSet('datapath')   then DataPath     := CmdLine.get('datapath');
-  if CmdLine.isSet('writepath')  then DataPath     := CmdLine.get('writepath');
-  if CmdLine.isSet('scorepath')  then DataPath     := CmdLine.get('scorepath');
+
+  if CmdLine.isSet('datapath')   then DataPath          := CmdLine.get('datapath');
+  if CmdLine.isSet('writepath')  then DataPath          := CmdLine.get('writepath');
+  if CmdLine.isSet('scorepath')  then DataPath          := CmdLine.get('scorepath');
+  if CmdLine.isSet('name')       then Option_AlwaysName := CmdLine.get('name');
 
   FreeAndNil( CmdLine );
 

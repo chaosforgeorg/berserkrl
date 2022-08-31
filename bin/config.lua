@@ -29,6 +29,9 @@ HighASCII        = true
 -- instead
 AlwaysRandomName = false
 
+-- Setting to non-empty string will always use given name (overrides Random)
+AlwaysName       = ""
+
 -- Sets wether message coloring will be enabled. Needs [messages] section.
 MessageColoring  = true
 

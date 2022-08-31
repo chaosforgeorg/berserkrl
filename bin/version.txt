@@ -11,6 +11,7 @@
 -- [mod] ice devil damage is constant
 -- [mod] Linux console version uses ncurses
 -- [mod] path configuration for data, writeable and score files
+-- [mod] AlwaysName option, -name= command line option
 -- [fix] fixed targeting issue
 -- [fix] Pain and Freeze don't go over to the next night anymore (Malek)
 -- [fix] civilians no longer prevent ending of night
