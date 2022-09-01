@@ -56,16 +56,6 @@ begin
   WritePath         := RootPath;
   {$ENDIF}
 
-  Logger.AddSink( TTextFileLogSink.Create( LOGDEBUG, WritePath + 'log.txt', False ) );
-  LogSystemInfo();
-  Logger.Log( LOGINFO, 'Log path set to - '+WritePath );
-
-  {$IFDEF HEAPTRACE}
-  SetHeapTraceOutput( WritePath + 'heap.txt' );
-  {$ENDIF}
-
-  Version := ReadVersion( DataPath + 'version.txt' );
-
   CmdLine := TParams.Create;
   if CmdLine.isSet('god')  then GodMode := True;
   if CmdLine.isSet('quick') then QuickStart := True;
@@ -87,11 +77,21 @@ begin
   if CmdLine.isSet('fullscreen') then FullScreen   := True;
 
   if CmdLine.isSet('datapath')   then DataPath          := CmdLine.get('datapath');
-  if CmdLine.isSet('writepath')  then DataPath          := CmdLine.get('writepath');
-  if CmdLine.isSet('scorepath')  then DataPath          := CmdLine.get('scorepath');
+  if CmdLine.isSet('writepath')  then WritePath         := CmdLine.get('writepath');
+  if CmdLine.isSet('scorepath')  then ScorePath         := CmdLine.get('scorepath');
   if CmdLine.isSet('name')       then Option_AlwaysName := CmdLine.get('name');
 
   FreeAndNil( CmdLine );
+
+  {$IFDEF HEAPTRACE}
+  SetHeapTraceOutput( WritePath + 'heap.txt' );
+  {$ENDIF}
+
+  Logger.AddSink( TTextFileLogSink.Create( LOGDEBUG, WritePath + 'log.txt', False ) );
+  LogSystemInfo();
+  Logger.Log( LOGINFO, 'Log path set to - '+WritePath );
+
+  Version := ReadVersion( DataPath + 'version.txt' );
 
   if ScorePath = '' then ScorePath := WritePath;
   ErrorLogFileName := WritePath + 'error.log';
