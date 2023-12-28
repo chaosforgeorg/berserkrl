@@ -107,7 +107,7 @@ var Textures : TTextureManager = nil;
 implementation
 
 uses {$IFDEF WINDOWS}Windows,{$ENDIF}
-     vuid, vgllibrary, vgl2library, vsystems,
+     vuid, vgllibrary, vgl3library, vsystems,
      vioconsole, vsdlio, vglconsole, vlog,
      vcolor, viotypes, vmath, vdebug, math,
      brbeing, brplayer, brlevel;
@@ -327,7 +327,7 @@ begin
 //  glMatrixMode( GL_PROJECTION );
 //  glLoadIdentityMatrix();
 //  glOrtho(0, FIODriver.GetSizeX, FIODriver.GetSizeY,0, -1, 1 );
-  LoadGL2;
+  LoadGL3;
   FProgram := TGLProgram.Create(
     SlurpFile( DataPath+'graphics'+PathDelim+'basic.vert' ),
     SlurpFile( DataPath+'graphics'+PathDelim+'basic.frag' )
