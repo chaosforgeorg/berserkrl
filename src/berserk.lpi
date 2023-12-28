@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CONFIG>
   <ProjectOptions>
-    <Version Value="11"/>
+    <Version Value="12"/>
     <PathDelim Value="\"/>
     <General>
       <Flags>
@@ -9,9 +9,9 @@
         <MainUnitHasCreateFormStatements Value="False"/>
         <MainUnitHasTitleStatement Value="False"/>
         <LRSInOutputDirectory Value="False"/>
+        <CompatibilityMode Value="True"/>
       </Flags>
       <SessionStorage Value="InProjectDir"/>
-      <MainUnit Value="0"/>
     </General>
     <BuildModes Count="1">
       <Item1 Name="default" Default="True"/>
@@ -21,18 +21,18 @@
     </PublishOptions>
     <RunParams>
       <local>
-        <CommandLineParams Value="-god -console -nosound"/>
+        <CommandLineParams Value="-god -nosound"/>
       </local>
       <FormatVersion Value="2"/>
       <Modes Count="1">
         <Mode0 Name="default">
           <local>
-            <CommandLineParams Value="-god -console -nosound"/>
+            <CommandLineParams Value="-god -nosound"/>
           </local>
         </Mode0>
       </Modes>
     </RunParams>
-    <Units Count="23">
+    <Units Count="18">
       <Unit0>
         <Filename Value="berserk.pas"/>
         <IsPartOfProject Value="True"/>
@@ -99,33 +99,13 @@
         <IsPartOfProject Value="True"/>
       </Unit15>
       <Unit16>
-        <Filename Value="F:\fpcvalkyrie\src\vluaui.pas"/>
+        <Filename Value="branimation.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit16>
       <Unit17>
-        <Filename Value="F:\fpcvalkyrie\src\vglquadbuffer.pas"/>
-        <IsPartOfProject Value="True"/>
-      </Unit17>
-      <Unit18>
-        <Filename Value="F:\fpcvalkyrie\src\vglprogram.pas"/>
-        <IsPartOfProject Value="True"/>
-      </Unit18>
-      <Unit19>
-        <Filename Value="branimation.pas"/>
-        <IsPartOfProject Value="True"/>
-      </Unit19>
-      <Unit20>
         <Filename Value="brpersistence.pas"/>
         <IsPartOfProject Value="True"/>
-      </Unit20>
-      <Unit21>
-        <Filename Value="F:\fpcvalkyrie\src\vconfiguration.pas"/>
-        <IsPartOfProject Value="True"/>
-      </Unit21>
-      <Unit22>
-        <Filename Value="F:\fpcvalkyrie\src\vcursesio.pas"/>
-        <IsPartOfProject Value="True"/>
-      </Unit22>
+      </Unit17>
     </Units>
   </ProjectOptions>
   <CompilerOptions>
@@ -152,6 +132,11 @@
         <StackChecks Value="True"/>
       </Checks>
     </CodeGeneration>
+    <Linking>
+      <Debugging>
+        <DebugInfoType Value="dsDwarf2Set"/>
+      </Debugging>
+    </Linking>
     <Other>
       <Verbosity>
         <ShowWarn Value="False"/>
