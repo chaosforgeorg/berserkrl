@@ -131,7 +131,7 @@ end;
 
 implementation
 
-uses vmath, math, vsound, vdebug, vuid, brplayer, brgui, vgl3library;
+uses vmath, math, vsound, vdebug, vuid, brplayer, brgui;
 
 { TSoundAnimation }
 

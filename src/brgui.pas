@@ -263,42 +263,13 @@ begin
     DrawSprite( 30, ToAbsPos( FTarget, GMODE_GUI_Z ), iSTall, TGLQVec4f.CreateAll( iColor ), False );
 end;
 
-procedure set_ortho_matrix( left, right, bottom, top, nearz, farz : Single; iLocation : Integer );
-var m : packed array[0..3,0..3] of Single;
-    rml, rpl, tmb, tpb, fmn, fpn : Single;
-    i,j : Integer;
-begin
-  for i := 0 to 3 do for j := 0 to 3 do m[i,j] := 0.0;
-  rml := right - left;
-  rpl := right + left;
-  tmb := top - bottom;
-  tpb := top + bottom;
-  fmn := farz - nearz;
-  fpn := farz + nearz;
-
-  m[0][0] := 2.0 / rml;
-  m[3][0] := -rpl / rml;
-
-  m[1][1] := 2.0 / tmb;
-  m[3][1] := -tpb / tmb;
-
-  m[2][2] := -2.0 / fmn;
-  m[3][2] := -fpn / fmn;
-
-  m[3][3] := 1.0;
-
-  glMatrixMode( GL_PROJECTION );
-  glLoadIdentity();
-  glMultMatrixf( @m[0] );
-  glUniformMatrix4fv( iLocation, 1, 0, @m[0] );
-end;
-
 { TBreserkGUI }
 
 constructor TBerserkGUI.Create(FullScreen : Boolean = False);
 var iCount       : DWord;
     iFlags       : TSDLIOFlags;
     iSheetSize   : TGLVec2f;
+    iProjection  : TMatrix44;
 begin
   {$IFDEF WINDOWS}
   if not GodMode then
@@ -311,8 +282,6 @@ begin
     Logger.AddSink( TConsoleLogSink.Create( LOGDEBUG, true ) );
   end;
   {$ENDIF}
-
-
 
   iFlags := [ SDLIO_OpenGL ];
   if FullScreen then Include( iFlags, SDLIO_FullScreen );
@@ -328,7 +297,6 @@ begin
 //  glLoadIdentityMatrix();
 //  glOrtho(0, FIODriver.GetSizeX, FIODriver.GetSizeY,0, -1, 1 );
   LoadGL3;
-  LoadGL3Compat;
   FProgram := TGLProgram.Create(
     SlurpFile( DataPath+'graphics'+PathDelim+'basic.vert' ),
     SlurpFile( DataPath+'graphics'+PathDelim+'basic.frag' )
@@ -337,7 +305,8 @@ begin
   FLTexture    := FProgram.GetUniformLocation('s_texture');
   FLOverlay    := FProgram.GetUniformLocation('overlay');
   glUniform4f( FLOverlay, 0, 0, 0, 0 );
-  set_ortho_matrix(0, FIODriver.GetSizeX, FIODriver.GetSizeY,0, -1000, 1000, FProgram.GetUniformLocation('m_transform') );
+  iProjection := GLCreateOrtho( 0, FIODriver.GetSizeX, FIODriver.GetSizeY,0, -1000, 1000 );
+  glUniformMatrix4fv( FProgram.GetUniformLocation('m_transform'), 1, GL_FALSE, @iProjection[0] );
   FProgram.UnBind;
 
   inherited Create;
