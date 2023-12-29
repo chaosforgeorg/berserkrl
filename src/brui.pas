@@ -28,7 +28,7 @@
 unit brui;
 interface
 
-uses vutil, vio, viorl, vsystem, vrltools, vglquadsheet,
+uses vutil, vio, viorl, vsystem, vrltools,
      vuielement, vconui, vuitypes, viotypes, vioevent, vioconsole,
      brviews, brgviews, brdata, vnode;
 
