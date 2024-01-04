@@ -490,6 +490,7 @@ begin
   FAnimations.Draw;
 
   FTerrain.Update;
+  FPreQuads.Update;
 
   FProgram.Bind;
   glActiveTexture( GL_TEXTURE0 );
@@ -497,6 +498,7 @@ begin
   FTerrain.Draw;
   FTerrain.Clear;
   FPreQuads.Draw;
+  FPreQuads.Clear;
   FProgram.UnBind;
   glDisable( GL_DEPTH_TEST );
 end;
