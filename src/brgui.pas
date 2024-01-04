@@ -27,7 +27,7 @@ unit brgui;
 interface
 
 uses SysUtils, vutil, vgenerics, vrltools, vvision, vtextures, vglimage,
-     vimage, brui, brdata, vglquadbuffer, vglquadarrays, vgltypes, vglprogram,
+     vimage, brui, brdata, vglquadrenderer, vglquadarrays, vgltypes, vglprogram,
      vanimation, branimation;
 
 const
