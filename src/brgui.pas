@@ -27,7 +27,7 @@ unit brgui;
 interface
 
 uses SysUtils, vutil, vgenerics, vrltools, vvision, vtextures, vglimage,
-     vimage, brui, brdata, vglquadbuffer, vgltypes, vglprogram,
+     vimage, brui, brdata, vglquadbuffer, vglquadarrays, vgltypes, vglprogram,
      vanimation, branimation;
 
 const
@@ -92,7 +92,6 @@ TBerserkGUI = class(TBerserkUI)
     FSprite2432  : TGLVec2f;
 
     FProgram     : TGLProgram;
-    FLTexture    : LongInt;
     FLOverlay    : LongInt;
     public
     property PreQuads  : TGLTexturedColoredQuadLayer read FPreQuads;
@@ -270,6 +269,7 @@ var iCount       : DWord;
     iFlags       : TSDLIOFlags;
     iSheetSize   : TGLVec2f;
     iProjection  : TMatrix44;
+    iLTexture    : Integer;
 begin
   {$IFDEF WINDOWS}
   if not GodMode then
@@ -293,20 +293,19 @@ begin
   FSpriteTexID := Textures.TextureID['spritesheet'];
   FConsole := TGLConsoleRenderer.Create( DataPath+'font10x18.png', 32, 256-32, 32, 80, 25, 6, [VIO_CON_CURSOR] );
 
-//  glMatrixMode( GL_PROJECTION );
-//  glLoadIdentityMatrix();
-//  glOrtho(0, FIODriver.GetSizeX, FIODriver.GetSizeY,0, -1, 1 );
   LoadGL3;
   FProgram := TGLProgram.Create(
     SlurpFile( DataPath+'graphics'+PathDelim+'basic.vert' ),
     SlurpFile( DataPath+'graphics'+PathDelim+'basic.frag' )
   );
   FProgram.Bind;
-  FLTexture    := FProgram.GetUniformLocation('s_texture');
-  FLOverlay    := FProgram.GetUniformLocation('overlay');
+  iLTexture    := FProgram.GetUniformLocation('utexture');
+  glUniform1i( iLTexture, 0 );
+
+  FLOverlay    := FProgram.GetUniformLocation('uoverlay');
   glUniform4f( FLOverlay, 0, 0, 0, 0 );
   iProjection := GLCreateOrtho( 0, FIODriver.GetSizeX, FIODriver.GetSizeY,0, -1000, 1000 );
-  glUniformMatrix4fv( FProgram.GetUniformLocation('m_transform'), 1, GL_FALSE, @iProjection[0] );
+  glUniformMatrix4fv( FProgram.GetUniformLocation('utransform'), 1, GL_FALSE, @iProjection[0] );
   FProgram.UnBind;
 
   inherited Create;
@@ -315,12 +314,8 @@ begin
   FTarget.Create( 0,0 );
 
   // VISTA DOESN'T LIKE NONBLENDED TEXTURES!
-  FPreQuads  := TGLTexturedColoredQuadLayer.Create( FProgram, 's_texture', 'coord3d', 'texcoord', 'color' );
-  FTerrain   := TGLTexturedColoredQuads.Create(
-    FProgram.GetAttribLocation('coord3d'),
-    FProgram.GetAttribLocation('texcoord'),
-    FProgram.GetAttribLocation('color')
-  );
+  FPreQuads  := TGLTexturedColoredQuadLayer.Create;
+  FTerrain   := TGLTexturedColoredQuads.Create;
 
   iSheetSize := Textures.Textures['spritesheet'].GLSize;
   FPixelSize.Init( iSheetSize.X / SpriteSheetSizeX, iSheetSize.Y / SpriteSheetSizeY );
@@ -499,11 +494,10 @@ begin
   FProgram.Bind;
   glActiveTexture( GL_TEXTURE0 );
   glBindTexture( GL_TEXTURE_2D,  Textures.Texture[FSpriteTexID].GLTexture );
-  glUniform1i( FLTexture, 0);
   FTerrain.Draw;
-  FProgram.UnBind;
   FTerrain.Clear;
   FPreQuads.Draw;
+  FProgram.UnBind;
   glDisable( GL_DEPTH_TEST );
 end;
 

@@ -23,7 +23,7 @@ unit branimation;
 interface
 
 uses Classes, SysUtils,
-     vutil, vrltools, vgenerics, vgltypes, vglquadbuffer, vanimation,
+     vutil, vrltools, vgenerics, vgltypes, vglquadarrays, vanimation,
      brdata, brbeing;
 
 type

@@ -1,15 +1,17 @@
 #version 120
-varying vec2 f_texcoord;
-varying vec4 f_color;
-uniform sampler2D s_texture;
-uniform vec4 overlay;
+in vec2 otexcoord;
+in vec4 ocolor;
+
+uniform sampler2D utexture;
+uniform vec4      uoverlay;
  
-void main(void) {
-	vec4 t = texture2D(s_texture, f_texcoord);
+void main(void)
+{
+	vec4 t = texture2D( utexture, otexcoord);
 	if ( t.w < 0.01 )
 		discard;
-	if ( overlay.w > 0.01 )
-		gl_FragColor = mix( t * vec4(f_color.xyz, 1.0), overlay, overlay.w );
+	if ( uoverlay.w > 0.01 )
+		gl_FragColor = mix( t * vec4(ocolor.xyz, 1.0), uoverlay, uoverlay.w );
 	else
-		gl_FragColor = t * vec4(f_color.xyz, 1.0);
+		gl_FragColor = t * vec4(ocolor.xyz, 1.0);
 }
