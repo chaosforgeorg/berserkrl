@@ -29,7 +29,7 @@ unit brlevel;
 interface
 
 uses SysUtils,
-     vluamapnode, vnode, vmath, vutil, vvision, vrltools, vmaparea,
+     vluamapnode, vnode, vmath, vutil, vvision, vrltools,
      brdata, brbeing;
 
 type
