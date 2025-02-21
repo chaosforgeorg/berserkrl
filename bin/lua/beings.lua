@@ -56,7 +56,7 @@ end
 function BeingSkills.Scavenge(self)
 	if self.hp < self.hp_max / 2 and self.energy > 30 and math.random(10) < 5 then
 		local c = level:find_cell( 
-			function(c) return level:get_cell(c) == "bloody_corpse" end,
+			function(c) return level:get_cell_id(c) == "bloody_corpse" end,
 			area.around( self.position, 1 )
 		)
 		if c then
@@ -77,7 +77,7 @@ function BeingSkills.Ressurect(self)
 		local count = 0
 		level:for_all_cells( 
 			function(c) 
-				if self.energy > 10 and level:get_cell(c) == "bloody_corpse" and 
+				if self.energy > 10 and level:get_cell_id(c) == "bloody_corpse" and 
 					math.random(100) < 30 and level:get_being(c) == nil then
 					self:play_sound("ressurect")
 					level:set_cell( c, "pool_of_blood" )
