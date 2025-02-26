@@ -11,7 +11,7 @@ function generator.scatter(fill,count,scatter_area)
 	if type(fill) == "string" then fill = cells[fill].nid end
 	for c = 1, count do
 		local c = scatter_area:random_coord()
-		generator.set_cell( c, fill )
+		level:set_cell( c, fill )
 	end
 end
 
@@ -35,7 +35,7 @@ function generator.place_city()
 			end
 			room:shrink(1)
 			generator.fill( wall_cell, room )
-			generator.set_cell( area.random_inner_edge_coord( room ), door_cell )
+			level:set_cell( area.random_inner_edge_coord( room ), door_cell )
 			room:shrink(1)
 			generator.fill( floor_cell, room )
 		end
@@ -50,8 +50,8 @@ function generator.horiz_river( cell, width, bridge_cell )
 		for w = 1,width do
 			local c = coord.new( x, w + y )
 			local fill = cell
-			if bridge_cell and generator.get_cell( c ) == bridge_cell then fill = "bridge" end
-			generator.set_cell( c, fill )
+			if bridge_cell and level:get_cell( c ) == bridge_cell then fill = "bridge" end
+			level:set_cell( c, fill )
 		end
 		if not bridge and math.random(4) == 1 then y = math.min( math.max( y + math.random(3) - 2, 3 ), MAP_MAXY - width - 2 ) end
 	end
@@ -65,8 +65,8 @@ function generator.vert_river( cell, width, bridge_cell )
 		for w = 1,width do
 			local c = coord.new( x + w, y )
 			local fill = cell
-			if bridge_cell and generator.get_cell( c ) == bridge_cell then fill = "bridge" end
-			generator.set_cell( c, fill )
+			if bridge_cell and level:get_cell( c ) == bridge_cell then fill = "bridge" end
+			level:set_cell( c, fill )
 		end
 		if not bridge and math.random(4) == 1 then x = math.min( math.max( x + math.random(3) - 2, 3 ), MAP_MAXX - width - 2 ) end
 	end
