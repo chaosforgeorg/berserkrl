@@ -26,7 +26,7 @@ function generator.place_city()
 
 	for i=1,tries do
 		local room = area.random_subarea( city, coord.random( dim_min, dim_max ) )
-		if generator.scan(room,good_cell,true) == 0 then
+		if level:scan( room, good_cell ) then
 			local wall_cell  = cells["wooden_wall"].nid
 			local floor_cell = cells["wooden_floor"].nid
 			if math.random(3) == 1 then 
@@ -34,10 +34,10 @@ function generator.place_city()
 				floor_cell = cells["floor"].nid
 			end
 			room:shrink(1)
-			generator.fill( wall_cell, room )
+			level:fill( wall_cell, room )
 			level:set_cell( area.random_inner_edge_coord( room ), door_cell )
 			room:shrink(1)
-			generator.fill( floor_cell, room )
+			level:fill( floor_cell, room )
 		end
 	end
 end
@@ -111,14 +111,14 @@ function generator.random_river_road( water_cell )
 end
 
 function generator.generate_fields()
-	generator.fill( "grass" )
+	level:fill( "grass" )
 	local roll = math.random(5)
 	if roll < 4 then
 		generator.drunkard_walks( 20, 10, "mud" )
 		generator.scatter( "floor", 50 )
 		generator.scatter( "stones", 50 )
 	elseif roll == 4 then
-		generator.fill( "mud" )
+		level:fill( "mud" )
 		generator.drunkard_walks( 10, 10, "floor" )
 		generator.drunkard_walks( 10, 10, "stones" )
 		generator.scatter( "floor", 30 )
@@ -139,7 +139,7 @@ function generator.generate_forest()
 			level:spawn_on_edge( "treespirit" )
 		end
 	end
-	generator.fill( "grass" )
+	level:fill( "grass" )
 	generator.scatter( "stones", 20 )
 	local roll = math.random(10)
 	local count = 120
@@ -155,7 +155,7 @@ function generator.generate_snow()
 	generator.spawns.ranged = "ice_devil"
 	generator.spawns.strong = "yeti"
 	generator.spawns.spec2  = "blizzard"
-	generator.fill( "snow" )
+	level:fill( "snow" )
 	local roll = math.random(5)
 	if roll < 3 then
 		generator.drunkard_walks( 10, 10, "mud" )
@@ -176,7 +176,7 @@ function generator.generate_snow()
 end
 
 function generator.generate_town()
-	generator.fill( "grass" )
+	level:fill( "grass" )
 	generator.random_road()
 	generator.place_city()
 end
