@@ -363,15 +363,15 @@ register_skill "sweep"
 		p.energy = p.energy - cost
 		local tgt = { 0, p.position + d, 0 }
 		if d.x * d.y ~= 0 then
-			tgt[1] = p.position + coord.new( 0, d.y )
-			tgt[3] = p.position + coord.new( d.x, 0 )
+			tgt[1] = p.position + coord( 0, d.y )
+			tgt[3] = p.position + coord( d.x, 0 )
 		else
 			if d.x == 0 then 
-				tgt[1] = p.position + coord.new( 1,  d.y )
-				tgt[3] = p.position + coord.new( -1, d.y )
+				tgt[1] = p.position + coord( 1,  d.y )
+				tgt[3] = p.position + coord( -1, d.y )
 			else
-				tgt[1] = p.position + coord.new( d.x, 1 )
-				tgt[3] = p.position + coord.new( d.x, -1 )
+				tgt[1] = p.position + coord( d.x, 1 )
+				tgt[3] = p.position + coord( d.x, -1 )
 			end
 		end
 		for _,c in ipairs( tgt ) do

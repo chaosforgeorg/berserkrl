@@ -17,8 +17,8 @@ end
 
 function generator.place_city()
 	local tries = 200
-	local dim_max = coord.new( 10, 10 )
-	local dim_min = coord.new( 6, 6 )
+	local dim_max = coord( 10, 10 )
+	local dim_min = coord( 6, 6 )
 	local city = area.shrinked( area.FULL, 3 )
 
 	local good_cell  = cells["grass"].nid
@@ -48,7 +48,7 @@ function generator.horiz_river( cell, width, bridge_cell )
 	for x = 1,MAP_MAXX do
 		local bridge = false
 		for w = 1,width do
-			local c = coord.new( x, w + y )
+			local c = coord( x, w + y )
 			local fill = cell
 			if bridge_cell and level:get_cell( c ) == bridge_cell then fill = "bridge" end
 			level:set_cell( c, fill )
@@ -63,7 +63,7 @@ function generator.vert_river( cell, width, bridge_cell )
 	for y = 1,MAP_MAXY do
 		local bridge = false
 		for w = 1,width do
-			local c = coord.new( x + w, y )
+			local c = coord( x + w, y )
 			local fill = cell
 			if bridge_cell and level:get_cell( c ) == bridge_cell then fill = "bridge" end
 			level:set_cell( c, fill )
