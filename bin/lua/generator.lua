@@ -2,7 +2,7 @@ function generator.drunkard_walks( amount, steps, cell, ignore, break_on_edge, d
 	if amount <= 0 then return end
 	drunk_area = drunk_area or area.FULL_SHRINKED
 	for i=1,amount do
-		generator.run_drunkard_walk( drunk_area, drunk_area:random_coord(), steps, cell, ignore, break_on_edge )
+		generator.run_drunkard_walk( level, drunk_area, drunk_area:random_coord(), steps, cell, ignore, break_on_edge )
 	end
 end
 

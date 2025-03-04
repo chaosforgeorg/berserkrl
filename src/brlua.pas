@@ -149,7 +149,6 @@ begin
   LuaSystem.SetValue('player',Player);
   LuaSystem.SetValue('level',Level);
   RegisterKillsClass( LuaSystem.Raw, Player.FKills );
-  RegisterDungen( Level );
 end;
 
 destructor TBerserkLua.Destroy;
