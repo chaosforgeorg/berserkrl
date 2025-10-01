@@ -67,7 +67,7 @@ implementation
 
 uses SysUtils, vmath, vuid, vioevent, vsound, vsdlsound, vfmodsound,
      vluasystem, vutil, vsystems, vrltools,
-     brui, brviews;
+     brui, bruiscreens;
 
 { TBerserk }
 
@@ -141,8 +141,7 @@ end;
 
 procedure TBerserk.Run;
 begin
-//  UI.RunUILoop( TUIIntroScreen.Create( UI.Root ) );
-  UI.RunUILoop( 'ui_intro_screen' );
+  UI.RunLayer( TIntroLayer.Create );
 
   if SaveExists then Load
                 else Player.CreateCharacter;
@@ -177,7 +176,7 @@ begin
   if not SaveExists then UI.RunUILoop( 'ui_hof_screen' );
   UIDs := nil;
 
-  UI.RunUILoop( 'ui_outro_screen' );
+  UI.RunLayer( TOutroLayer.Create );
 end;
 
 destructor TBerserk.Destroy;

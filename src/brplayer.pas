@@ -152,8 +152,8 @@ var Player : TPlayer = nil;
 
 
 implementation
-uses vutil, vluastate, vluasystem, vluatable, brviews, brmain, brlevel, vsound, math;
-
+uses math, vsound, vutil, vluastate, vluasystem, vluatable,
+     brviews, brmain, brlevel, bruiscreens;
 
 { TPlayer }
 
@@ -189,10 +189,8 @@ begin
 end;
 
 procedure TPlayer.CreateCharacter;
-var ModeNum     : Byte;
 begin
-
-  UI.RunUILoop( 'ui_mode_screen' );
+  UI.RunLayer( TGameModeLayer.Create );
   // Choose klass
   LuaSystem.ProtectedCall( ['klasses',FKlass,'OnCreate'], [Self, FMode]);
 
@@ -211,7 +209,7 @@ begin
   begin
     FName := Option_AlwaysName;
     if (FName = '') and (not Option_AlwaysRandomName) then
-      UI.RunUILoop( 'ui_name_screen' );
+      UI.RunLayer( TGameNameLayer.Create );
     UI.Console.HideCursor;
     if FName = '' then
     case Random(8) of
@@ -224,11 +222,11 @@ begin
       7    : FName := 'Thomas';
     end;
 
-    UI.RunUILoop( 'ui_stats_screen' );
+    UI.RunLayer( TGameStatsLayer.Create );
 
     if FMode = mode_Massacre then
     begin
-      UI.RunUILoop( 'ui_arena_screen' );
+      UI.RunLayer( TGameArenaLayer.Create );
       UI.RunUILoop( 'ui_skills_screen' );
       UI.RunUILoop( 'ui_skills_screen' );
       UI.RunUILoop( 'ui_skills_screen' );
@@ -250,7 +248,7 @@ procedure TPlayer.Advance;
 begin
   Inc( FPoints );
   // Run advancement screens
-  UI.RunUILoop( 'ui_stats_screen' );
+  UI.RunLayer( TGameStatsLayer.Create );
 
   // Choose skill
   UI.RunUILoop( 'ui_skills_screen' );

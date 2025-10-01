@@ -88,8 +88,6 @@ type
     function RunUILoop( aElement : TUIElement ) : DWord; override;
     // Runs a Lua view
     function RunUILoop( const aElement : AnsiString ) : DWord;
-    // Performs a full update
-    procedure FullUpdate; override;
     // Show past messages.
     procedure MsgPast;
     // Dump last messages to file.
@@ -121,6 +119,8 @@ type
     procedure AddAttack( aWho : TUID; aHit : Boolean; const aFrom, aTo : TCoord2D ); virtual;
     // Draws a firey background
     procedure DrawFire( aSeed : Cardinal = 0 ); virtual;
+    // Renders a nine-patch window
+    procedure RenderWindow( aSize, aPos : TIOPoint ); virtual;
     // Draws a firey background
     procedure RenderBG(); virtual;
     // Sends missile
@@ -129,17 +129,12 @@ type
     procedure Target( Where : TCoord2D; color : Byte); virtual; abstract;
     // Renders a breath weapon attack
     procedure Breath( aWhere : TCoord2D; aDirection : TDirection; aColor : byte; aRange : byte; aStep : byte; aDrawDelay : Word ); virtual; abstract;
-    // Pre update
-    procedure PreUpdate( aTickTime : DWord ); virtual;
-    // Post update
-    procedure PostUpdate( aTickTime : DWord ); virtual;
     // Resolve sound ID
     function ResolveSoundID( const aID, aSound : AnsiString ) : AnsiString;
     // Register API
     class procedure RegisterLuaAPI();
   protected
     FStatus      : TUIStatus;
-    FLastTick    : DWord;
     FShift       : Integer; // only in GFX mode
   public
     property Status    : TUIStatus    read FStatus;
@@ -152,9 +147,9 @@ const UI : TBerserkUI = nil;
 
 implementation
 
-uses SysUtils, DateUtils, variants, math, vsound,
-     vsystems, vluasystem, vluagamestate, vluaui, zstream, vxmldata,
-     brlua, brlevel, brplayer, brmain, brpersistence;
+uses SysUtils, DateUtils, variants, vsound,
+     vsystems, vluasystem, vluagamestate, vluaui, vxmldata,
+     brlevel, brplayer, brmain, brpersistence, vtigstyle;
 
 { TBerserkUI }
 
@@ -188,7 +183,14 @@ begin
   iStyle.Add('text','fore_color', LightGray );
   iStyle.Add('text','back_color', ColorNone );
 
-  inherited Create( FIODriver, FConsole, iStyle );
+  inherited Create( FIODriver, FConsole, iStyle, True );
+  VTIGDefaultStyle.Color[ VTIG_INPUT_TEXT_COLOR ]          := White;
+  VTIGDefaultStyle.Color[ VTIG_INPUT_BACKGROUND_COLOR ]    := Black;
+  VTIGDefaultStyle.Color[ VTIG_SELECTED_BACKGROUND_COLOR ] := Black;
+  VTIGDefaultStyle.Frame[ VTIG_BORDER_FRAME ] := '';
+  VTIGDefaultStyle.Frame[ VTIG_GROUP_FRAME ]  := '';
+  VTIGDefaultStyle.Padding[ VTIG_WINDOW_PADDING ]     := Point( 2,1 );
+  VTIGDefaultStyle.Padding[ VTIG_SELECTABLE_PADDING ] := Point( 0,0 );
 
   FStatus := TUIStatus.Create( FUIRoot );
   FStatus.Enabled := False;
@@ -210,8 +212,6 @@ begin
 
   Msg('Berserk!');
   Msg('Press @<'+Berserk.Config.GetKeybinding(COMMAND_HELP)+'@> for help.');
-
-  FLastTick := FIODriver.GetMs;
 end;
 
 function TBerserkUI.RunUILoop ( aElement : TUIElement ) : DWord;
@@ -230,31 +230,6 @@ begin
   FConsole.HideCursor;
   iElement := CreateLuaUIElement( LuaSystem.Raw, aElement, Root );
   Exit( inherited RunUILoop( iElement ) );
-end;
-
-procedure TBerserkUI.FullUpdate;
-var iTickTime : DWord;
-    iNow      : DWord;
-begin
-  iNow        := FIODriver.GetMs;
-  iTickTime   := iNow - FLastTick;
-  FLastTick   := iNow;
-
-  PreUpdate( iTickTime );
-  FUIRoot.OnUpdate( iTickTime );
-  FUIRoot.Render;
-  FConsole.Update;
-  PostUpdate( iTickTime );
-end;
-
-procedure TBerserkUI.PreUpdate( aTickTime : DWord );
-begin
-  FIODriver.PreUpdate;
-end;
-
-procedure TBerserkUI.PostUpdate( aTickTime : DWord );
-begin
-  FIODriver.PostUpdate;
 end;
 
 function TBerserkUI.ResolveSoundID(const aID, aSound: AnsiString): AnsiString;
@@ -348,6 +323,11 @@ begin
 end;
 
 procedure TBerserkUI.DrawFire ( aSeed : Cardinal ) ;
+begin
+
+end;
+
+procedure TBerserkUI.RenderWindow( aSize, aPos : TIOPoint );
 begin
 
 end;

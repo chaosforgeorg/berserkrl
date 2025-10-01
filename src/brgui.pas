@@ -26,7 +26,7 @@
 unit brgui;
 interface
 
-uses SysUtils, vutil, vgenerics, vrltools, vvision, vtextures, vglimage,
+uses SysUtils, vutil, vgenerics, vrltools, vvision, vtextures, vglimage, viotypes,
      vimage, brui, brdata, vglquadrenderer, vglquadarrays, vgltypes, vglprogram,
      vanimation, branimation;
 
@@ -57,12 +57,12 @@ TBerserkGUI = class(TBerserkUI)
     procedure AddMove( aWho : TUID; const aFrom, aTo : TCoord2D ); override;
     // Animates an attack if in GFX
     procedure AddAttack( aWho : TUID; aHit : Boolean; const aFrom, aTo : TCoord2D ); override;
+    // Renders a nine-patch window
+    procedure RenderWindow( aSize, aPos : TIOPoint ); override;
     // Draws a firey background
     procedure RenderBG(); override;
-    // Pre update
-    procedure PreUpdate( aTickTime : DWord ); override;
-    // Post update
-    procedure PostUpdate( aTickTime : DWord ); override;
+    //  update
+    procedure Update( aMSec : DWord ); override;
     // Update light map
     procedure UpdateLight( aVision : TVision );
     // Draws the level, player status, messages, and updates the screen.
@@ -106,9 +106,9 @@ var Textures : TTextureManager = nil;
 implementation
 
 uses {$IFDEF WINDOWS}Windows,{$ENDIF}
-     vuid, vgl3library, vsystems,
+     vuid, vgl3library, vsystems, vtig,
      vioconsole, vsdlio, vglconsole, vlog,
-     vcolor, viotypes, vmath, vdebug, math,
+     vmath, vdebug, math,
      brbeing, brplayer, brlevel;
 
 { TBerserkTextures }
@@ -292,6 +292,7 @@ begin
   Textures.Upload;
   FSpriteTexID := Textures.TextureID['spritesheet'];
   FConsole := TGLConsoleRenderer.Create( DataPath+'font10x18.png', 32, 256-32, 32, 80, 25, 6, [VIO_CON_CURSOR] );
+  FConsole.HideCursor;
 
   LoadGL3;
   FProgram := TGLProgram.Create(
@@ -480,11 +481,54 @@ begin
   );
 end;
 
-procedure TBerserkGUI.PreUpdate( aTickTime : DWord );
+procedure TBerserkGUI.RenderWindow( aSize, aPos : TIOPoint );
+var iTexture      : TTexture;
+    iA,iB,iC,iE   : TGLVec2i;
+    is1,is13,is23 : Single;
+    iv11          : TGLVec2i;
+    iv10          : TGLVec2i;
+    iv01          : TGLVec2i;
+    ivi           : TGLVec2i;
+    iColor        : TGLVec4f;
+const Z = GMODE_GUI_Z + 1;
 begin
-  inherited PreUpdate( aTickTime );
+  iTexture := Textures.Textures['windowskin'];
+  iA.Init( (aPos.X-1)*10,         (aPos.Y-1)*24 );
+  iB.Init( (aPos.X-1+aSize.X)*10, (aPos.Y-1)*24 );
+  iC.Init( (aPos.X-1)*10,         (aPos.Y-1+aSize.Y)*24 );
+  iE.Init( (aPos.X-1+aSize.X)*10, (aPos.Y-1+aSize.Y)*24 );
+
+  iv11.Init(10,10);
+  iv10.Init(10, 0);
+  iv01.Init( 0,10);
+  ivi.Init(-10,10);
+  iColor.Init( 0.5, 0.5, 0.5, 0.7 );
+
+  is1  := iTexture.GLSize.X;
+  is13 := iTexture.GLSize.X/3;
+  is23 := (2*iTexture.GLSize.X)/3;
+
+  with FPreQuads[ iTexture.GLTexture ] do
+  begin
+    PushQuad( GLVec3i(iA,     Z), GLVec3i(iA+iv11,Z), iColor, TGLVec2f.Create( 0,   0 ),    TGLVec2f.Create( is13,is13 ) );
+    PushQuad( GLVec3i(iA+iv10,Z), GLVec3i(iB+ivi, Z), iColor, TGLVec2f.Create( is13,0 ),    TGLVec2f.Create( is23,is13 ) );
+    PushQuad( GLVec3i(iB-iv10,Z), GLVec3i(iB+iv01,Z), iColor, TGLVec2f.Create( is23,0 ),    TGLVec2f.Create( is1, is13 ) );
+
+    PushQuad( GLVec3i(iA+iv01,Z), GLVec3i(iC-ivi, Z), iColor, TGLVec2f.Create( 0,   is13 ), TGLVec2f.Create( is13,is23 ) );
+    PushQuad( GLVec3i(iA+iv11,Z), GLVec3i(iE-iv11,Z), iColor, TGLVec2f.Create( is13,is13 ), TGLVec2f.Create( is23,is23 ) );
+    PushQuad( GLVec3i(iB+ivi, Z), GLVec3i(iE-iv01,Z), iColor, TGLVec2f.Create( is23,is13 ), TGLVec2f.Create( is1, is23 ) );
+
+    PushQuad( GLVec3i(iC-iv01,Z), GLVec3i(iC+iv10,Z), iColor, TGLVec2f.Create( 0,   is23 ), TGLVec2f.Create( is13,is1 ) );
+    PushQuad( GLVec3i(iC-ivi, Z), GLVec3i(iE-iv10,Z), iColor, TGLVec2f.Create( is13,is23 ), TGLVec2f.Create( is23,is1 ) );
+    PushQuad( GLVec3i(iE-iv11,Z), GLVec3i(iE,     Z), iColor, TGLVec2f.Create( is23,is23 ), TGLVec2f.Create( is1,is1 ) );
+  end;
+end;
+
+procedure TBerserkGUI.Update( aMSec : DWord );
+begin
+  VTIG_Clear;
   glEnable( GL_DEPTH_TEST );
-  FAnimations.Update( aTickTime );
+  FAnimations.Update( aMSec );
 
   DrawSprites;
   FAnimations.Draw;
@@ -501,11 +545,7 @@ begin
   FPreQuads.Clear;
   FProgram.UnBind;
   glDisable( GL_DEPTH_TEST );
-end;
-
-procedure TBerserkGUI.PostUpdate( aTickTime : DWord );
-begin
-  inherited PostUpdate( aTickTime );
+  inherited Update( aMSec );
 end;
 
 procedure TBerserkGUI.UpdateLight ( aVision : TVision ) ;

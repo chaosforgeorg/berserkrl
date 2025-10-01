@@ -84,7 +84,7 @@ var iTexSize : TGLVec2f;
     v01 : TGLVec2i;
     vi  : TGLVec2i;
     col : TGLVec4f;
-const Z = GMODE_GUI_Z;
+const Z = GMODE_GUI_Z+1;
 begin
   inherited OnRender;
   if GraphicsMode then

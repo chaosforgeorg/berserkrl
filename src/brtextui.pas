@@ -51,6 +51,8 @@ type
     procedure AddAttack( aWho : TUID; aHit : Boolean; const aFrom, aTo : TCoord2D ); override;
     // Draws a firey background
     procedure DrawFire( aSeed : Cardinal = 0 ); override;
+    //  update
+    procedure Update( aMSec : DWord ); override;
     // Draws the level, player status, messages, and updates the screen.
     procedure Draw; override;
     // IConUIASCIIMap implementation
@@ -63,7 +65,7 @@ type
 
 implementation
 
-uses vsystems, vsound, vuid, vvision, vioconsole, vuiconsole,
+uses vsystems, vsound, vuid, vvision, vioconsole, vuiconsole, vtig,
 {$IFDEF UNIX}
      vcursesio, vcursesconsole,
 {$ELSE}
@@ -331,6 +333,12 @@ begin
 
   if aSeed <> 0 then
     RandSeed := iSeed;
+end;
+
+procedure TBerserkTextUI.Update( aMSec : DWord );
+begin
+  inherited Update( aMSec );
+  VTIG_EventClear;
 end;
 
 procedure TBerserkTextUI.Draw;
