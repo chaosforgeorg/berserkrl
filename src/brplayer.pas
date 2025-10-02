@@ -227,12 +227,12 @@ begin
     if FMode = mode_Massacre then
     begin
       UI.RunLayer( TGameArenaLayer.Create );
-      UI.RunUILoop( 'ui_skills_screen' );
-      UI.RunUILoop( 'ui_skills_screen' );
-      UI.RunUILoop( 'ui_skills_screen' );
+      UI.RunLayer( TGameSkillsLayer.Create );
+      UI.RunLayer( TGameSkillsLayer.Create );
+      UI.RunLayer( TGameSkillsLayer.Create );
     end
     else
-      UI.RunUILoop( 'ui_skills_screen' );
+      UI.RunLayer( TGameSkillsLayer.Create );
   end;
 
   FHPMax  := 100 + (En-10)*5 + FBonus[ BONUS_HP ];
@@ -251,8 +251,7 @@ begin
   UI.RunLayer( TGameStatsLayer.Create );
 
   // Choose skill
-  UI.RunUILoop( 'ui_skills_screen' );
-
+  UI.RunLayer( TGameSkillsLayer.Create );
 
   // Recalculate stats
   FHPMax  := 100 + (EN-10)*5 + FBonus[ BONUS_HP ];
@@ -499,7 +498,7 @@ repeat
                     else Include(FFlags,BF_RUNNING);
 
     COMMAND_HELP      : UI.RunUILoop( 'ui_help_screen' );
-    COMMAND_PLAYERINFO: UI.RunUILoop( 'ui_char_screen' );
+    COMMAND_PLAYERINFO: UI.RunLayer(TGamePlayerLayer.Create);
     COMMAND_MESSAGES  : UI.MsgPast;
 
     COMMAND_QUIT      : begin

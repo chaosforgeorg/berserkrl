@@ -155,7 +155,7 @@ begin
       mode_Endless  : begin
           if Player.FNight > 1 then
           begin
-            UI.RunUILoop( 'ui_night_screen' );
+            UI.RunLayer( TNightLayer.Create );
             if SaveExists then Break;
             Player.Advance;
           end;

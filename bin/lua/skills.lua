@@ -301,7 +301,7 @@ register_skill "ironman"
 	type        = SKILL_PASSIVE,
 	description = 'Each level of this skill makes you tougher, by giving you an additional 5 hitpoints.',
 	max_level   = 100,
-	picture     = '@g.....\n@g..@d@@@g..\n@g.....',
+	picture     = '{g.....\n..{d@}..\n.....}',
 
 	OnPick      = function( p )
 		p.hp_bonus = p.hp_bonus + 5
@@ -314,7 +314,7 @@ register_skill "running"
 	type        = SKILL_PASSIVE,
 	description = 'This skill greatly improves the benefits of Running mode. Each successive level increases speed, and reduces energy drain.',
 	max_level   = 3,
-	picture     = '@g.....\n@g..@d@@@g..\n@g.....',
+	picture     = '{g.....\n..{d@}..\n.....}',
 	reqs        = { en = 12 },
 
 	OnPick      = function( p, level )
@@ -332,7 +332,7 @@ register_skill "survival"
 	type        = SKILL_PASSIVE,
 	description = 'If reduced to 10% hitpoints you gain a impressive will to survive. For each level your defense is increased by 1 and armor by 2.',
 	max_level   = 3,
-	picture     = '@g.....\n@g..@d@@@g..\n@g.....',
+	picture     = '{g.....\n..{d@}..\n.....}',
 	reqs        = { wp = 12 },
 
 	OnPick      = function( p, level )
@@ -347,7 +347,7 @@ register_skill "sweep"
 	type        = SKILL_ACTIVE,
 	description = 'This skill allows you to attack three enemies at once, as long as they stand side by side and beside you. The attack is less effective than a normal one though. Each level reduces the time needed and energy cost.',
 	max_level   = 3,
-	picture     = '@g.@B*@g...\n@g.@B*@g@d@@@g..\n@g.@B*@g...',
+	picture     = '{g.{B*}...\n.{B*}{d@}..\n.{B*}...}',
 	reqs        = { st = 12 },
 
 	OnUse       = function( p, level )
@@ -389,7 +389,7 @@ register_skill "whirlwind"
 	type        = SKILL_ACTIVE,
 	description = 'This skill allows you to attack ALL surrounding enemies at once! The attack is a less effective than the normal attack though. Each level reduces the time needed and energy cost.',
 	max_level   = 3,
-	picture     = '@g.@B***@g.\n@g.@B*@d@@@B*@g.\n@g.@B***@g.',
+	picture     = '{g.{B***}.\n.{B*}{d@}{B*}.\n.{B***}.}',
 	reqs        = { st = 16, sweep = 2 },
 
 	OnUse       = function( p, level )
@@ -415,7 +415,7 @@ register_skill "impale"
 	type        = SKILL_ACTIVE,
 	description = 'This skill makes you dash one step and attack in the given direction immediately with greater strength. It works only if there is exactly one free space between you and the enemy. Each level decreases energy and time cost.',
 	max_level   = 3,
-	picture     = '@g.....\n@B*@@@d@@@g..\n@g.....',
+	picture     = '{g.....\n{B*@}{d@}..\n.....}',
 	reqs        = { st = 14, running = 1 },
 
 	OnUse       = function( p, level )
@@ -450,7 +450,7 @@ register_skill "jump"
 	type        = SKILL_ACTIVE,
 	description = "This skill allows you to jump two squares away using the sword as a jump pole. If there's a monster under you during the jump, he'll get impaled!",
 	max_level   = 3,
-	picture     = '@g.....\n@B@@*@d@@@g..\n@g.....',
+	picture     = '{g.....\n{B@*}{d@}..\n.....}',
 	reqs        = { dx = 11, running = 1, impale = 1 },
 
 	OnUse       = function( p, level )

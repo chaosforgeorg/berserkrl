@@ -174,7 +174,7 @@ function GodStr(Str : String) : string;
 // Returns the name of the battlefield of given ID
 function ArenaToString(ArenaID : byte) : string;
 // Returns the name of the battlefield of given ID
-function ModeToString( Mode : Byte ) : string;
+function ModeToString( Mode : Byte ) : Ansistring;
 
 
 implementation
@@ -206,7 +206,7 @@ begin
   if GodMode then Exit(Str) else Exit('');
 end;
 
-function ModeToString( Mode : Byte ) : string;
+function ModeToString( Mode : Byte ) : Ansistring;
 begin
   case Mode of
     mode_Campaign : Exit('Campaign');

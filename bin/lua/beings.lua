@@ -397,10 +397,10 @@ register_being "spore"
 		self.speed_count = self.speed_count - 500
 		if self.energy > 1 then
 			if self.energy < 4 then 
-				self.picture = 'o' 
+				self.picture = string.byte('o') 
 				self.sprite = 59 
 			elseif self.energy < 10 then 
-				self.picture = 'O' 
+				self.picture = string.byte('O') 
 				self.sprite = 60
 			end				
 		end

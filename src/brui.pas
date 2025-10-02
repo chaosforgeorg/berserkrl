@@ -84,6 +84,8 @@ type
     Screen  : (Game,Menu);
     // Initialization of all data.
     constructor Create; reintroduce;
+    // Runs a layer
+    procedure RunLayer( aLayer : TIOLayer ); override;
     // Runs a view
     function RunUILoop( aElement : TUIElement ) : DWord; override;
     // Runs a Lua view
@@ -187,6 +189,9 @@ begin
   VTIGDefaultStyle.Color[ VTIG_INPUT_TEXT_COLOR ]          := White;
   VTIGDefaultStyle.Color[ VTIG_INPUT_BACKGROUND_COLOR ]    := Black;
   VTIGDefaultStyle.Color[ VTIG_SELECTED_BACKGROUND_COLOR ] := Black;
+  VTIGDefaultStyle.Color[ VTIG_SELECTED_DISABLED_COLOR ]   := LightRed;
+  VTIGDefaultStyle.Color[ VTIG_DISABLED_COLOR ]            := Red;
+
   VTIGDefaultStyle.Frame[ VTIG_BORDER_FRAME ] := '';
   VTIGDefaultStyle.Frame[ VTIG_GROUP_FRAME ]  := '';
   VTIGDefaultStyle.Padding[ VTIG_WINDOW_PADDING ]     := Point( 2,1 );
@@ -230,6 +235,14 @@ begin
   FConsole.HideCursor;
   iElement := CreateLuaUIElement( LuaSystem.Raw, aElement, Root );
   Exit( inherited RunUILoop( iElement ) );
+end;
+
+procedure TBerserkUI.RunLayer( aLayer : TIOLayer );
+begin
+  FStatus.Enabled := False;
+  FConsole.Clear;
+  FConsole.HideCursor;
+  inherited RunLayer( aLayer );
 end;
 
 function TBerserkUI.ResolveSoundID(const aID, aSound: AnsiString): AnsiString;
