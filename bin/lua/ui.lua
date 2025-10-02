@@ -28,38 +28,6 @@ register_ui "ui_full_screen"
 	end,
 }
 
-register_ui "ui_mortem_screen"
-{
-	inherited  = "ui_full_screen",
-	base       = "ui_con_full_window",
-	background = 'menuback',
-    header     = " @<Berserk!@> Post Mortem (mortem.txt)",
-    footer     = " Use @<arrows@>, @<PgUp@>, @<PgDown@> to scroll, @<Escape@> or @<Enter@> to exit.",
-
-	on_create  = function( self )
-		local dimrect = self.pdimrect:shrinked(1,2)
-		local absrect = self.absdim
-		local content = ui.new_con_string_list( self, dimrect, ui.get_mortem_file() )
-		ui.new_con_scrollable_icons( self, content, dimrect, point.new( absrect.x2 - 7, absrect.y ) )
-	end,
-}
-
-register_ui "ui_message_screen"
-{
-	inherited  = "ui_full_screen",
-	base       = "ui_con_full_window",
-	background = 'menuback',
-    header     = " @<Berserk!@> Previous messages",
-    footer     = " Use @<arrows@>, @<PgUp@>, @<PgDown@> to scroll, @<Escape@> or @<Enter@> to exit.",
-
-	on_create  = function( self )
-		local dimrect = self.pdimrect:shrinked(1,2)
-		local absrect = self.absdim
-		local content = ui.get_message_buffer( self, dimrect )
-		ui.new_con_scrollable_icons( self, content, dimrect, point.new( absrect.x2 - 7, absrect.y ) )
-	end,
-}
-
 register_ui "ui_hof_screen"
 {
 	inherited  = "ui_full_screen",

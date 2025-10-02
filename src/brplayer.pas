@@ -366,7 +366,7 @@ begin
     else Writeln(Mortem,'unknown');
   Writeln(Mortem,'');
   Close(Mortem);
-  UI.RunUILoop( 'ui_mortem_screen' );
+  UI.RunLayer( TMortemLayer.Create );
 end;
 
 procedure TPlayer.Die;
@@ -499,7 +499,7 @@ repeat
 
     COMMAND_HELP      : UI.RunUILoop( 'ui_help_screen' );
     COMMAND_PLAYERINFO: UI.RunLayer(TGamePlayerLayer.Create);
-    COMMAND_MESSAGES  : UI.MsgPast;
+    COMMAND_MESSAGES  : UI.RunLayer( TMessagesLayer.Create );
 
     COMMAND_QUIT      : begin
         Berserk.Escape := True;

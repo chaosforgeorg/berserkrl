@@ -90,8 +90,6 @@ type
     function RunUILoop( aElement : TUIElement ) : DWord; override;
     // Runs a Lua view
     function RunUILoop( const aElement : AnsiString ) : DWord;
-    // Show past messages.
-    procedure MsgPast;
     // Dump last messages to file.
     procedure MsgDump(var TextFile : Text);
     // Writes a tile description in the msg area.
@@ -149,9 +147,9 @@ const UI : TBerserkUI = nil;
 
 implementation
 
-uses SysUtils, DateUtils, variants, vsound,
+uses SysUtils, DateUtils, variants, vsound, vtigstyle,
      vsystems, vluasystem, vluagamestate, vluaui, vxmldata,
-     brlevel, brplayer, brmain, brpersistence, vtigstyle;
+     brlevel, brplayer, brmain, brpersistence;
 
 { TBerserkUI }
 
@@ -252,11 +250,6 @@ begin
   Result := Config.Configure( 'sounds.'+aID+'.'+aSound, '-' );
   if Result = '-' then
     Result := Config.Configure( 'sounds.'+aSound, '' );
-end;
-
-procedure TBerserkUI.MsgPast;
-begin
-  RunUILoop( 'ui_message_screen' );
 end;
 
 procedure TBerserkUI.MsgDump(var TextFile : Text);
