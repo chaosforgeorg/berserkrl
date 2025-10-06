@@ -32,7 +32,7 @@
         </Mode0>
       </Modes>
     </RunParams>
-    <Units Count="19">
+    <Units Count="18">
       <Unit0>
         <Filename Value="berserk.pas"/>
         <IsPartOfProject Value="True"/>
@@ -91,25 +91,21 @@
         <IsPartOfProject Value="True"/>
       </Unit13>
       <Unit14>
-        <Filename Value="brviews.pas"/>
+        <Filename Value="brgviews.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit14>
       <Unit15>
-        <Filename Value="brgviews.pas"/>
+        <Filename Value="branimation.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit15>
       <Unit16>
-        <Filename Value="branimation.pas"/>
+        <Filename Value="brpersistence.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit16>
       <Unit17>
-        <Filename Value="brpersistence.pas"/>
-        <IsPartOfProject Value="True"/>
-      </Unit17>
-      <Unit18>
         <Filename Value="bruiscreens.pas"/>
         <IsPartOfProject Value="True"/>
-      </Unit18>
+      </Unit17>
     </Units>
   </ProjectOptions>
   <CompilerOptions>

@@ -153,7 +153,7 @@ var Player : TPlayer = nil;
 
 implementation
 uses math, vsound, vutil, vluastate, vluasystem, vluatable,
-     brviews, brmain, brlevel, bruiscreens;
+     brmain, brlevel, bruiscreens;
 
 { TPlayer }
 

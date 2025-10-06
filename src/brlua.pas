@@ -43,7 +43,7 @@ TBerserkLua = class(TLuaSystem)
 end;
 
 implementation
-uses vluaext, strutils, vnode, vluaui, vluatools, vluaentitynode, vluadungen, vdebug, vsound,
+uses vnode, vluatools, vluaentitynode, vluadungen, vdebug, vsound,
      brplayer, brmain, brui, brdata, brbeing, brlevel;
 
 constructor TBerserkLua.Create;
@@ -52,8 +52,7 @@ begin
 end;
 
 procedure TBerserkLua.Load;
-var Amount, Count : DWord;
-    LuaInfo       : TLuaClassInfo;
+var LuaInfo       : TLuaClassInfo;
 begin
   ErrorFunc := @OnError;
   RegisterTableAuxFunctions( FState );
@@ -74,7 +73,6 @@ begin
   else
     SetValue('audio',false);
 
-  RegisterUIClass( FState );
   TBerserkUI.RegisterLuaAPI();
   TLevel.RegisterLuaAPI();
   TBeing.RegisterLuaAPI();

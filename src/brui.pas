@@ -144,7 +144,7 @@ const UI : TBerserkUI = nil;
 implementation
 
 uses SysUtils, DateUtils, variants, vsound, vtigstyle,
-     vsystems, vluasystem, vluagamestate, vluaui,
+     vsystems, vluasystem, vluagamestate,
      brlevel, brplayer, brmain;
 
 { TBerserkUI }
