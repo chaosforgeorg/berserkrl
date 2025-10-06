@@ -173,7 +173,7 @@ begin
       Sound.PlayMusic('menu');
     UI.Screen := Menu;
   until Escape;
-  if not SaveExists then UI.RunUILoop( 'ui_hof_screen' );
+  if not SaveExists then UI.RunLayer( THOFLayer.Create );
   UIDs := nil;
 
   UI.RunLayer( TOutroLayer.Create );

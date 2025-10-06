@@ -497,8 +497,8 @@ repeat
       if isRunning  then Exclude(FFlags,BF_RUNNING)
                     else Include(FFlags,BF_RUNNING);
 
-    COMMAND_HELP      : UI.RunUILoop( 'ui_help_screen' );
-    COMMAND_PLAYERINFO: UI.RunLayer(TGamePlayerLayer.Create);
+    COMMAND_HELP      : UI.RunLayer( THelpLayer.Create );
+    COMMAND_PLAYERINFO: UI.RunLayer( TGamePlayerLayer.Create );
     COMMAND_MESSAGES  : UI.RunLayer( TMessagesLayer.Create );
 
     COMMAND_QUIT      : begin
