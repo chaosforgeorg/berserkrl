@@ -1,5 +1,4 @@
 require "core:core"
-require "core:ui"
 require "core:skills"
 require "core:klasses"
 require "core:beings"

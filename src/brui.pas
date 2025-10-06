@@ -28,9 +28,9 @@
 unit brui;
 interface
 
-uses vutil, vio, viorl, vsystem, vrltools,
-     vuielement, vconui, vuitypes, viotypes, vioevent, vioconsole,
-     brviews, brgviews, brdata, vnode;
+uses vutil, vio, viorl, vrltools,
+     vuielement, viotypes, vioevent, vioconsole,
+     brgviews, brdata;
 
 const
     // Option that makes the name always "random"
@@ -86,10 +86,6 @@ type
     constructor Create; reintroduce;
     // Runs a layer
     procedure RunLayer( aLayer : TIOLayer ); override;
-    // Runs a view
-    function RunUILoop( aElement : TUIElement ) : DWord; override;
-    // Runs a Lua view
-    function RunUILoop( const aElement : AnsiString ) : DWord;
     // Dump last messages to file.
     procedure MsgDump(var TextFile : Text);
     // Writes a tile description in the msg area.
@@ -148,8 +144,8 @@ const UI : TBerserkUI = nil;
 implementation
 
 uses SysUtils, DateUtils, variants, vsound, vtigstyle,
-     vsystems, vluasystem, vluagamestate, vluaui, vxmldata,
-     brlevel, brplayer, brmain, brpersistence;
+     vsystems, vluasystem, vluagamestate, vluaui,
+     brlevel, brplayer, brmain;
 
 { TBerserkUI }
 
@@ -215,24 +211,6 @@ begin
 
   Msg('Berserk!');
   Msg('Press @<'+Berserk.Config.GetKeybinding(COMMAND_HELP)+'@> for help.');
-end;
-
-function TBerserkUI.RunUILoop ( aElement : TUIElement ) : DWord;
-begin
-  FStatus.Enabled := False;
-  FConsole.Clear;
-  FConsole.HideCursor;
-  Exit( inherited RunUILoop( aElement ) );
-end;
-
-function TBerserkUI.RunUILoop(const aElement: AnsiString): DWord;
-var iElement : TUIElement;
-begin
-  FStatus.Enabled := False;
-  FConsole.Clear;
-  FConsole.HideCursor;
-  iElement := CreateLuaUIElement( LuaSystem.Raw, aElement, Root );
-  Exit( inherited RunUILoop( iElement ) );
 end;
 
 procedure TBerserkUI.RunLayer( aLayer : TIOLayer );
@@ -389,105 +367,6 @@ begin
   Result := 0;
 end;
 
-function lua_ui_draw_fire(L: Plua_State): Integer; cdecl;
-var State : TLuaGameState;
-begin
-  State.Init(L);
-  UI.DrawFire( State.ToInteger(1) );
-  Result := 0;
-end;
-
-function lua_ui_render_bg(L: Plua_State): Integer; cdecl;
-begin
-  UI.RenderBG();
-  Result := 0;
-end;
-
-function lua_ui_save_game(L: Plua_State): Integer; cdecl;
-begin
-  Berserk.Save;
-  Result := 0;
-end;
-
-function lua_ui_set_arena(L: Plua_State): Integer; cdecl;
-var State : TLuaGameState;
-begin
-  State.Init(L);
-  Berserk.Arena := State.ToInteger(1);
-  Result := 0;
-end;
-
-function lua_ui_new_window(L: Plua_State): Integer; cdecl;
-var iState   : TLuaGameState;
-    iElement : TUIElement;
-begin
-  iState.Init( L );
-  iElement := TUIWindow.Create( iState.ToObject( 1 ) as TUIElement, iState.ToRect( 2 ) );
-  iElement.RegisterWithLua;
-  iState.Push( iElement );
-  Result := 1;
-end;
-
-function lua_ui_get_keybinding(L: Plua_State): Integer; cdecl;
-var State : TLuaGameState;
-begin
-  State.Init(L);
-  State.Push( Berserk.Config.GetKeybinding( State.ToInteger(1) ) );
-  Result := 1;
-end;
-
-function lua_ui_get_mortem_file(L: Plua_State): Integer; cdecl;
-var State : TLuaGameState;
-begin
-  State.Init(L);
-  State.Push( WritePath + 'mortem.txt' );
-  Result := 1;
-end;
-
-function lua_ui_get_help_path(L: Plua_State): Integer; cdecl;
-var State : TLuaGameState;
-begin
-  State.Init(L);
-  State.Push( DataPath+'help'+PathDelim );
-  Result := 1;
-end;
-
-function lua_ui_get_message_buffer(L: Plua_State): Integer; cdecl;
-var iState   : TLuaGameState;
-    iElement : TConUIChunkBuffer;
-begin
-  iState.Init(L);
-  iElement := TConUIChunkBuffer.Create( iState.ToObject( 1 ) as TUIElement, iState.ToRect( 2 ), UI.Status.Messages.Content, False );
-  iElement.SetScroll( iElement.Count );
-  iElement.EventFilter := [ VEVENT_KEYDOWN, VEVENT_MOUSEDOWN ];
-  iElement.RegisterWithLua;
-  iState.Push( iElement );
-  Result := 1;
-end;
-
-function lua_ui_get_hof_entry(L: Plua_State): Integer; cdecl;
-var iState   : TLuaGameState;
-    iEntry   : TScoreEntry;
-begin
-  iState.Init(L);
-  iEntry := Berserk.Persistence.Get( iState.ToInteger( 1 ) );
-  if iEntry = nil then Exit( 0 );
-  iState.Push( StrToInt( iEntry.GetAttribute('mode') ) );
-  iState.Push( iEntry.GetAttribute('name') );
-  iState.Push( StrToInt( iEntry.GetAttribute('turns') ) );
-  iState.Push( StrToInt( iEntry.GetAttribute('kills') ) );
-  iState.Push( StrToInt( iEntry.GetAttribute('result') ) );
-  Result := 5;
-end;
-
-function lua_ui_get_hof_current(L: Plua_State): Integer; cdecl;
-var iState   : TLuaGameState;
-begin
-  iState.Init(L);
-  iState.Push( LongInt( Berserk.Persistence.GetCurrent ) );
-  Result := 1;
-end;
-
 function lua_ui_resolve_sound_id(L: Plua_State): Integer; cdecl;
 var iState   : TLuaGameState;
 begin
@@ -496,24 +375,13 @@ begin
   Result := 1;
 end;
 
-const lua_ui_lib : array[0..17] of luaL_Reg = (
+const lua_ui_lib : array[0..6] of luaL_Reg = (
   ( name : 'msg';               func: @lua_ui_msg),
   ( name : 'msg_kill';          func: @lua_ui_msg_kill),
   ( name : 'blink';             func: @lua_ui_blink),
   ( name : 'choose_dir';        func: @lua_ui_choose_dir),
   ( name : 'enter';             func: @lua_ui_enter),
-  ( name : 'draw_fire';         func: @lua_ui_draw_fire),
-  ( name : 'render_bg';         func: @lua_ui_render_bg),
   ( name : 'resolve_sound_id';  func: @lua_ui_resolve_sound_id),
-  ( name : 'new_window';        func: @lua_ui_new_window),
-  ( name : 'get_message_buffer';func: @lua_ui_get_message_buffer),
-  ( name : 'save_game';         func: @lua_ui_save_game),
-  ( name : 'set_arena';         func: @lua_ui_set_arena),
-  ( name : 'get_keybinding';    func: @lua_ui_get_keybinding),
-  ( name : 'get_mortem_file';   func: @lua_ui_get_mortem_file),
-  ( name : 'get_help_path';     func: @lua_ui_get_help_path),
-  ( name : 'get_hof_entry';     func: @lua_ui_get_hof_entry),
-  ( name : 'get_hof_current';   func: @lua_ui_get_hof_current),
   ( name : nil;          func: nil; )
 );
 

@@ -1,7 +1,5 @@
 require "core:const"
 
-register_ui = core.register_storage( "ui_elements", "ui_element" )
-
 table.merge( being, object )
 
 function being:get_stat( num )
