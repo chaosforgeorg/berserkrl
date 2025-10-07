@@ -22,7 +22,7 @@
 unit brgviews;
 interface
 
-uses Classes, SysUtils, vtextures, vuielement, vuielements, vconui, vconuiext, vuitypes, vioevent, vgltypes;
+uses Classes, SysUtils, vtextures, vuielement, vconui, vuitypes, vioevent, vgltypes;
 
 type TUIStatus = class( TUIElement )
   constructor Create( aParent : TUIElement );
@@ -37,7 +37,7 @@ end;
 
 implementation
 
-uses math, vrltools, vluasystem, vutil, vuiconsole, brgui, brlevel, brdata, brplayer, brui;
+uses math, vluasystem, vutil, vuiconsole, brgui, brlevel, brdata, brplayer, brui;
 
 const GLSolid : TGLVec4f = ( Data : ( 1,1,1,1 ) );
 
