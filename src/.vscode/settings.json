@@ -1,0 +1,14 @@
+{
+    "debugPath": "bin",
+    "releasePath": "bin",
+    "libPath": "ext\\windows",
+    "instantFpcPath": "C:\\lazarus\\fpc\\3.2.2\\bin\\x86_64-win64\\instantfpc.exe",
+    "fpcPath": "C:\\lazarus\\fpc\\3.2.2\\bin\\x86_64-win64\\fpc.exe",
+    "berserkBasePath": "e:\\GitHub\\berserkrl",
+    "valkyrieSourcePath": "e:\\GitHub\\fpcvalkyrie",  //The folder needs to be adjacent to berserkBasePath for various build processes to work
+    "lazarusPath": "C:\\lazarus",
+    "berserkMainFile": "berserk.pas",
+    "berserkExe": "berserk.exe",
+    "tmpPath": "tmp",
+    "luaPath": "c:\\Tools\\lua5.1.exe"
+}

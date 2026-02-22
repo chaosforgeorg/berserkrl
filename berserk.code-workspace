@@ -1,13 +1,16 @@
 {
 	"folders": [
 		{
-			"path": "src"
+			"path": "src",
+			"name": "berserk"
 		},
 		{
-			"path": "bin\\lua"
+			"path": "bin\\lua",
+			"name": "lua"
 		},
 		{
-			"path": "..\\fpcvalkyrie\\src"
+			"path": "..\\fpcvalkyrie\\src",
+			"name": "fpcValkyrie"
 		},
 		{
 			"path": "..\\fpcvalkyrie\\libs"
