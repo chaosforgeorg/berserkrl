@@ -375,13 +375,22 @@ begin
   Result := 1;
 end;
 
-const lua_ui_lib : array[0..6] of luaL_Reg = (
+function lua_ui_get_keybinding(L: Plua_State): Integer; cdecl;
+var iState   : TLuaGameState;
+begin
+  iState.Init(L);
+  iState.Push( Berserk.Config.GetKeybinding( iState.ToInteger(1) ) );
+  Result := 1;
+end;
+
+const lua_ui_lib : array[0..7] of luaL_Reg = (
   ( name : 'msg';               func: @lua_ui_msg),
   ( name : 'msg_kill';          func: @lua_ui_msg_kill),
   ( name : 'blink';             func: @lua_ui_blink),
   ( name : 'choose_dir';        func: @lua_ui_choose_dir),
   ( name : 'enter';             func: @lua_ui_enter),
   ( name : 'resolve_sound_id';  func: @lua_ui_resolve_sound_id),
+  ( name : 'get_keybinding';    func: @lua_ui_get_keybinding),
   ( name : nil;          func: nil; )
 );
 
