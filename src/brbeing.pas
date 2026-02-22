@@ -722,16 +722,16 @@ function TBeing.LookDescribe : string;
 var Wounds : string;
 begin
   case Round(FHP*100/FHPMax) of
-    -20..10  : Wounds := '@ralmost dead';
-    11..30   : Wounds := '@rmortally wounded';
-    31..50   : Wounds := '@Rseverely wounded';
-    51..70   : Wounds := '@ywounded';
-    71..90   : Wounds := '@ybruised';
-    91..99   : Wounds := '@lscratched';
-    100      : Wounds := '@Lunhurt';
-    101..1000: Wounds := '@Bboosted';
+    -20..10  : Wounds := '{ralmost dead}';
+    11..30   : Wounds := '{rmortally wounded}';
+    31..50   : Wounds := '{Rseverely wounded}';
+    51..70   : Wounds := '{ywounded}';
+    71..90   : Wounds := '{ybruised}';
+    91..99   : Wounds := '{lscratched}';
+    100      : Wounds := '{Lunhurt}';
+    101..1000: Wounds := '{Bboosted}';
   end;
-  Exit(getName + ' (' +Wounds+'@>)');
+  Exit(getName + ' (' +Wounds+')');
 end;
 
 procedure TBeing.PlaySound(const aSoundID: AnsiString);

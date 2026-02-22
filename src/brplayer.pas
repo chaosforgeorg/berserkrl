@@ -376,7 +376,7 @@ begin
   FKills.Update(FTurnCount);
   UI.Blink(Red,200,0);
   UI.Msg('You die!...');
-  UI.Msg('Press <@<Enter@>>');
+  UI.Msg('Press <{^Enter}>...');
   UI.Draw;
   UI.PressEnter;
   Berserk.Escape := True;
@@ -444,7 +444,7 @@ repeat
   begin
     Command := UI.GetCommand;
     UI.MsgUpdate;
-    if Command = 0 then UI.Msg('Press @<'+Berserk.Config.GetKeybinding(COMMAND_HELP)+'@> for help.');
+    if Command = 0 then UI.Msg('Press <{^'+Berserk.Config.GetKeybinding(COMMAND_HELP)+'}> for help.');
   end;
   
   if (Command in COMMANDS_MOVE) or Slip then
@@ -487,7 +487,7 @@ repeat
   case Command of
     COMMAND_WAIT : begin FSpeedCount -= 1000; FDefBonus := Max(3,FDefBonus); end;
     COMMAND_LOOK : begin
-        UI.Msg('Look mode, @<ESC@> to exit.');
+        UI.Msg('Look mode, <{^Esc}> to exit.');
         UI.Msg('You see:');
         ChooseTarget( TM_LOOK, COMMAND_LOOK );
       end;

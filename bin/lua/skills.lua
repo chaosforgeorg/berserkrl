@@ -55,7 +55,7 @@ register_skill "crossbow"
 			return false 
 		end
 
-		ui.msg( "Choose target, @<"..ui.get_keybinding( command ).."@> to fire:" )
+		ui.msg( "Choose target, {^"..ui.get_keybinding( command ).."} to fire:" )
 
 		if not p:choose_target( TM_FIRE, command ) then return false end
 		local target = p.tposition
@@ -194,7 +194,7 @@ register_skill "knives"
 			return false 
 		end
 
-		ui.msg( "Choose target, @<"..ui.get_keybinding( command ).."@> to throw:" )
+		ui.msg( "Choose target, {^"..ui.get_keybinding( command ).."} to throw:" )
 
 		if not p:choose_target( TM_FIRE, command ) then return false end
 		local target = p.tposition
@@ -230,7 +230,7 @@ register_skill "bombs"
 			return false 
 		end
 
-		ui.msg( "Choose target, @<"..ui.get_keybinding( command ).."@> to throw:" )
+		ui.msg( "Choose target, {^"..ui.get_keybinding( command ).."} to throw:" )
 
 		if not p:choose_target( TM_THROW, command ) then return false end
 		local target = p.tposition
@@ -353,7 +353,7 @@ register_skill "sweep"
 	OnUse       = function( p, level )
 		local cost = 25-5*level
 		if p.energy < cost then 
-			ui.msg("You're to exhausted do that!")
+			ui.msg("You're too exhausted do that!")
 			return false
 		end
 		ui.msg("Sweep: Choose direction...")

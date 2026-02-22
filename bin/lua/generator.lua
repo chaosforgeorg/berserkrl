@@ -242,7 +242,7 @@ function generator.tick()
 				level.flags[ LF_CLEARED ] = true
 				ui.msg( "That must be all of them..." )
 				ui.msg( "...for tonight that is..." )
-				ui.msg( "Press <@<Enter@>>..." )
+				ui.msg( "Press <{^Enter}>..." )
 				ui.enter()
 			end
 			return
