@@ -29,8 +29,8 @@ unit brui;
 interface
 
 uses vutil, vio, viorl, vrltools,
-     vuielement, viotypes, vioevent, vioconsole,
-     brgviews, brdata;
+     viotypes, vioevent, vioconsole,
+     vuielement, vmessages, brdata;
 
 const
     // Option that makes the name always "random"
@@ -86,6 +86,12 @@ type
     constructor Create; reintroduce;
     // Runs a layer
     procedure RunLayer( aLayer : TIOLayer ); override;
+    // Adds a message to the TIG message buffer
+    procedure Msg( const aMessage : Ansistring ); override;
+    // Update TIG messages
+    procedure MsgUpdate; override;
+    // Kill last TIG message
+    procedure MsgKill;
     // Dump last messages to file.
     procedure MsgDump(var TextFile : Text);
     // Writes a tile description in the msg area.
@@ -98,6 +104,8 @@ type
     procedure PressEnter;
     // Draws the level, player status, messages, and updates the screen.
     procedure Draw; virtual;
+    // Draw the status HUD panel using VTIG
+    procedure DrawStatus;
     // Graphical effect of a screen flash, of the given color, and Duration in
     // miliseconds.
     procedure Blink( aColor : Byte; aDuration : Word; aSequence : Word ); virtual; abstract;
@@ -130,10 +138,12 @@ type
     // Register API
     class procedure RegisterLuaAPI();
   protected
-    FStatus      : TUIStatus;
-    FShift       : Integer; // only in GFX mode
+    FTIGMessages   : TMessages;
+    FStatusVisible : Boolean;
+    FShift         : Integer; // only in GFX mode
   public
-    property Status    : TUIStatus    read FStatus;
+    property StatusVisible : Boolean read FStatusVisible write FStatusVisible;
+    property Messages  : TMessages    read FTIGMessages;
     property Shift     : Integer      read FShift  write FShift; // only in GFX mode
   end;
 
@@ -143,7 +153,7 @@ const UI : TBerserkUI = nil;
 
 implementation
 
-uses SysUtils, DateUtils, variants, vsound, vtigstyle,
+uses SysUtils, DateUtils, variants, math, vsound, vtigstyle, vtig,
      vsystems, vluasystem, vluagamestate,
      brlevel, brplayer, brmain;
 
@@ -191,9 +201,8 @@ begin
   VTIGDefaultStyle.Padding[ VTIG_WINDOW_PADDING ]     := Point( 2,1 );
   VTIGDefaultStyle.Padding[ VTIG_SELECTABLE_PADDING ] := Point( 0,0 );
 
-  FStatus := TUIStatus.Create( FUIRoot );
-  FStatus.Enabled := False;
-  FMessages := FStatus.Messages;
+  FTIGMessages := TMessages.Create( 8, 28, nil, Option_MessageBuffer );
+  FStatusVisible := False;
 
   FIODriver.SetTitle('Berserk!','Berserk!');
 
@@ -205,17 +214,111 @@ begin
   end;
 
   if Option_MessageColoring then
-    Berserk.Config.EntryFeed( 'Messages', @FStatus.Messages.AddHighlightCallback );
+    Berserk.Config.EntryFeed( 'Messages', @FTIGMessages.AddHighlightCallback );
 
   Screen := Menu;
 
   Msg('Berserk!');
-  Msg('Press @<'+Berserk.Config.GetKeybinding(COMMAND_HELP)+'@> for help.');
+  Msg('Press {^'+Berserk.Config.GetKeybinding(COMMAND_HELP)+'} for help.');
+end;
+
+procedure TBerserkUI.DrawStatus;
+const SX = 50; // status panel X offset
+var iCt     : Word;
+
+  function GetSkillString( aSkillSlot : Byte ) : AnsiString;
+  var iSkill  : DWord;
+      iAmmo   : Byte;
+  begin
+    iSkill  := Player.FSkillSlots[ iCt ];
+    Result  := '{^'+Config.GetKeybinding( COMMAND_SKILL1-1+aSkillSlot ) + '}:' + LuaSystem.Get(['skills',iSkill,'name_short']);
+    iAmmo   := LuaSystem.Get(['skills',iSkill,'ammo_slot']);
+    if iAmmo <> 0 then
+    begin
+      Result  += ' {^'+IntToStr( Player.FAmmo[ iAmmo ] )+'}';
+      iAmmo   := LuaSystem.Get(['skills',iSkill,'quiver_slot']);
+      if iAmmo <> 0 then Result += '/{^'+IntToStr( Player.FAmmo[ iAmmo ] )+'}';
+    end;
+  end;
+
+  procedure DrawBar( aMax, aCur : Integer; aRow : Byte; aColor : Byte; aSpec : Word = 0; aColorSpec : Byte = 0 );
+  var iFull, iFull2, iCount : Byte;
+      iCharColor : Byte;
+  begin
+    iFull  := math.Max(Round(aCur*28/aMax),0);
+    iFull2 := math.Max(Round(aSpec*28/aMax),0);
+    for iCount := 1 to 28 do
+    begin
+      if (aColorSpec <> 0) and (iCount <= iFull2)
+        then iCharColor := aColorSpec
+        else iCharColor := aColor;
+      if iCount <= iFull
+        then VTIG_FreeChar( '#', VTIG_PositionResolve( Point(SX+iCount, aRow) ), iCharColor )
+        else VTIG_FreeChar( '-', VTIG_PositionResolve( Point(SX+iCount, aRow) ), iCharColor );
+    end;
+  end;
+
+var iCount    : Integer;
+    iMsgStart : Integer;
+begin
+  with Player do
+  begin
+    VTIG_FreeLabel( Name+', the Berserker', Point(SX+1,0), Yellow );
+    VTIG_FreeLabel( Format('Str:{^%d} Dex:{^%d} End:{^%d} Wil:{^%d}',[ST,DX,EN,WP]), Point(SX+1,1), DarkGray );
+
+    VTIG_FreeLabel( Format('Health : {R%d}{d/%d}',[FHP,FHPMax]), Point(SX+1,3), DarkGray );
+    DrawBar( FHPMax, FHP, 4, LightRed, FHealthMark, Red );
+    VTIG_FreeLabel( Format('Energy : {Y%d}{d/%d}',[FEN,FENMax]), Point(SX+1,5), DarkGray );
+    DrawBar( FENMax, FEN, 6, Yellow );
+
+    for iCt := Low( FSkillSlots ) to 5 do
+      if FSkillSlots[ iCt ] <> 0 then
+        VTIG_FreeLabel( GetSkillString( iCt ), Point(SX+1,7+iCt), DarkGray );
+    for iCt := 6 to High( FSkillSlots ) do
+      if FSkillSlots[ iCt ] <> 0 then
+        VTIG_FreeLabel( GetSkillString( iCt ), Point(SX+18,7+iCt-5), DarkGray );
+
+    if isBerserk   then VTIG_FreeLabel( 'BERSERK', Point(SX+21,13), Red );
+    if isRunning   then VTIG_FreeLabel( 'RUNNING', Point(SX+1,13), Yellow );
+
+    if FPain > 0    then
+      VTIG_FreeLabel( Format('Pain ({^-%d})',[FPain]), Point(SX+1,14), Red );
+    if FFreeze > 0  then
+      VTIG_FreeLabel( Format('Frz ({^-%d})',[FFreeze]), Point(SX+12,14), LightBlue );
+    if isBerserk then
+      if EnemiesAround div 2 > 0 then
+        VTIG_FreeLabel( Format('Brk ({^+%d})',[EnemiesAround div 2]), Point(SX+21,14), Red );
+
+    VTIG_FreeLabel( '---------------------------', Point(SX+1,15), DarkGray );
+    if FMode <> MODE_MASSACRE then
+    begin
+      iCt := Max(Min(Round((Level.FTickCount/NIGHTDURATION)*28),28),1);
+      VTIG_FreeChar( '=', VTIG_PositionResolve( Point(SX+iCt,15) ), LightGray );
+      if iCt < 14
+        then VTIG_FreeLabel( Format(' Night %d ',[Player.FNight]), Point(SX+18,15), DarkGray )
+        else VTIG_FreeLabel( Format(' Night %d ',[Player.FNight]), Point(SX+2,15), DarkGray );
+    end;
+
+    // Messages area (rows 16-23)
+    if FTIGMessages <> nil then
+    begin
+      iMsgStart := FTIGMessages.Content.Size - 8;
+      if iMsgStart < 0 then iMsgStart := 0;
+      for iCount := 0 to 7 do
+        if iMsgStart + iCount < Integer(FTIGMessages.Content.Size) then
+          if iMsgStart + iCount >= Integer(FTIGMessages.Content.Size) - Integer(FTIGMessages.Active)
+            then VTIG_FreeLabel( FTIGMessages.Content[ iMsgStart + iCount - Integer(FTIGMessages.Content.Size) ], Point(SX+1,16+iCount), LightGray )
+            else VTIG_FreeLabel( FTIGMessages.Content[ iMsgStart + iCount - Integer(FTIGMessages.Content.Size) ], Point(SX+1,16+iCount), DarkGray );
+    end;
+
+    if Option_KillCount then
+      VTIG_FreeLabel( Format('[{r%d}]',[Player.GetKills]), Point(SX+20,24), DarkGray );
+  end;
 end;
 
 procedure TBerserkUI.RunLayer( aLayer : TIOLayer );
 begin
-  FStatus.Enabled := False;
+  FStatusVisible := False;
   FConsole.Clear;
   FConsole.HideCursor;
   inherited RunLayer( aLayer );
@@ -228,6 +331,24 @@ begin
   Result := Config.Configure( 'sounds.'+aID+'.'+aSound, '-' );
   if Result = '-' then
     Result := Config.Configure( 'sounds.'+aSound, '' );
+end;
+
+procedure TBerserkUI.Msg( const aMessage : Ansistring );
+begin
+  if FTIGMessages <> nil then
+    FTIGMessages.Add( aMessage );
+end;
+
+procedure TBerserkUI.MsgUpdate;
+begin
+  if FTIGMessages <> nil then
+    FTIGMessages.Update;
+end;
+
+procedure TBerserkUI.MsgKill;
+begin
+  if FTIGMessages <> nil then
+    FTIGMessages.Pop;
 end;
 
 procedure TBerserkUI.MsgDump(var TextFile : Text);
@@ -254,8 +375,7 @@ function TBerserkUI.GetCommand(Valid : TCommandSet) : byte;
 begin
   if Assigned( Sound ) then
     Sound.Listener := Player.Position;
-  FStatus.Enabled := True;
-  //Draw;
+  FStatusVisible := True;
   Exit( WaitForCommand( Valid ) );
 end;
 

@@ -238,13 +238,13 @@ begin
 end;
 
 constructor TMessagesLayer.Create;
-var iList   : TUIChunkList;
+var iMsg    : AnsiString;
 begin
   inherited Create( nil );
   FHeader := ' {!Berserk!} Previous messages';
   FContent := TUIStringArray.Create;
-  for iList in UI.Status.Messages.Content do
-    FContent.Push(ChunkListToString( iList ) );
+  for iMsg in UI.Messages.Content do
+    FContent.Push( iMsg );
   FScrollDown := True;
 end;
 

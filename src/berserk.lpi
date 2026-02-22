@@ -90,10 +90,7 @@
         <Filename Value="brconfig.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit13>
-      <Unit14>
-        <Filename Value="brgviews.pas"/>
-        <IsPartOfProject Value="True"/>
-      </Unit14>
+
       <Unit15>
         <Filename Value="branimation.pas"/>
         <IsPartOfProject Value="True"/>

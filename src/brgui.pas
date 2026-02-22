@@ -533,6 +533,13 @@ begin
   DrawSprites;
   FAnimations.Draw;
 
+  if FStatusVisible then
+  begin
+    FPreQuads[Textures.Texture[Textures.TextureID['background']].GLTexture].PushQuad(
+      GLVec3i( 500, 0, GMODE_GUI_Z ), GLVec3i( 800, 600, GMODE_GUI_Z ),
+      TGLVec4f.Create( 1, 1, 1, 1 ), GLVec2f(),
+      Textures.Texture[Textures.TextureID['background']].GLSize );
+  end;
   FTerrain.Update;
   FPreQuads.Update;
 
@@ -545,6 +552,7 @@ begin
   FPreQuads.Clear;
   FProgram.UnBind;
   glDisable( GL_DEPTH_TEST );
+  if FStatusVisible then DrawStatus;
   inherited Update( aMSec );
 end;
 

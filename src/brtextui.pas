@@ -399,6 +399,7 @@ begin
     FTextMap.Update( aMSec );
     FTextMap.OnRedraw;
   end;
+  if FStatusVisible then DrawStatus;
   inherited Update( aMSec );
   VTIG_EventClear;
 end;

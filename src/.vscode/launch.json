@@ -9,7 +9,7 @@
             "type": "gdb",
             "request": "launch",
             "target": "./berserk.exe",
-            //"terminal": "external",
+            "terminal": "external",
             "arguments": "-god -nosound",
             "cwd": "${workspaceRoot}/../bin",
             "valuesFormatting": "parseText",
