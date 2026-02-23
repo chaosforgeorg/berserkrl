@@ -23,7 +23,7 @@
 {$INCLUDE brinclude.inc}
 unit bruiscreens;
 interface
-uses vioevent, vuitypes, viotypes, vtigstyle;
+uses vioevent, viotypes, vtigstyle;
 
 type TScreenLayer = class( TIOLayer )
   constructor Create;
@@ -113,11 +113,11 @@ protected
 end;
 
 type TScrollingLayer = class( TFullScreenLayer )
-  constructor Create( aContent : TUIStringArray );
+  constructor Create( aContent : TIOStringArray );
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
   destructor Destroy; override;
 protected
-  FContent    : TUIStringArray;
+  FContent    : TIOStringArray;
   FScrollDown : Boolean;
   FStyle      : TTIGStyle;
 end;
@@ -142,7 +142,7 @@ type THelpLayer = class( TScrollingLayer )
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
   destructor Destroy; override;
 protected
-  FKeys  : TUIStringArray;
+  FKeys  : TIOStringArray;
 //  FStyle : TTIGStyle;
 end;
 
@@ -197,7 +197,7 @@ begin
   Exit( True );
 end;
 
-constructor TScrollingLayer.Create( aContent : TUIStringArray );
+constructor TScrollingLayer.Create( aContent : TIOStringArray );
 begin
   inherited Create;
   VTIG_ResetScroll( 'scrolling_view' );
@@ -233,7 +233,7 @@ end;
 
 constructor TMortemLayer.Create;
 begin
-  inherited Create( TextFileToUIStringArray( WritePath + 'mortem.txt' ) );
+  inherited Create( TextFileToIOStringArray( WritePath + 'mortem.txt' ) );
   FHeader := ' {!Berserk!} Post Mortem (mortem.txt)';
 end;
 
@@ -242,7 +242,7 @@ var iMsg    : AnsiString;
 begin
   inherited Create( nil );
   FHeader := ' {!Berserk!} Previous messages';
-  FContent := TUIStringArray.Create;
+  FContent := TIOStringArray.Create;
   for iMsg in UI.Messages.Content do
     FContent.Push( iMsg );
   FScrollDown := True;
@@ -258,7 +258,7 @@ var i, iR  : DWord;
     iMaxB  : Integer;
 begin
   inherited Create( nil );
-  FContent := TUIStringArray.Create;
+  FContent := TIOStringArray.Create;
   FCurrent := Integer( Berserk.Persistence.GetCurrent );
   i := 0;
   iMode := IntToStr( Player.Mode );
@@ -324,7 +324,7 @@ constructor THelpLayer.Create;
 var i, iSid : Integer;
 begin
   inherited Create( nil );
-  FKeys := TUIStringArray.Create;
+  FKeys := TIOStringArray.Create;
   for i := 0 to High( KeyData ) do
     FKeys.Push( Padded( KeyData[i].Entry, 17 ) +' {!' + Berserk.Config.GetKeybinding( KeyData[i].Command ) + '}' );
   for i := 1 to SKILL_SLOTS do
@@ -353,7 +353,7 @@ begin
       if VTIG_Selectable( HelpData[i].Name ) then
       begin
         VTIG_ResetScroll( 'scrolling_view' );
-        FContent := TextFileToUIStringArray( DataPath + 'help' + PathDelim + HelpData[i].Filename );
+        FContent := TextFileToIOStringArray( DataPath + 'help' + PathDelim + HelpData[i].Filename );
         FHeader  := ' {!Berserk!} Help : {!' + HelpData[i].Name +'}';
       end;
     if VTIG_Selectable( '  Quit help' ) then

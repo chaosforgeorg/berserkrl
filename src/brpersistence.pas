@@ -21,7 +21,7 @@
 {$INCLUDE brinclude.inc}
 unit brpersistence;
 interface
-uses DOM, vxml, vuitypes, vxmldata;
+uses DOM, vxml, vxmldata;
 
 const MAX_SCORE_ENTRIES = 500;
 const SCORE_FILE_NAME   = 'score.dat';

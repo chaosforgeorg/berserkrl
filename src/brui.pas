@@ -30,7 +30,7 @@ interface
 
 uses vutil, vio, viorl, vrltools,
      viotypes, vioevent, vioconsole,
-     vuielement, vmessages, brdata;
+     vmessages, brdata;
 
 const
     // Option that makes the name always "random"
@@ -160,36 +160,10 @@ uses SysUtils, DateUtils, variants, math, vsound, vtigstyle, vtig,
 { TBerserkUI }
 
 constructor TBerserkUI.Create;
-var iStyle : TUIStyle;
-    iCount : Byte;
+var iCount : Byte;
     iKey   : TIOKeyCode;
 begin
-//  inherited Create;
-  iStyle := TUIStyle.Create('default');
-  iStyle.Add('','fore_color', LightGray );
-  iStyle.Add('','selected_color', White );
-  iStyle.Add('','inactive_color', Red );
-  iStyle.Add('','selinactive_color', LightRed );
-  iStyle.Add('menu','fore_color', DarkGray );
-  iStyle.Add('','back_color', Black );
-  iStyle.Add('','scroll_chars', '^v' );
-  iStyle.Add('','icon_color', LightGray );
-  iStyle.Add('','opaque', False );
-  if HighASCII then
-    iStyle.Add('','frame_chars', #196+#179+#196+#179+#218+#191+#192+#217+#196+#179+'^v' )
-  else
-    iStyle.Add('','frame_chars', '-|-|/\\/-|^v' );
-  iStyle.Add('window','fore_color', LightGray );
-  iStyle.Add('full_window','fore_color', LightGray );
-  iStyle.Add('','frame_color', DarkGray );
-  iStyle.Add('full_window','title_color', LightGray );
-  iStyle.Add('full_window','footer_color', LightGray );
-  iStyle.Add('input','fore_color', White );
-  iStyle.Add('input','back_color', Black );
-  iStyle.Add('text','fore_color', LightGray );
-  iStyle.Add('text','back_color', ColorNone );
-
-  inherited Create( FIODriver, FConsole, iStyle, True );
+  inherited Create( FIODriver, FConsole, nil, True );
   VTIGDefaultStyle.Color[ VTIG_INPUT_TEXT_COLOR ]          := White;
   VTIGDefaultStyle.Color[ VTIG_INPUT_BACKGROUND_COLOR ]    := Black;
   VTIGDefaultStyle.Color[ VTIG_SELECTED_BACKGROUND_COLOR ] := Black;
