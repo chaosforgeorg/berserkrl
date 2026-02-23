@@ -86,14 +86,6 @@ type
     constructor Create; reintroduce;
     // Runs a layer
     procedure RunLayer( aLayer : TIOLayer ); override;
-    // Adds a message to the TIG message buffer
-    procedure Msg( const aMessage : Ansistring ); override;
-    // Update TIG messages
-    procedure MsgUpdate; override;
-    // Kill last TIG message
-    procedure MsgKill;
-    // Dump last messages to file.
-    procedure MsgDump(var TextFile : Text);
     // Writes a tile description in the msg area.
     procedure MsgCoord( Coord : TCoord2D );
     // Reads a key from the keyboard and returns it's Command value.
@@ -138,12 +130,10 @@ type
     // Register API
     class procedure RegisterLuaAPI();
   protected
-    FTIGMessages   : TMessages;
     FStatusVisible : Boolean;
     FShift         : Integer; // only in GFX mode
   public
     property StatusVisible : Boolean read FStatusVisible write FStatusVisible;
-    property Messages  : TMessages    read FTIGMessages;
     property Shift     : Integer      read FShift  write FShift; // only in GFX mode
   end;
 
@@ -175,7 +165,7 @@ begin
   VTIGDefaultStyle.Padding[ VTIG_WINDOW_PADDING ]     := Point( 2,1 );
   VTIGDefaultStyle.Padding[ VTIG_SELECTABLE_PADDING ] := Point( 0,0 );
 
-  FTIGMessages := TMessages.Create( 8, 28, nil, Option_MessageBuffer );
+  FTMessages := TMessages.Create( 8, 28, nil, Option_MessageBuffer );
   FStatusVisible := False;
 
   FIODriver.SetTitle('Berserk!','Berserk!');
@@ -188,7 +178,7 @@ begin
   end;
 
   if Option_MessageColoring then
-    Berserk.Config.EntryFeed( 'Messages', @FTIGMessages.AddHighlightCallback );
+    Berserk.Config.EntryFeed( 'Messages', @FTMessages.AddHighlightCallback );
 
   Screen := Menu;
 
@@ -274,15 +264,15 @@ begin
     end;
 
     // Messages area (rows 16-23)
-    if FTIGMessages <> nil then
+    if FTMessages <> nil then
     begin
-      iMsgStart := FTIGMessages.Content.Size - 8;
+      iMsgStart := FTMessages.Content.Size - 8;
       if iMsgStart < 0 then iMsgStart := 0;
       for iCount := 0 to 7 do
-        if iMsgStart + iCount < Integer(FTIGMessages.Content.Size) then
-          if iMsgStart + iCount >= Integer(FTIGMessages.Content.Size) - Integer(FTIGMessages.Active)
-            then VTIG_FreeLabel( FTIGMessages.Content[ iMsgStart + iCount - Integer(FTIGMessages.Content.Size) ], Point(SX+1,16+iCount), LightGray )
-            else VTIG_FreeLabel( FTIGMessages.Content[ iMsgStart + iCount - Integer(FTIGMessages.Content.Size) ], Point(SX+1,16+iCount), DarkGray );
+        if iMsgStart + iCount < Integer(FTMessages.Content.Size) then
+          if iMsgStart + iCount >= Integer(FTMessages.Content.Size) - Integer(FTMessages.Active)
+            then VTIG_FreeLabel( FTMessages.Content[ iMsgStart + iCount - Integer(FTMessages.Content.Size) ], Point(SX+1,16+iCount), LightGray )
+            else VTIG_FreeLabel( FTMessages.Content[ iMsgStart + iCount - Integer(FTMessages.Content.Size) ], Point(SX+1,16+iCount), DarkGray );
     end;
 
     if Option_KillCount then
@@ -305,32 +295,6 @@ begin
   Result := Config.Configure( 'sounds.'+aID+'.'+aSound, '-' );
   if Result = '-' then
     Result := Config.Configure( 'sounds.'+aSound, '' );
-end;
-
-procedure TBerserkUI.Msg( const aMessage : Ansistring );
-begin
-  if FTIGMessages <> nil then
-    FTIGMessages.Add( aMessage );
-end;
-
-procedure TBerserkUI.MsgUpdate;
-begin
-  if FTIGMessages <> nil then
-    FTIGMessages.Update;
-end;
-
-procedure TBerserkUI.MsgKill;
-begin
-  if FTIGMessages <> nil then
-    FTIGMessages.Pop;
-end;
-
-procedure TBerserkUI.MsgDump(var TextFile : Text);
-var Count : Word;
-begin
-{  for Count := Option_MortemMessages downto 1 do
-    if Messages.Get(Count) <> '' then
-      Writeln(TextFile,' '+StripEncoding(Messages.Get(Count)));}
 end;
 
 procedure TBerserkUI.MsgCoord ( Coord : TCoord2D ) ;

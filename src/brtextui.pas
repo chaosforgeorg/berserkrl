@@ -62,14 +62,7 @@ type
     // ITextMap implementation
     function getGylph( const aCoord : TCoord2D ) : TIOGylph;
   private
-    FTextMap    : TTextMap;
     FMapEnabled : Boolean;
-    // Marks the given tile with the specified gylph. Use MarkDisplay afterwards.
-    procedure MarkTile( aCoord : TCoord2D; atr : byte; chr : char );
-    // Shadow of TIORL.AddExplodeAnimation using TText* types
-    procedure AddExplodeAnimation( aCoord : TCoord2D; const aArray : TTextExplosionArray; aDelay : DWord );
-    // Shadow of TIORL.Explosion using TText* types
-    procedure Explosion( aWhere : TCoord2D; aColor : byte; aRange : byte; aDrawDelay : Word; aDelay : Word );
   end;
 
 
@@ -96,13 +89,13 @@ begin
 {$ENDIF}
   inherited Create;
   FConsole.Clear;
-  FTextMap := TTextMap.Create( FConsole, Rectangle( 1, 1, 50, 25 ), Self );
+  FTMap := TTextMap.Create( FConsole, Rectangle( 1, 1, 50, 25 ), Self );
   FMapEnabled := False;
 end;
 
 destructor TBerserkTextUI.Destroy;
 begin
-  FreeAndNil( FTextMap );
+  FreeAndNil( FTMap );
   inherited Destroy;
 end;
 
@@ -126,56 +119,20 @@ begin
   end;
 
   iDuration := iDrawDelay * (aSource - aTarget).LargerLength;
-  FTextMap.AddAnimation( TTextBulletAnimation.Create( Level, aSource, aTarget, IOGylph( iChar, iColor ), iDuration, aSequence ) );
+  AddBulletAnimation( aSource, aTarget, iChar, iColor, iDuration, aSequence );
 
   iScan := Player.TryMove( aTarget );
   if iScan in [ Move_Block, Move_Invalid ] then // Missile hits non-passable feature
     if Level.Vision.isVisible( aTarget ) then
-      FTextMap.AddAnimation( TTextMarkAnimation.Create( aTarget, IOGylph( '*', LightGray ), 50, aSequence + iDuration ) );
+      AddMarkAnimation( aTarget, '*', LIGHTGRAY, 50, aSequence + iDuration );
 
   if iScan = Move_Being then // Missile hits Being
-    FTextMap.AddAnimation( TTextMarkAnimation.Create( aTarget, IOGylph( '*', Red ), 100, aSequence + iDuration ) );
+    AddMarkAnimation( aTarget, '*', Red, 100, aSequence + iDuration );
 end;
 
 procedure TBerserkTextUI.AddExplosion( aWhere : TCoord2D; aColor : byte; aRange : byte; aStep : byte; aDrawDelay, aSequence : Word );
 begin
   Explosion( aWhere, aColor, aRange, aDrawDelay, aSequence );
-end;
-
-procedure TBerserkTextUI.Explosion( aWhere : TCoord2D; aColor : byte; aRange : byte; aDrawDelay : Word; aDelay : Word );
-var iExpl     : TTextExplosionArray;
-    iCoord    : TCoord2D;
-    iDistance : DWord;
-begin
-  FTextMap.FreezeMarks;
-  SetLength( iExpl, 4 );
-  iExpl[0].Time := aDrawDelay;
-  iExpl[1].Time := aDrawDelay;
-  iExpl[2].Time := aDrawDelay;
-  iExpl[3].Time := aDrawDelay;
-  case aColor of
-    Blue    : begin iExpl[3].Color := Blue;    iExpl[0].Color := LightBlue;  iExpl[1].Color := White; end;
-    Magenta : begin iExpl[3].Color := Magenta; iExpl[0].Color := Red;        iExpl[1].Color := Blue; end;
-    Green   : begin iExpl[3].Color := Green;   iExpl[0].Color := LightGreen; iExpl[1].Color := White; end;
-    LightRed: begin iExpl[3].Color := LightRed;iExpl[0].Color := Yellow;     iExpl[1].Color := White; end;
-     else     begin iExpl[3].Color := Red;     iExpl[0].Color := LightRed;   iExpl[1].Color := Yellow; end;
-  end;
-  iExpl[2].Color := iExpl[0].Color;
-
-  for iCoord in NewArea( aWhere, aRange ).Clamped( Level.Area ) do
-  begin
-    if not Level.Vision.isVisible( iCoord ) then Continue;
-    iDistance := Distance( iCoord, aWhere );
-    if iDistance > aRange then Continue;
-    if not Level.isEyeContact( iCoord, aWhere ) then Continue;
-    AddExplodeAnimation( iCoord, iExpl, iDistance*aDrawDelay+aDelay );
-  end;
-  FTextMap.AddAnimation( TTextClearMarkAnimation.Create( aRange*aDrawDelay+aDelay ) );
-end;
-
-procedure TBerserkTextUI.AddExplodeAnimation( aCoord : TCoord2D; const aArray : TTextExplosionArray; aDelay : DWord );
-begin
-  FTextMap.AddAnimation( TTextExplosionAnimation.Create( aCoord, '*', aArray, aDelay ) );
 end;
 
 procedure TBerserkTextUI.Breath( aWhere : TCoord2D; aDirection : TDirection; aColor : byte; aRange : byte; aStep : byte; aDrawDelay : Word );
@@ -201,7 +158,7 @@ begin
   iExpl[3].Color := iExpl[1].Color;
   iExpl[4].Color := iExpl[0].Color;
 
-  FTextMap.FreezeMarks;
+  FTMap.FreezeMarks;
   aRange := aRange + 4;
   for iCoord in NewArea( aWhere, aRange ).Clamped( Level.Area ) do
   begin
@@ -223,20 +180,14 @@ begin
 
     AddExplodeAnimation( iCoord, iExpl, iDist*aDrawDelay+Random(aDrawDelay*3) + 5*aDrawDelay );
   end;
-  FTextMap.AddAnimation( TTextClearMarkAnimation.Create( (aRange+8)*aDrawDelay ) );
+  FTMap.AddAnimation( TTextClearMarkAnimation.Create( (aRange+8)*aDrawDelay ) );
 end;
-
 
 procedure TBerserkTextUI.Target( Where : TCoord2D; color : Byte );
 begin
-  FTextMap.ClearMarks;
+  FTMap.ClearMarks;
   if Color <> BLACK then
-    MarkTile( where, color, 'X' );
-end;
-
-procedure TBerserkTextUI.MarkTile( aCoord : TCoord2D; atr : byte; chr : char );
-begin
-  FTextMap.Mark( aCoord, chr, atr );
+    MarkTile( where, 'X', color );
 end;
 
 procedure TBerserkTextUI.Blink( aColor : Byte; aDuration : Word; aSequence : Word );
@@ -246,7 +197,7 @@ begin
     aBox := IOGylph( #219, aColor )
   else
     aBox := IOGylph( '#', aColor );
-  FTextMap.AddAnimation( TTextBlinkAnimation.Create( aBox, aDuration, aSequence ) );
+  FTMap.AddAnimation( TTextBlinkAnimation.Create( aBox, aDuration, aSequence ) );
 end;
 
 procedure TBerserkTextUI.AddAttack(aWho: TUID; aHit: Boolean; const aFrom,  aTo: TCoord2D);
@@ -254,7 +205,7 @@ var iBeing : TBeing;
 begin
   iBeing := UIDs.Get( aWho ) as TBeing;
   if Assigned( Sound ) then
-    FTextMap.AddAnimation( TSoundAnimation.Create( 0, iBeing.Position, ResolveSoundID( iBeing.id, Iif( aHit, 'hit', 'miss' ) ) ) );
+    FTMap.AddAnimation( TSoundAnimation.Create( 0, iBeing.Position, ResolveSoundID( iBeing.id, Iif( aHit, 'hit', 'miss' ) ) ) );
 end;
 
 type
@@ -396,8 +347,8 @@ procedure TBerserkTextUI.Update( aMSec : DWord );
 begin
   if FMapEnabled then
   begin
-    FTextMap.Update( aMSec );
-    FTextMap.OnRedraw;
+    FTMap.Update( aMSec );
+    FTMap.OnRedraw;
   end;
   if FStatusVisible then DrawStatus;
   inherited Update( aMSec );

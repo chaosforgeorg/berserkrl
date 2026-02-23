@@ -351,7 +351,7 @@ begin
   Writeln(Mortem,'');
   Writeln(Mortem,Padded('-- Messages ',70,'-'));
   Writeln(Mortem,'');
-  UI.MsgDump(Mortem);
+  UI.MsgDump(Mortem,10);
   Writeln(Mortem,'');
   Writeln(Mortem,Padded('-- Achievements ',70,'-'));
   Writeln(Mortem,'');
