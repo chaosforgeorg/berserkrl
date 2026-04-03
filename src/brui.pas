@@ -217,8 +217,8 @@ var iCt     : Word;
         then iCharColor := aColorSpec
         else iCharColor := aColor;
       if iCount <= iFull
-        then VTIG_FreeChar( '#', VTIG_PositionResolve( Point(SX+iCount, aRow) ), iCharColor )
-        else VTIG_FreeChar( '-', VTIG_PositionResolve( Point(SX+iCount, aRow) ), iCharColor );
+        then VTIG_FreeChar( '#', Point(SX+iCount, aRow), iCharColor )
+        else VTIG_FreeChar( '-', Point(SX+iCount, aRow), iCharColor );
     end;
   end;
 
@@ -257,7 +257,7 @@ begin
     if FMode <> MODE_MASSACRE then
     begin
       iCt := Max(Min(Round((Level.FTickCount/NIGHTDURATION)*28),28),1);
-      VTIG_FreeChar( '=', VTIG_PositionResolve( Point(SX+iCt,15) ), LightGray );
+      VTIG_FreeChar( '=', Point(SX+iCt,15), LightGray );
       if iCt < 14
         then VTIG_FreeLabel( Format(' Night %d ',[Player.FNight]), Point(SX+18,15), DarkGray )
         else VTIG_FreeLabel( Format(' Night %d ',[Player.FNight]), Point(SX+2,15), DarkGray );

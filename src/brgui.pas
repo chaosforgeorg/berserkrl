@@ -273,10 +273,7 @@ var iCount       : DWord;
 begin
   {$IFDEF WINDOWS}
   if not GodMode then
-  begin
-    FreeConsole;
-    vdebug.DebugWriteln := nil;
-  end
+    FreeConsole
   else
   begin
     Logger.AddSink( TConsoleLogSink.Create( LOGDEBUG, true ) );
