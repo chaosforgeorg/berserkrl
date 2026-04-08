@@ -28,11 +28,9 @@ uses vioevent, viotypes, vtigstyle;
 type TScreenLayer = class( TIOLayer )
   constructor Create;
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
-  function IsFinished : Boolean; override;
   function IsModal : Boolean; override;
 protected
   FSeed     : DWord;
-  FFinished : Boolean;
 end;
 
 type TIntroLayer = class( TScreenLayer )
@@ -104,10 +102,8 @@ end;
 type TFullScreenLayer = class( TIOLayer )
   constructor Create;
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
-  function IsFinished : Boolean; override;
   function IsModal : Boolean; override;
 protected
-  FFinished : Boolean;
   FHeader   : Ansistring;
   FFooter   : Ansistring;
 end;
@@ -155,18 +151,12 @@ constructor TScreenLayer.Create;
 begin
   VTIG_EventClear;
   FSeed     := Random( 65000 );
-  FFinished := False;
 end;
 
 procedure TScreenLayer.Update( aDTime : Integer; aActive : Boolean );
 begin
   UI.DrawFire( FSeed );
   UI.RenderBG();
-end;
-
-function TScreenLayer.IsFinished : Boolean;
-begin
-  Exit( FFinished );
 end;
 
 function TScreenLayer.IsModal : Boolean;
@@ -177,7 +167,6 @@ end;
 constructor TFullScreenLayer.Create;
 begin
   VTIG_EventClear;
-  FFinished := False;
   FHeader   := '';
   FFooter   := ' Use {!arrows}, {!PgUp}, {!PgDown} to scroll, {!Escape} or {!Enter} to exit.';
 end;
@@ -185,11 +174,6 @@ end;
 procedure TFullScreenLayer.Update( aDTime : Integer; aActive : Boolean );
 begin
   UI.RenderBG();
-end;
-
-function TFullScreenLayer.IsFinished : Boolean;
-begin
-  Exit( FFinished );
 end;
 
 function TFullScreenLayer.IsModal : Boolean;
@@ -470,7 +454,7 @@ begin
   VTIG_Text('');
   VTIG_Text('{R                {0} kills and counting...}', [Player.FKills.Count] );
   VTIG_Text('');
-  if VTIG_Selectable('       Continue')      then begin FFinished := True; end;
+  if VTIG_Selectable('       Continue')      then FFinished := True;
   if VTIG_Selectable('       Save and Exit') then begin Berserk.Save; FFinished := True; end;
   VTIG_FreeLabel( FQuote, Rectangle( 10, 4, 40, 6 ) );
   VTIG_End;
