@@ -669,23 +669,23 @@ begin
   Ray.Init(Level,FPosition,Target);
   repeat
     Ray.Next;
-    if not Level.isProperCoord(Ray.GetC) then Exit;
+    if not Level.isProperCoord(Ray.Current) then Exit;
 
-    Scan := TryMove(Ray.GetC);
+    Scan := TryMove(Ray.Current);
     if Scan in [Move_Block, Move_Invalid] then // Missile hits non-passable feature
     begin
-      UI.SendMissile(FPosition,Ray.GetC,mtype,aSequence);
+      UI.SendMissile(FPosition,Ray.Current,mtype,aSequence);
       Break;
     end;
     if Scan = Move_Being then // Missile hits Being
     begin
-      Tgt := Level.Being[Ray.GetC];
+      Tgt := Level.Being[Ray.Current];
       if (not (BF_RUNNING in Tgt.FFlags)) or (Random(10) < 5) then
-      if (Ray.GetC = FTargetCoord) or (Dice(1,10) > 6) then
+      if (Ray.Current = FTargetCoord) or (Dice(1,10) > 6) then
       begin
-        UI.SendMissile(FPosition,Ray.GetC,mtype,aSequence);
+        UI.SendMissile(FPosition,Ray.Current,mtype,aSequence);
         if isPlayer then begin if isVisible then UI.Msg('You hit the '+Tgt.getName+'!') end
-                    else if (Ray.GetC = Player.Position) then UI.Msg('You''re hit!');
+                    else if (Ray.Current = Player.Position) then UI.Msg('You''re hit!');
         case mtype of
           MTBOLT   : Tgt.ApplyDamage(Dice(2,4),DAMAGE_PIERCE);
           MTKNIFE  : Tgt.ApplyDamage(Dice(getDamageDice,6)+getDamageMod+1,DAMAGE_PIERCE);
@@ -708,13 +708,13 @@ begin
     if (mtype in [MTBOMB,MTSPORE]) then
       if Ray.Done then
       begin
-        UI.SendMissile(FPosition,Ray.GetC,mtype,aSequence);
+        UI.SendMissile(FPosition,Ray.Current,mtype,aSequence);
         Break;
       end;
   until False;
-  if mtype = MTBOMB then Level.Explosion(Ray.GetC,Red,4,6,50,DAMAGE_FIRE,aSequence + 25 * (Ray.GetC - FPosition).LargerLength );
-  if (mtype = MTSPORE) and (Level.Being[Ray.GetC] = nil) then
-    Level.Summon('spore',Ray.GetC);
+  if mtype = MTBOMB then Level.Explosion(Ray.Current,Red,4,6,50,DAMAGE_FIRE,aSequence + 25 * (Ray.Current - FPosition).LargerLength );
+  if (mtype = MTSPORE) and (Level.Being[Ray.Current] = nil) then
+    Level.Summon('spore',Ray.Current);
 end;
 
 
