@@ -501,7 +501,7 @@ begin
   inherited Create;
   FName[0] := #0;
   UI.Driver.StartTextInput;
-  UI.Root.Console.ShowCursor;
+  UI.Console.ShowCursor;
 end;
 
 procedure TGameNameLayer.Update( aDTime : Integer; aActive : Boolean );
@@ -513,7 +513,7 @@ begin
   begin
     Player.Name := AnsiString(FName);
     UI.Driver.StopTextInput;
-    UI.Root.Console.HideCursor;
+    UI.Console.HideCursor;
     FFinished := True;
   end;
   VTIG_End;

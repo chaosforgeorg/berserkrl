@@ -153,7 +153,7 @@ constructor TBerserkUI.Create;
 var iCount : Byte;
     iKey   : TIOKeyCode;
 begin
-  inherited Create( FIODriver, FConsole, nil, True );
+  inherited Create( FIODriver, FConsole );
   VTIGDefaultStyle.Color[ VTIG_INPUT_TEXT_COLOR ]          := White;
   VTIGDefaultStyle.Color[ VTIG_INPUT_BACKGROUND_COLOR ]    := Black;
   VTIGDefaultStyle.Color[ VTIG_SELECTED_BACKGROUND_COLOR ] := Black;
@@ -165,7 +165,7 @@ begin
   VTIGDefaultStyle.Padding[ VTIG_WINDOW_PADDING ]     := Point( 2,1 );
   VTIGDefaultStyle.Padding[ VTIG_SELECTABLE_PADDING ] := Point( 0,0 );
 
-  FTMessages := TMessages.Create( 8, 28, nil, Option_MessageBuffer );
+  FMessages := TMessages.Create( 8, 28, nil, Option_MessageBuffer );
   FStatusVisible := False;
 
   FIODriver.SetTitle('Berserk!','Berserk!');
@@ -178,7 +178,7 @@ begin
   end;
 
   if Option_MessageColoring then
-    Berserk.Config.EntryFeed( 'Messages', @FTMessages.AddHighlightCallback );
+    Berserk.Config.EntryFeed( 'Messages', @FMessages.AddHighlightCallback );
 
   Screen := Menu;
 
@@ -264,15 +264,15 @@ begin
     end;
 
     // Messages area (rows 16-23)
-    if FTMessages <> nil then
+    if FMessages <> nil then
     begin
-      iMsgStart := FTMessages.Content.Size - 8;
+      iMsgStart := FMessages.Content.Size - 8;
       if iMsgStart < 0 then iMsgStart := 0;
       for iCount := 0 to 7 do
-        if iMsgStart + iCount < Integer(FTMessages.Content.Size) then
-          if iMsgStart + iCount >= Integer(FTMessages.Content.Size) - Integer(FTMessages.Active)
-            then VTIG_FreeLabel( FTMessages.Content[ iMsgStart + iCount - Integer(FTMessages.Content.Size) ], Point(SX+1,16+iCount), LightGray )
-            else VTIG_FreeLabel( FTMessages.Content[ iMsgStart + iCount - Integer(FTMessages.Content.Size) ], Point(SX+1,16+iCount), DarkGray );
+        if iMsgStart + iCount < Integer(FMessages.Content.Size) then
+          if iMsgStart + iCount >= Integer(FMessages.Content.Size) - Integer(FMessages.Active)
+            then VTIG_FreeLabel( FMessages.Content[ iMsgStart + iCount - Integer(FMessages.Content.Size) ], Point(SX+1,16+iCount), LightGray )
+            else VTIG_FreeLabel( FMessages.Content[ iMsgStart + iCount - Integer(FMessages.Content.Size) ], Point(SX+1,16+iCount), DarkGray );
     end;
 
     if Option_KillCount then
