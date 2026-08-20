@@ -88,7 +88,7 @@ begin
   begin
     if AudioDriver = 'FMOD'
       then Sound := TFMODSound.Create
-      else Sound := TSDLSound.Create;
+      else Sound := TSDLSound.Create( UI.VisualRNG );
     Sound.Configure( Config );
     LoadAudio;
     Sound.PlayMusic('menu');
