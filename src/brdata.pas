@@ -179,7 +179,7 @@ function ModeToString( Mode : Byte ) : Ansistring;
 
 implementation
 
-uses SysUtils, brui;
+uses SysUtils, brui, brmain;
 
 function ArenaToString(ArenaID : byte) : string;
 begin
@@ -195,7 +195,7 @@ end;
 
 function RollDice : Integer;
 begin
-  RollDice := Dice(3,6);
+  RollDice := Berserk.GameRNG.Dice( 3, 6 );
   if (RollDice = 3)  or (RollDice = 4)  then Exit(-100);
   if (RollDice = 17) or (RollDice = 18) then Exit(100);
 end;

@@ -437,7 +437,8 @@ repeat
 
   Slip := False;
   
-  if ( TF_ICE in Level.getFlags( FPosition ) ) and (Dice(3,6) > DX) then
+  if ( TF_ICE in Level.getFlags( FPosition ) ) and
+     ( Berserk.GameRNG.Dice( 3, 6 ) > DX ) then
     Slip := True;
 
   if not Slip then
@@ -451,7 +452,7 @@ repeat
   begin
     if Slip then
     begin
-      Direction.Create( Random(9)+1 );
+      Direction.Create( Berserk.GameRNG.RLongInt( 9 ) + 1 );
       UI.Msg('You slip!');
       FSpeedCount -= 500;
     end

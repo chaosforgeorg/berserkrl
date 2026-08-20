@@ -66,10 +66,6 @@ type
     FArena :   Byte;
     // Count of ticks passed. Based on each speed incrementation.
     FTickCount : DWord;
-    // Currently only used in the graphical version. Stores a random value for
-    // each level.
-    FSeed :    Word;
-
     // Used to decide on the base sprite for overlays
     FSpriteBase : Word;
 
@@ -169,7 +165,6 @@ begin
   FMode := mode_Massacre;
   FArena := 1;
   FTickCount := 0;
-  FSeed := Random( $FFFF );
 end;
 
 procedure TLevel.Generate( nArena : byte; nMode : Byte; nSpawnLevel : Word );
@@ -190,7 +185,7 @@ begin
   FMode := nMode;
 
   if FMode = mode_Endless then
-    FArena := Random( 4 ) + 1;
+    FArena := Berserk.GameRNG.RLongInt( 4 ) + 1;
 
   LuaSystem.ProtectedCall(['generator','run'],[]);
 
@@ -198,7 +193,8 @@ begin
 
   Add( Player );
   repeat
-    PlayerPosition.Create( Random( 20 ) + 15, Random( 10 ) + 5 );
+    PlayerPosition.Create( Berserk.GameRNG.RLongInt( 20 ) + 15,
+      Berserk.GameRNG.RLongInt( 10 ) + 5 );
   until Player.TryMove( PlayerPosition ) = Move_Ok;
   Player.Displace( PlayerPosition );
   for c in FArea do
@@ -296,8 +292,8 @@ begin
     if Amount > 1 then
       for Count := 1 to Amount do
       begin
-        Shift.x := Random( 3 ) - 1;
-        Shift.y := Random( 3 ) - 1;
+        Shift.x := Berserk.GameRNG.RLongInt( 3 ) - 1;
+        Shift.y := Berserk.GameRNG.RLongInt( 3 ) - 1;
         if isproperCoord( Coord + Shift ) then
           Bleed( Coord + Shift, Amount - 1 );
       end;
@@ -380,7 +376,8 @@ begin
         begin
           if not Level.isEyeContact( Coord, Where ) then
             Continue;
-          Damage := Dice( Strength, 6 ) div Max( 1, Distance( Coord, Where ) div 2 );
+          Damage := Berserk.GameRNG.Dice( Strength, 6 ) div
+            Max( 1, Distance( Coord, Where ) div 2 );
           if Being[Coord] <> nil then
             with Being[Coord] do
             begin
@@ -449,7 +446,8 @@ begin
       if d > Range then
         Continue;
 
-      Damage := Round( Dice( Strength, 6 ) / Max( 1, d div 3 ) );
+      Damage := Round( Berserk.GameRNG.Dice( Strength, 6 ) /
+        Max( 1, d div 3 ) );
 
       if Being[Coord] <> nil then
         with Being[Coord] do

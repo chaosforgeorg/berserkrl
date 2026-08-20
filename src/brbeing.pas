@@ -276,7 +276,7 @@ procedure TBeing.Init;
 var i : DWord;
 begin
   FAffected    := False;
-  FSpeedCount   := 4000 + Random(500);
+  FSpeedCount   := 4000 + Berserk.GameRNG.RLongInt( 500 );
   FWillCount    := 0;
   FAttackCount  := 0;
   FTargetCoord  := ZeroCoord2D;
@@ -467,7 +467,7 @@ begin
   begin
     if mx = 0 then
     begin
-      MoveCoord.x := FPosition.x+(Random(2)*2-1);
+      MoveCoord.x := FPosition.x + ( Berserk.GameRNG.RLongInt( 2 ) * 2 - 1 );
       MoveCoord.y := FPosition.y+my;
       MoveResult := TryMove( MoveCoord );
     end
@@ -484,7 +484,7 @@ begin
     if my = 0 then
     begin
       MoveCoord.x := FPosition.x+mx;
-      MoveCoord.y := FPosition.y+(Random(2)*2-1);
+      MoveCoord.y := FPosition.y + ( Berserk.GameRNG.RLongInt( 2 ) * 2 - 1 );
       MoveResult := TryMove( MoveCoord );
     end
     else
@@ -574,7 +574,7 @@ begin
   
 //  msg.add('Dice('+IntToStr(getDamageDice)+',6)'+'+'+IntToStr(getDamageMod+2));
 
-  Damage := Dice(getDamageDice,6)+getDamageMod+2; // The +1 represents the weapon
+  Damage := Berserk.GameRNG.Dice( getDamageDice, 6 ) + getDamageMod + 2; // The +1 represents the weapon
   if isPlayer then Damage += 3;                   // The +3 represents the Dragonslayer
   
   if AF_SWEEP  in AFlags then Damage -= 2;
@@ -604,7 +604,7 @@ procedure TBeing.Attack( aCoord : TCoord2D; AFlags : TFlags = [] );
 begin
   UpdateFacing( aCoord.x );
   if not Level.isProperCoord( aCoord ) then Exit;
-  Level.DamageTile( aCoord, Dice(getDamageDice,6)+getDamageMod);
+  Level.DamageTile( aCoord, Berserk.GameRNG.Dice( getDamageDice, 6 ) + getDamageMod );
   if Level.Being[ aCoord ] = nil then Exit;
   Attack(Level.Being[ aCoord ], AFlags );
 end;
@@ -661,9 +661,9 @@ begin
     Roll := RollDice;
     if Roll > DX-((Dist-5) div 3) then
       if Dist < 9 then
-        Target.RandomShift(1)
+        Target.RandomShift( Berserk.GameRNG, 1 )
       else
-        Target.RandomShift(2);
+        Target.RandomShift( Berserk.GameRNG, 2 );
   end;
 
   Ray.Init(Level,FPosition,Target);
@@ -680,19 +680,19 @@ begin
     if Scan = Move_Being then // Missile hits Being
     begin
       Tgt := Level.Being[Ray.Current];
-      if (not (BF_RUNNING in Tgt.FFlags)) or (Random(10) < 5) then
-      if (Ray.Current = FTargetCoord) or (Dice(1,10) > 6) then
+      if (not (BF_RUNNING in Tgt.FFlags)) or (Berserk.GameRNG.RLongInt( 10 ) < 5) then
+      if (Ray.Current = FTargetCoord) or (Berserk.GameRNG.Dice( 1, 10 ) > 6) then
       begin
         UI.SendMissile(FPosition,Ray.Current,mtype,aSequence);
         if isPlayer then begin if isVisible then UI.Msg('You hit the '+Tgt.getName+'!') end
                     else if (Ray.Current = Player.Position) then UI.Msg('You''re hit!');
         case mtype of
-          MTBOLT   : Tgt.ApplyDamage(Dice(2,4),DAMAGE_PIERCE);
-          MTKNIFE  : Tgt.ApplyDamage(Dice(getDamageDice,6)+getDamageMod+1,DAMAGE_PIERCE);
-          MTENERGY : Tgt.ApplyDamage(Dice(1,6),DAMAGE_ENERGY);
-          MTICE    : Tgt.ApplyDamage(Dice(2,5)+2,DAMAGE_FREEZE);
+          MTBOLT   : Tgt.ApplyDamage(Berserk.GameRNG.Dice( 2, 4 ),DAMAGE_PIERCE);
+          MTKNIFE  : Tgt.ApplyDamage(Berserk.GameRNG.Dice( getDamageDice, 6 )+getDamageMod+1,DAMAGE_PIERCE);
+          MTENERGY : Tgt.ApplyDamage(Berserk.GameRNG.Dice( 1, 6 ),DAMAGE_ENERGY);
+          MTICE    : Tgt.ApplyDamage(Berserk.GameRNG.Dice( 2, 5 )+2,DAMAGE_FREEZE);
           MTSPORE  : if Tgt.isPlayer then
-                       Tgt.ApplyDamage(Dice(3,6),DAMAGE_SPORE)
+                       Tgt.ApplyDamage(Berserk.GameRNG.Dice( 3, 6 ),DAMAGE_SPORE)
                      else
                        if not (BF_SPORERES in Tgt.FFlags) then
                        begin

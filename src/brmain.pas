@@ -27,8 +27,9 @@
 unit brmain;
 interface
 
-uses vsystem, brlua, brconfig,brlevel, brplayer,brdata,zstream,
-     brgui,brtextui,brpersistence;
+uses zstream, vsystem, vrandom,
+     brlua, brconfig, brlevel, brplayer, brdata,
+     brgui, brtextui, brpersistence;
 
 
 type
@@ -43,6 +44,8 @@ TBerserk = class(TSystem)
        Lua         : TBerserkLua;
        // Configuration
        Config      : TGameConfig;
+       // GameRNG
+       GameRNG     : TRNG;
        // Persistence
        Persistence : TPersistence;
        // Initialization of all data.
@@ -65,7 +68,7 @@ var Berserk : TBerserk = nil;
 
 implementation
 
-uses SysUtils, vmath, vuid, vioevent, vsound, vsdlsound, vfmodsound,
+uses SysUtils, vmath, vuid, vioevent, vsound, vsdlsound, vfmodsound, vlua,
      vluasystem, vutil, vsystems, vrltools,
      brui, bruiscreens;
 
@@ -74,6 +77,7 @@ uses SysUtils, vmath, vuid, vioevent, vsound, vsdlsound, vfmodsound,
 constructor TBerserk.Create( aConfig : TGameConfig );
 begin
   inherited Create;
+  GameRNG := TRNG.Create;
   Berserk := Self;
   Config  := aConfig;
   if GraphicsMode then
@@ -92,6 +96,7 @@ begin
   UIDs := Systems.Add( TUIDStore.Create ) as TUIDStore;
 
 
+  LuaRNG := GameRNG;
   Lua := TBerserkLua.Create;
   LuaSystem := Systems.Add( Lua ) as TLuaSystem;
   Lua.Load();
@@ -187,6 +192,8 @@ begin
   FreeAndNil(Level);
   FreeAndNil(Player);
   FreeAndNil(UI);
+  LuaRNG := nil;
+  FreeAndNil(GameRNG);
   inherited Destroy;
 end;
 
