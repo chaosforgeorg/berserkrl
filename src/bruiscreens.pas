@@ -29,8 +29,6 @@ type TScreenLayer = class( TIOLayer )
   constructor Create;
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
   function IsModal : Boolean; override;
-protected
-  FSeed     : DWord;
 end;
 
 type TIntroLayer = class( TScreenLayer )
@@ -150,12 +148,11 @@ uses sysutils, vutil, vtig, vtigio, vluasystem, vluatable, vxmldata,
 constructor TScreenLayer.Create;
 begin
   VTIG_EventClear;
-  FSeed     := Random( 65000 );
 end;
 
 procedure TScreenLayer.Update( aDTime : Integer; aActive : Boolean );
 begin
-  UI.DrawFire( FSeed );
+  UI.DrawFire;
   UI.RenderBG();
 end;
 
@@ -430,7 +427,7 @@ var i : Integer;
 begin
   inherited Create;
   i := LuaSystem.GetTableSize('quotes');
-  i := Random( i ) + 1;
+  i := UI.VisualRNG.RLongInt( i ) + 1;
   FQuote  := LuaSystem.Get( ['quotes', i, 'text'] ) +
              #10+'                        {d-- }'+
              LuaSystem.Get( ['quotes', i, 'author'] );

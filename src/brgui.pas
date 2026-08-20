@@ -424,7 +424,7 @@ begin
 
     FAnimations.AddAnimation( TGLExplAnimation.Create(
        aDrawDelay * 6,
-       iDist*aDrawDelay+Random(aDrawDelay*3),
+       iDist*aDrawDelay+VisualRNG.RLongInt(aDrawDelay*3),
        iCoord, GLVec2i( 48, 48 ), iGLColor ) );
   end;
 end;
@@ -462,7 +462,7 @@ begin
   begin
     iDelay := FAnimations.AddAnimation( TGLAttackAnimation.Create( 80, 0, iBeing, aFrom, aTo ) );
     if aHit then
-      FAnimations.AddAnimation( TGLMarkAnimation.Create( 200, iDelay + 50, 44, ToAbsPos( aTo, GMODE_EFFECT_Z ), GLVec2i(24,32), GLVec4f(1,1,1,1), Random(2) = 1 ) );
+      FAnimations.AddAnimation( TGLMarkAnimation.Create( 200, iDelay + 50, 44, ToAbsPos( aTo, GMODE_EFFECT_Z ), GLVec2i(24,32), GLVec4f(1,1,1,1), VisualRNG.RLongInt(2) = 1 ) );
     FAnimations.AddAnimation( TSoundAnimation.Create( iDelay div 2, iBeing.Position, ResolveSoundID( iBeing.id, Iif( aHit, 'hit', 'miss' ) ) ) );
   end;
 end;

@@ -212,7 +212,7 @@ begin
       UI.RunLayer( TGameNameLayer.Create );
     UI.Console.HideCursor;
     if FName = '' then
-    case Random(8) of
+    case Berserk.GameRNG.RLongInt(8) of
       0..1 : FName := 'Guts';
       2    : FName := 'Glowie';
       3    : FName := 'Turgor';

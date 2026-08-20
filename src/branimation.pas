@@ -277,7 +277,8 @@ constructor TGLMissileAnimation.Create(aDuration: DWord; aDelay: DWord;
 begin
   inherited Create( aDuration, aDelay, aUID, aTile, aSize, TGLQVec4f.CreateAll( aColor ), False );
   FStart   := GUI.ToAbsPos( aFrom, GMODE_EFFECT_Z );
-  FStop    := GUI.ToAbsPos( aTo, GMODE_EFFECT_Z ) + GLVec3i( Random(21) - 10, Random(21) - 10, 0 );
+  FStop    := GUI.ToAbsPos( aTo, GMODE_EFFECT_Z ) + GLVec3i(
+    GUI.VisualRNG.RLongInt(21) - 10, GUI.VisualRNG.RLongInt(21) - 10, 0 );
   FZoom    := aZoom;
   FRotated := aRotated;
   FHeading := radtodeg(-arctan2( FStop.x - FStart.x, FStop.y - FStart.y ) + PI/2);

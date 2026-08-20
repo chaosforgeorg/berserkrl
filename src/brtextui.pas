@@ -52,7 +52,7 @@ type
     // Sound effect
     procedure AddAttack( aWho : TUID; aHit : Boolean; const aFrom, aTo : TCoord2D ); override;
     // Draws a firey background
-    procedure DrawFire( aSeed : Cardinal = 0 ); override;
+    procedure DrawFire; override;
     // Runs a layer
     procedure RunLayer( aLayer : TIOLayer ); override;
     //  update
@@ -178,7 +178,8 @@ begin
     if not Level.Vision.isVisible( iCoord ) then Continue;
     if not Level.isEyeContact( iCoord, aWhere ) then Continue;
 
-    AddExplodeAnimation( iCoord, iExpl, iDist*aDrawDelay+Random(aDrawDelay*3) + 5*aDrawDelay );
+    AddExplodeAnimation( iCoord, iExpl, iDist*aDrawDelay+
+      VisualRNG.RLongInt(aDrawDelay*3) + 5*aDrawDelay );
   end;
   FTMap.AddAnimation( TTextClearMarkAnimation.Create( (aRange+8)*aDrawDelay ) );
 end;
@@ -211,12 +212,11 @@ end;
 type
   TGFXScreen = array[1..25, 1..80] of Word;
 
-procedure TBerserkTextUI.DrawFire( aSeed : Cardinal = 0 );
+procedure TBerserkTextUI.DrawFire;
 var
   Temp :  TGFXScreen;
   x, y, Count, limit : byte;
   ishift : shortint;
-  iSeed : Cardinal;
 const
   RedFire    = Ord( '#' ) + 256 * Red;
   LRedFire   = Ord( '#' ) + 256 * LightRed;
@@ -230,11 +230,11 @@ const
     begin
     iShift := (((FLastUpdate + vy*100) div 400) mod 3) - 1;
       case iShift of
-        -1 : if Random( 4 ) = 0 then
+        -1 : if VisualRNG.RLongInt( 4 ) = 0 then
             iShift := 0;
-        0 : if Random( 5 ) = 0 then
-            iShift := Random( 2 ) * 2 - 1;
-        1 : if Random( 4 ) = 0 then
+        0 : if VisualRNG.RLongInt( 5 ) = 0 then
+            iShift := VisualRNG.RLongInt( 2 ) * 2 - 1;
+        1 : if VisualRNG.RLongInt( 4 ) = 0 then
             iShift := 0;
       end;
       vx := Min( Max( 4, xx + iShift ), 77 );
@@ -309,22 +309,16 @@ begin
     for y := 1 to 25 do
       Temp[y, x] := Ord( ' ' ) + LightGray;
 
-  if aSeed <> 0 then
-  begin
-    iSeed := RandSeed;
-    RandSeed := aSeed;
-  end;
-
   for Count := 1 to 20 do
   begin
-    x := Max( Min( 76, Random( 4 ) - 2 + Count * 4 ), 4 );
-    limit := Random( 10 ) + 5;
+    x := Max( Min( 76, VisualRNG.RLongInt( 4 ) - 2 + Count * 4 ), 4 );
+    limit := VisualRNG.RLongInt( 10 ) + 5;
     DrawPart( x, y, limit );
   end;
   for Count := 1 to 20 do
   begin
-    x := Max( Min( 76, Random( 8 ) - 4 + Count * 4 ), 4 );
-    limit := Random( 15 ) + 1;
+    x := Max( Min( 76, VisualRNG.RLongInt( 8 ) - 4 + Count * 4 ), 4 );
+    limit := VisualRNG.RLongInt( 15 ) + 1;
     DrawPart( x, y, limit );
   end;
 
@@ -332,9 +326,6 @@ begin
   for y := 1 to 25 do
     for x := 1 to 80 do
       Console.OutputChar( x, y, Temp[y, x] div 256, Char( Temp[y, x] mod 256 ) );
-
-  if aSeed <> 0 then
-    RandSeed := iSeed;
 end;
 
 procedure TBerserkTextUI.RunLayer( aLayer : TIOLayer );

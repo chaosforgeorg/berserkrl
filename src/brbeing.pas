@@ -512,7 +512,7 @@ end;
 procedure TBeing.Tick;
 begin
   if FFreeze > FSpeed-10 then FFreeze := FSpeed - 10;
-  if Random(1000) = 0 then PlaySound('passive');
+  if UI.VisualRNG.RLongInt(1000) = 0 then PlaySound('passive');
   FSpeedCount += FSpeed - FFreeze;
   while FSpeedCount > SPEEDLIMIT do Action;
   if (FPain > 0) or (FFreeze > 0) or (FEN < FENMAX) then

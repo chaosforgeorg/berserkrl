@@ -114,7 +114,7 @@ type
     // Animates an attack if in GFX
     procedure AddAttack( aWho : TUID; aHit : Boolean; const aFrom, aTo : TCoord2D ); virtual;
     // Draws a firey background
-    procedure DrawFire( aSeed : Cardinal = 0 ); virtual;
+    procedure DrawFire; virtual;
     // Renders a nine-patch window
     procedure RenderWindow( aSize, aPos : TIOPoint ); virtual;
     // Draws a firey background
@@ -364,7 +364,7 @@ procedure TBerserkUI.AddAttack(aWho: TUID; aHit: Boolean; const aFrom, aTo: TCoo
 begin
 end;
 
-procedure TBerserkUI.DrawFire ( aSeed : Cardinal ) ;
+procedure TBerserkUI.DrawFire;
 begin
 
 end;
