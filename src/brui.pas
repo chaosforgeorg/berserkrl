@@ -30,7 +30,7 @@ interface
 
 uses vutil, vio, viorl, vrltools,
      viotypes, vioevent, vioconsole,
-     vmessages, brdata;
+     vmessages, brdata, brconfiguration;
 
 const
     // Option that makes the name always "random"
@@ -83,7 +83,7 @@ type
     // Holds the current screen info
     Screen  : (Game,Menu);
     // Initialization of all data.
-    constructor Create; reintroduce;
+    constructor Create( aConfiguration : TBerserkConfiguration ); reintroduce;
     // Runs a layer
     procedure RunLayer( aLayer : TIOLayer ); override;
     // Writes a tile description in the msg area.
@@ -144,16 +144,27 @@ const UI : TBerserkUI = nil;
 implementation
 
 uses SysUtils, DateUtils, variants, math, vsound, vtigstyle, vtig,
-     vsystems, vluasystem, vluagamestate,
-     brlevel, brplayer, brmain;
+     vluasystem, vluagamestate,
+     brlevel, brplayer;
 
 { TBerserkUI }
 
-constructor TBerserkUI.Create;
-var iCount : Byte;
-    iKey   : TIOKeyCode;
+constructor TBerserkUI.Create( aConfiguration : TBerserkConfiguration );
+var iCount   : Byte;
+    iKey     : TIOKeyCode;
+    iConsole : TIOConsoleRenderer;
 begin
-  inherited Create( FIODriver, FConsole );
+  // Initialize takes the renderer on success; retain it locally until then.
+  iConsole := FConsole;
+  FConsole := nil;
+  try
+    inherited Create( FIODriver, nil );
+    Initialize( iConsole );
+    iConsole := nil;
+  finally
+    iConsole.Free;
+  end;
+  Configure( aConfiguration.LuaConfig );
   VTIGDefaultStyle.Color[ VTIG_INPUT_TEXT_COLOR ]          := White;
   VTIGDefaultStyle.Color[ VTIG_INPUT_BACKGROUND_COLOR ]    := Black;
   VTIGDefaultStyle.Color[ VTIG_SELECTED_BACKGROUND_COLOR ] := Black;
@@ -170,20 +181,21 @@ begin
 
   FIODriver.SetTitle('Berserk!','Berserk!');
 
-  Berserk.Config.LoadKeybindings( 'Keybindings' );
+  Config.LoadKeybindings( 'Keybindings' );
   for iCount in COMMAND_SKILLS do
   begin
-    iKey := Berserk.Config.GetKeyCode( iCount );
-    Berserk.Config.Commands[ Byte(iKey) + IOKeyCodeShiftMask ] := iCount + COMMAND_SKILLALTSHIFT;
+    iKey := Config.GetKeyCode( iCount );
+    Config.Commands[ Byte(iKey) + IOKeyCodeShiftMask ] := iCount + COMMAND_SKILLALTSHIFT;
   end;
 
   if Option_MessageColoring then
-    Berserk.Config.EntryFeed( 'Messages', @FMessages.AddHighlightCallback );
+    Config.EntryFeed( 'Messages', @FMessages.AddHighlightCallback );
 
   Screen := Menu;
 
   Msg('Berserk!');
-  Msg('Press {^'+Berserk.Config.GetKeybinding(COMMAND_HELP)+'} for help.');
+  Msg('Press {^'+Config.GetKeybinding(COMMAND_HELP)+'} for help.');
+  UI := Self;
 end;
 
 procedure TBerserkUI.DrawStatus;
@@ -331,6 +343,7 @@ end;
 
 destructor TBerserkUI.Destroy;
 begin
+  UI := nil;
   inherited Destroy;
 end;
 
@@ -437,7 +450,7 @@ function lua_ui_get_keybinding(L: Plua_State): Integer; cdecl;
 var iState   : TLuaGameState;
 begin
   iState.Init(L);
-  iState.Push( Berserk.Config.GetKeybinding( iState.ToInteger(1) ) );
+  iState.Push( UI.Config.GetKeybinding( iState.ToInteger(1) ) );
   Result := 1;
 end;
 
@@ -460,4 +473,3 @@ end;
 
 
 end.
-

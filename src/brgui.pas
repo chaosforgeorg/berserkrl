@@ -26,7 +26,7 @@
 unit brgui;
 interface
 
-uses SysUtils, vutil, vgenerics, vrltools, vvision, vtextures, vglimage, viotypes,
+uses vapp, brconfiguration, SysUtils, vutil, vgenerics, vrltools, vvision, vtextures, vglimage, viotypes,
      vimage, brui, brdata, vglquadrenderer, vglquadarrays, vgltypes, vglprogram,
      vanimation, branimation;
 
@@ -41,7 +41,7 @@ type
 
 TBerserkGUI = class(TBerserkUI)
     // Initialization of all data.
-    constructor Create(FullScreen : Boolean = False);
+    constructor Create( aConfiguration : TBerserkConfiguration; const aPaths : TGamePaths );
     // Sends missile
     procedure SendMissile( const aSource, aTarget : TCoord2D; aType : Byte; aSequence : DWord ); override;
     // Draws target X
@@ -69,6 +69,7 @@ TBerserkGUI = class(TBerserkUI)
     procedure Draw; override;
     // destructor
     destructor Destroy; override;
+    procedure Clear; override;
     function GetSpritePos( aIndex : Byte ) : TGLVec2f;
     function GetSpriteSize( aSize : TGLVec2i ) : TGLVec2f;
     function ToScreenVec( const aCoord : TCoord2D ) : TGLVec2i;
@@ -264,7 +265,7 @@ end;
 
 { TBreserkGUI }
 
-constructor TBerserkGUI.Create(FullScreen : Boolean = False);
+constructor TBerserkGUI.Create( aConfiguration : TBerserkConfiguration; const aPaths : TGamePaths );
 var iCount       : DWord;
     iFlags       : TSDLIOFlags;
     iSheetSize   : TGLVec2f;
@@ -281,20 +282,20 @@ begin
   {$ENDIF}
 
   iFlags := [ SDLIO_OpenGL ];
-  if FullScreen then Include( iFlags, SDLIO_FullScreen );
+  if aConfiguration.FullScreen then Include( iFlags, SDLIO_FullScreen );
   FIODriver := TSDLIODriver.Create( 800, 600, 32, iFlags );
 
   Textures := TTextureManager.Create( True );
-  Textures.LoadTextureFolder(DataPath+'graphics');
+  Textures.LoadTextureFolder(aPaths.DataPath+'graphics');
   Textures.Upload;
   FSpriteTexID := Textures.TextureID['spritesheet'];
-  FConsole := TGLConsoleRenderer.Create( DataPath+'font10x18.png', 32, 256-32, 32, 80, 25, 6, [VIO_CON_CURSOR] );
+  FConsole := TGLConsoleRenderer.Create( aPaths.DataPath+'font10x18.png', 32, 256-32, 32, 80, 25, 6, [VIO_CON_CURSOR] );
   FConsole.HideCursor;
 
   LoadGL3;
   FProgram := TGLProgram.Create(
-    SlurpFile( DataPath+'graphics'+PathDelim+'basic.vert' ),
-    SlurpFile( DataPath+'graphics'+PathDelim+'basic.frag' )
+    SlurpFile( aPaths.DataPath+'graphics'+PathDelim+'basic.vert' ),
+    SlurpFile( aPaths.DataPath+'graphics'+PathDelim+'basic.frag' )
   );
   FProgram.Bind;
   iLTexture    := FProgram.GetUniformLocation('utexture');
@@ -306,7 +307,7 @@ begin
   glUniformMatrix4fv( FProgram.GetUniformLocation('utransform'), 1, GL_FALSE, @iProjection[0] );
   FProgram.UnBind;
 
-  inherited Create;
+  inherited Create( aConfiguration );
   GUI := Self;
 
   FTarget.Create( 0,0 );
@@ -585,9 +586,17 @@ begin
   UpdateLight( Level.Vision );
 end;
 
+procedure TBerserkGUI.Clear;
+begin
+  inherited Clear;
+  if FAnimations <> nil then FAnimations.Clear;
+  FTarget.Create( 0, 0 );
+end;
+
 destructor TBerserkGUI.Destroy;
 begin
   FreeAndNil(FAnimations);
+  GUI := nil;
   FreeAndNil(FProgram);
   FreeAndNil(Textures);
   FreeAndNil(FTerrain);
@@ -597,4 +606,3 @@ end;
 
 
 end.
-

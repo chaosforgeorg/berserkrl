@@ -3,8 +3,7 @@
 // @created(Oct 16, 2006)
 // @lastmod(Oct 22, 2006)
 //
-// This unit just holds the TBerserk class -- the application framework
-// for BerserkRL.
+// Runtime services and one-playthrough ownership for BerserkRL.
 //
 //  @html <div class="license">
 //  This file is part of BerserkRL.
@@ -27,124 +26,248 @@
 unit brmain;
 interface
 
-uses zstream, vsystem, vrandom,
-     brlua, brconfig, brlevel, brplayer, brdata,
-     brgui, brtextui, brpersistence;
+uses SysUtils, vapp, vrlapp, viorl, vluasystem, vuid, vsound,
+     brlua, brconfiguration, brdata, brlevel, brplayer, brpersistence;
 
+type TBerserkSession = class;
 
-type
-// Main application class.
-// TBerserk is responsible initialization, running, and cleaning up afterwards
-TBerserk = class(TSystem)
-       // If set to true, means that the player requested a quit action.
-       Escape      : Boolean;
-       // Holds id number of the arena on which the player plays -- temporary
-       Arena       : Byte;
-       // Holds the berserk lua state
-       Lua         : TBerserkLua;
-       // Configuration
-       Config      : TGameConfig;
-       // GameRNG
-       GameRNG     : TRNG;
-       // Persistence
-       Persistence : TPersistence;
-       // Initialization of all data.
-       constructor Create( aConfig : TGameConfig ); 
-       // Saves the data after night is over
-       procedure Save;
-       // Loads the data
-       procedure Load;
-       // Checks wether a save file exists
-       function SaveExists : Boolean;
-       // Running the program -- main application loop is here.
-       procedure   Run;
-       // Cleaning up everything that was initialized in TBerserk.Create.
-       destructor  Destroy; override;
-       // Load audio
+     TBerserkRuntime = class( TRLRuntime )
+     private
+       FSession     : TBerserkSession;
+       FTerrainData : TTerrainDataArray;
+       FSound       : TSound;
+       FPersistence : TPersistence;
        procedure LoadAudio;
+     protected
+       function CreateIO : TIORL; override;
+       function CreateLua : TLuaSystem; override;
+       procedure PrepareGameData; override;
+       procedure InitializeGameData; override;
+       function RunGame : TVRunResult; override;
+       procedure ShutdownGameData; override;
+     public
+       destructor Destroy; override;
+       procedure HandleGameException( aException : Exception ); override;
+       property Persistence : TPersistence read FPersistence;
+       property Session : TBerserkSession read FSession;
      end;
 
-var Berserk : TBerserk = nil;
+     TBerserkSession = class
+     private
+       FRuntime     : TBerserkRuntime;
+       FPlayer      : TPlayer;
+       FLevel       : TLevel;
+       FUIDStore    : TUIDStore;
+       FSaveWritten : Boolean;
+       procedure ReleasePlayer;
+       procedure AttachPlayer;
+     public
+       Escape : Boolean;
+       Arena  : Byte;
+       constructor Create( aRuntime : TBerserkRuntime );
+       destructor Destroy; override;
+       procedure Save;
+       procedure Load;
+       function SaveExists : Boolean;
+       function CanCrashSave : Boolean;
+       procedure Run;
+       property Runtime : TBerserkRuntime read FRuntime;
+     end;
+
+// Non-owning compatibility alias for active playthrough consumers.
+var Berserk : TBerserkSession = nil;
 
 implementation
 
-uses SysUtils, vmath, vuid, vioevent, vsound, vsdlsound, vfmodsound, vlua,
-     vluasystem, vutil, vsystems, vrltools,
-     brui, bruiscreens;
+uses zstream, vmath, vrltools, vrandom, vioevent, vsdlsound, vfmodsound, vutil, vdebug,
+     brui, brgui, brtextui, bruiscreens;
 
-{ TBerserk }
+function TBerserkRuntime.CreateIO : TIORL;
+var iConfiguration : TBerserkConfiguration;
+begin
+  iConfiguration := TBerserkConfiguration( Configuration );
+  if iConfiguration.GraphicsMode then
+    Result := TBerserkGUI.Create( iConfiguration, Paths )
+  else
+    Result := TBerserkTextUI.Create( iConfiguration );
+end;
 
-constructor TBerserk.Create( aConfig : TGameConfig );
+function TBerserkRuntime.CreateLua : TLuaSystem;
+begin
+  Result := TBerserkLua.Create;
+end;
+
+procedure TBerserkRuntime.PrepareGameData;
+var iConfiguration : TBerserkConfiguration;
+begin
+  iConfiguration := TBerserkConfiguration( Configuration );
+  if iConfiguration.AudioDriver <> 'NONE' then
+  begin
+    if iConfiguration.AudioDriver = 'FMOD' then
+      FSound := TFMODSound.Create
+    else
+      FSound := TSDLSound.Create( IO.VisualRNG );
+    Sound := FSound;
+    FSound.Configure( iConfiguration.LuaConfig );
+    LoadAudio;
+    FSound.PlayMusic( 'menu' );
+  end;
+end;
+
+procedure TBerserkRuntime.InitializeGameData;
+begin
+  TBerserkLua( Lua ).Load( Paths.DataPath, FTerrainData );
+  TerraData := FTerrainData;
+  FPersistence := TPersistence.Create( Paths.ScorePath );
+  if GodMode then IO.RegisterDebugConsole( VKEY_BQUOTE );
+end;
+
+function TBerserkRuntime.RunGame : TVRunResult;
+begin
+  // Keep the single-run destinations until the menu-lifetime stage.
+  FSession := TBerserkSession.Create( Self );
+  FSession.Run;
+  Result := VRR_QUIT;
+end;
+
+procedure TBerserkRuntime.ShutdownGameData;
+begin
+  FreeAndNil( FSession );
+  // Initialization can fail before a Session has acquired the IO layers.
+  if IO <> nil then IO.Clear;
+  TerraData := nil;
+  FTerrainData := nil;
+  Sound := nil;
+  FreeAndNil( FSound );
+  FreeAndNil( FPersistence );
+end;
+
+destructor TBerserkRuntime.Destroy;
+begin
+  // Also covers direct destruction and partially constructed runtimes.
+  ShutdownGameData;
+  inherited Destroy;
+end;
+
+procedure TBerserkRuntime.HandleGameException( aException : Exception );
+begin
+  if ( FSession = nil ) or not FSession.CanCrashSave then Exit;
+  try
+    FSession.Save;
+  except
+    on E : Exception do
+      vdebug.Log( LOGERROR, 'Crash save failed: ' + E.Message );
+  end;
+end;
+
+constructor TBerserkSession.Create( aRuntime : TBerserkRuntime );
 begin
   inherited Create;
-  GameRNG := TRNG.Create;
+  FRuntime := aRuntime;
+  // Entity construction uses the active Session RNG through this alias.
+  // The destructor clears it if any subsequent acquisition fails.
   Berserk := Self;
-  Config  := aConfig;
-  if GraphicsMode then
-    UI := TBerserkGUI.Create( FullScreen )
-  else
-    UI := TBerserkTextUI.Create;
-  if AudioDriver <> 'NONE' then
+  FRuntime.GameRNG.Randomize;
+  FUIDStore := TUIDStore.Create;
+  UIDs := FUIDStore;
+  FLevel := TLevel.Create;
+  Level := FLevel;
+  FPlayer := TPlayer.Create( NewCoord2D( 1, 1 ) );
+  Arena := 1;
+  FPlayer.FNight := 0;
+  AttachPlayer;
+end;
+
+procedure TBerserkSession.AttachPlayer;
+begin
+  Player := FPlayer;
+  TBerserkLua( FRuntime.Lua ).RegisterPlayer( FPlayer, FLevel );
+  FRuntime.IO.SetLevel( FLevel );
+  FRuntime.IO.SetPlayer( FPlayer );
+end;
+
+procedure TBerserkSession.ReleasePlayer;
+begin
+  if FRuntime.IO <> nil then FRuntime.IO.SetPlayer( nil );
+  if FPlayer <> nil then FPlayer.Detach;
+  Player := nil;
+  FreeAndNil( FPlayer );
+end;
+
+destructor TBerserkSession.Destroy;
+begin
+  if FRuntime <> nil then
   begin
-    if AudioDriver = 'FMOD'
-      then Sound := TFMODSound.Create
-      else Sound := TSDLSound.Create( UI.VisualRNG );
-    Sound.Configure( Config );
-    LoadAudio;
-    Sound.PlayMusic('menu');
+    if FRuntime.IO <> nil then
+    begin
+      FRuntime.IO.Clear;
+      FRuntime.IO.SetLevel( nil );
+    end;
+    ReleasePlayer;
   end;
-  UIDs := Systems.Add( TUIDStore.Create ) as TUIDStore;
-
-
-  LuaRNG := GameRNG;
-  Lua := TBerserkLua.Create;
-  LuaSystem := Systems.Add( Lua ) as TLuaSystem;
-  Lua.Load();
-  Persistence := TPersistence.Create;
-
-  UI.Screen := Menu;
-
-  if GodMode then
-    UI.RegisterDebugConsole( VKEY_BQUOTE );
-
-  Level  := TLevel.Create;
-  Escape := False;
-  Player := TPlayer.Create( NewCoord2D( 1,1 ) );
-  Arena     := 1;
-  Player.FNight     := 0;
-  UI.SetLevel( Level );
-  UI.SetPlayer( Player );
-  UI.Configure( Config );
+  Level := nil;
+  FreeAndNil( FLevel );
+  UIDs := nil;
+  FreeAndNil( FUIDStore );
+  Berserk := nil;
+  inherited Destroy;
 end;
 
-procedure TBerserk.Save;
-var SaveFile  : TGZFileStream;
+procedure TBerserkSession.Save;
+var iSaveFile : TGZFileStream;
+    iNight    : Word;
 begin
-  Dec(Player.FNight);
-  SaveFile := TGZFileStream.Create( WritePath + 'berserk.sav',gzOpenWrite );
-  UIDs.WriteToStream( SaveFile );
-  Player.WriteToStream( SaveFile );
-  SaveFile.Destroy;
+  iNight := FPlayer.FNight;
+  Dec( FPlayer.FNight );
+  try
+    iSaveFile := TGZFileStream.Create( FRuntime.Paths.WritePath + 'berserk.sav', gzOpenWrite );
+    try
+      FUIDStore.WriteToStream( iSaveFile );
+      FPlayer.WriteToStream( iSaveFile );
+    finally
+      iSaveFile.Free;
+    end;
+    FSaveWritten := True;
+  except
+    FPlayer.FNight := iNight;
+    raise;
+  end;
 end;
 
-procedure TBerserk.Load;
-var SaveFile : TGZFileStream;
+procedure TBerserkSession.Load;
+var iSaveFile : TGZFileStream;
 begin
-  FreeAndNil( Player );
-  FreeAndNil( UIDs );
-  SaveFile := TGZFileStream.Create( WritePath + 'berserk.sav',gzOpenRead );
-  UIDs   := Systems.Add( TUIDStore.CreateFromStream( SaveFile ) ) as TUIDStore;
-  Player := TPlayer.CreateFromStream( SaveFile );
-  SaveFile.Destroy;
-  DeleteFile( WritePath + 'berserk.sav' );
+  iSaveFile := TGZFileStream.Create( FRuntime.Paths.WritePath + 'berserk.sav', gzOpenRead );
+  try
+    ReleasePlayer;
+    FLevel.Clear;
+    FreeAndNil( FUIDStore );
+    FUIDStore := TUIDStore.CreateFromStream( iSaveFile );
+    UIDs := FUIDStore;
+    // The arena is not serialized; keep its identity in the replacement store.
+    FUIDStore.Register( FLevel, FLevel.UID );
+    FPlayer := TPlayer.CreateFromStream( iSaveFile );
+    AttachPlayer;
+  finally
+    iSaveFile.Free;
+  end;
+  FSaveWritten := False;
+  DeleteFile( FRuntime.Paths.WritePath + 'berserk.sav' );
 end;
 
-function TBerserk.SaveExists: Boolean;
+function TBerserkSession.SaveExists : Boolean;
 begin
-  Exit( FileExists( WritePath + 'berserk.sav' ) );
+  Result := FileExists( FRuntime.Paths.WritePath + 'berserk.sav' );
 end;
 
-procedure TBerserk.Run;
+function TBerserkSession.CanCrashSave : Boolean;
+begin
+  Result := ( FPlayer <> nil ) and ( FPlayer.FMode <> mode_Massacre ) and
+            ( FPlayer.FNight > 0 ) and
+            not FSaveWritten;
+end;
+
+procedure TBerserkSession.Run;
 begin
   UI.RunLayer( TIntroLayer.Create );
 
@@ -179,52 +302,46 @@ begin
     UI.Screen := Menu;
   until Escape;
   if not SaveExists then UI.RunLayer( THOFLayer.Create );
-  UIDs := nil;
 
   UI.RunLayer( TOutroLayer.Create );
 end;
 
-destructor TBerserk.Destroy;
-begin
-  FreeAndNil(Sound);
-  FreeAndNil(Persistence);
-  FreeAndNil(Config);
-  FreeAndNil(Level);
-  FreeAndNil(Player);
-  FreeAndNil(UI);
-  LuaRNG := nil;
-  FreeAndNil(GameRNG);
-  inherited Destroy;
-end;
-
-procedure TBerserk.LoadAudio;
+procedure TBerserkRuntime.LoadAudio;
 var iSearchRec : TSearchRec;
     iName      : AnsiString;
     iExt       : AnsiString;
 begin
-  if not Assigned( Sound ) then Exit;
+  if not Assigned( FSound ) then Exit;
 
-  if FindFirst(DataPath+'sound' + PathDelim + '*.*',faAnyFile,iSearchRec) = 0 then
-  repeat
-    iName := iSearchRec.Name;
-    iExt := ExtractFileExt( iName );
-    if (iExt = '.mp3') or (iExt = '.wav') or (iExt = '.ogg') then
-    begin
-      Delete(iName,Length(iName)-3,4);
-      Sound.RegisterSample(DataPath+'sound' + PathDelim + iSearchRec.Name,iName);
-    end;
-  until (FindNext(iSearchRec) <> 0);
+  if FindFirst(Paths.DataPath+'sound' + PathDelim + '*.*',faAnyFile,iSearchRec) = 0 then
+  try
+    repeat
+      iName := iSearchRec.Name;
+      iExt := ExtractFileExt( iName );
+      if (iExt = '.mp3') or (iExt = '.wav') or (iExt = '.ogg') then
+      begin
+        Delete(iName,Length(iName)-3,4);
+        FSound.RegisterSample(Paths.DataPath+'sound' + PathDelim + iSearchRec.Name,iName);
+      end;
+    until (FindNext(iSearchRec) <> 0);
+  finally
+    FindClose( iSearchRec );
+  end;
 
-  if FindFirst(DataPath+'music' + PathDelim + '*.*',faAnyFile,iSearchRec) = 0 then
-  repeat
-    iName := iSearchRec.Name;
-    iExt := ExtractFileExt( iName );
-    if (iExt = '.mp3') or (iExt = '.wav') or (iExt = '.ogg') or (iExt = '.mod') then
-    begin
-      Delete(iName,Length(iName)-3,4);
-      Sound.RegisterMusic( DataPath+'music' + PathDelim + iSearchRec.Name, iName );
-    end;
-  until (FindNext(iSearchRec) <> 0);
+  if FindFirst(Paths.DataPath+'music' + PathDelim + '*.*',faAnyFile,iSearchRec) = 0 then
+  try
+    repeat
+      iName := iSearchRec.Name;
+      iExt := ExtractFileExt( iName );
+      if (iExt = '.mp3') or (iExt = '.wav') or (iExt = '.ogg') or (iExt = '.mod') then
+      begin
+        Delete(iName,Length(iName)-3,4);
+        FSound.RegisterMusic( Paths.DataPath+'music' + PathDelim + iSearchRec.Name, iName );
+      end;
+    until (FindNext(iSearchRec) <> 0);
+  finally
+    FindClose( iSearchRec );
+  end;
 end;
 
 finalization
@@ -234,10 +351,8 @@ finalization
     Writeln('Abnormal program termination! Please write down the above');
     Writeln('to help get rid Berserk! of all those bugs! You only need');
     Writeln('to write down the filenames and linenumbers.');
-    if (Player <> nil) and (Player.FMode <> Mode_Massacre) then Berserk.Save;
     {$IFNDEF UNIX}
     Readln;
     {$ENDIF}
   end;
 end.
-

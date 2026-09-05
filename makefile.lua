@@ -76,7 +76,7 @@ makefile = {
 		iss_nocomp  = { "png" },
 		iss_eicons  = {
 			{ name = "Berserk!", exe = "berserk" },
-			{ name = "Berserk! (console mode)", exe = "rl", parameters = "-console" },
+			{ name = "Berserk! (console mode)", exe = "rl", parameters = "--console" },
 			{ name = "ChaosForge Website", url = "http://www.chaosforge.org/" },
 			{ name = "Berserk! Website", url = "http://berserk.chaosforge.org/" },
 			{ name = "Berserk! Forum", url = "http://forum.chaosforge.org/" },

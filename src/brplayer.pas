@@ -173,8 +173,6 @@ begin
   FKlass  := 1;
 
   FKills := TKillTable.Create;
-  Player := Self;
-  Berserk.Lua.RegisterPlayer;
 end;
 
 procedure TPlayer.Init;
@@ -212,7 +210,7 @@ begin
       UI.RunLayer( TGameNameLayer.Create );
     UI.Console.HideCursor;
     if FName = '' then
-    case Berserk.GameRNG.RLongInt(8) of
+    case Berserk.Runtime.GameRNG.RLongInt(8) of
       0..1 : FName := 'Guts';
       2    : FName := 'Glowie';
       3    : FName := 'Turgor';
@@ -382,7 +380,7 @@ begin
   Berserk.Escape := True;
   UI.Screen := Menu;
   iLast := LuaSystem.Get(['beings',FLastEnemy,'nid']);
-  Berserk.Persistence.Add(FKills.Count, FName, FMode,  FKlass, FKills.Count, FTurnCount, FNight, iLast );
+  Berserk.Runtime.Persistence.Add(FKills.Count, FName, FMode,  FKlass, FKills.Count, FTurnCount, FNight, iLast );
   WriteMortem;
 end;
 
@@ -438,21 +436,21 @@ repeat
   Slip := False;
   
   if ( TF_ICE in Level.getFlags( FPosition ) ) and
-     ( Berserk.GameRNG.Dice( 3, 6 ) > DX ) then
+     ( Berserk.Runtime.GameRNG.Dice( 3, 6 ) > DX ) then
     Slip := True;
 
   if not Slip then
   begin
     Command := UI.GetCommand;
     UI.MsgUpdate;
-    if Command = 0 then UI.Msg('Press <{^'+Berserk.Config.GetKeybinding(COMMAND_HELP)+'}> for help.');
+    if Command = 0 then UI.Msg('Press <{^'+UI.Config.GetKeybinding(COMMAND_HELP)+'}> for help.');
   end;
   
   if (Command in COMMANDS_MOVE) or Slip then
   begin
     if Slip then
     begin
-      Direction.Create( Berserk.GameRNG.RLongInt( 9 ) + 1 );
+      Direction.Create( Berserk.Runtime.GameRNG.RLongInt( 9 ) + 1 );
       UI.Msg('You slip!');
       FSpeedCount -= 500;
     end
@@ -701,8 +699,6 @@ begin
   FNight     := Stream.ReadWord;
   FPoints    := Stream.ReadWord;
 
-  Player := Self;
-  Berserk.Lua.RegisterPlayer;
 end;
 
 procedure TPlayer.WriteToStream ( Stream : TStream ) ;
@@ -810,4 +806,3 @@ end;
 
 
 end.
-

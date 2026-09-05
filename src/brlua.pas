@@ -3,8 +3,7 @@
 // @created(Oct 16, 2006)
 // @lastmod(Oct 22, 2006)
 //
-// This unit just holds the TBerserk class -- the application framework
-// for BerserkRL.
+// Lua content and Session publications for BerserkRL.
 //
 //  @html <div class="license">
 //  This file is part of BerserkRL.
@@ -26,7 +25,7 @@
 {$INCLUDE brinclude.inc}
 unit brlua;
 interface
-uses Classes, SysUtils, vrltools, vluasystem, vluastate;
+uses Classes, SysUtils, vrltools, vluasystem, vluastate, brplayer, brlevel, brdata;
 
 type
 
@@ -34,24 +33,23 @@ type
 
 TBerserkLua = class(TLuaSystem)
   constructor Create;
-  procedure Load;
-  procedure LoadCells;
-  procedure RegisterPlayer;
-  destructor Destroy; override;
+  procedure Load( const aDataPath : AnsiString; var aTerrainData : TTerrainDataArray );
+  procedure LoadCells( var aTerrainData : TTerrainDataArray );
+  procedure RegisterPlayer( aPlayer : TPlayer; aLevel : TLevel );
   // TODO: this is unused!
   procedure OnError(const ErrorString : Ansistring);
 end;
 
 implementation
 uses vnode, vluatools, vluaentitynode, vluadungen, vdebug, vsound,
-     brplayer, brmain, brui, brdata, brbeing, brlevel;
+     brui, brbeing;
 
 constructor TBerserkLua.Create;
 begin
   inherited Create;
 end;
 
-procedure TBerserkLua.Load;
+procedure TBerserkLua.Load( const aDataPath : AnsiString; var aTerrainData : TTerrainDataArray );
 var LuaInfo       : TLuaClassInfo;
 begin
   ErrorFunc := @OnError;
@@ -93,17 +91,17 @@ begin
   TPlayer.RegisterLuaAPI();
 
   try
-    RegisterModule('core',DataPath+'lua' + DirectorySeparator );
-    LoadFile(DataPath+'lua' + DirectorySeparator + 'main.lua');
+    RegisterModule('core',aDataPath+'lua' + DirectorySeparator );
+    LoadFile(aDataPath+'lua' + DirectorySeparator + 'main.lua');
   except
     on e : ELuaException do
       raise Exception.Create( e.Message );
   end;
 
-  LoadCells;
+  LoadCells( aTerrainData );
 end;
 
-procedure TBerserkLua.LoadCells;
+procedure TBerserkLua.LoadCells( var aTerrainData : TTerrainDataArray );
 var iAmount, iCount, iHook : DWord;
   function Resolve( const CellID : AnsiString ) : Word;
   begin
@@ -112,11 +110,11 @@ var iAmount, iCount, iHook : DWord;
   end;
 begin
   iAmount := LuaSystem.Get(['cells','__counter']);
-  SetLength( TerraData, iAmount+1 );
+  SetLength( aTerrainData, iAmount+1 );
   for iCount := 1 to iAmount do
   with LuaSystem.GetTable(['cells',iCount]) do
   try
-    with TerraData[ iCount ] do
+    with aTerrainData[ iCount ] do
     begin
       ID        := GetString('id');
       Name      := GetString('name');
@@ -142,16 +140,11 @@ begin
 
 end;
 
-procedure TBerserkLua.RegisterPlayer;
+procedure TBerserkLua.RegisterPlayer( aPlayer : TPlayer; aLevel : TLevel );
 begin
-  LuaSystem.SetValue('player',Player);
-  LuaSystem.SetValue('level',Level);
-  RegisterKillsClass( LuaSystem.Raw, Player.FKills );
-end;
-
-destructor TBerserkLua.Destroy;
-begin
-  inherited Destroy;
+  SetValue( 'player', aPlayer );
+  SetValue( 'level', aLevel );
+  RegisterKillsClass( Raw, aPlayer.FKills );
 end;
 
 procedure TBerserkLua.OnError(const ErrorString: Ansistring);
@@ -166,4 +159,3 @@ begin
 end;
 
 end.
-

@@ -10,7 +10,7 @@
             "request": "launch",
             "target": "./berserk.exe",
             "terminal": "external",
-            "arguments": "-god -nosound",
+            "arguments": "--god --nosound",
             "cwd": "${workspaceRoot}/../bin",
             "valuesFormatting": "parseText",
             "preLaunchTask": "Build berserk.exe (debug)"

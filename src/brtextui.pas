@@ -27,7 +27,7 @@ unit brtextui;
 
 interface
 
-uses SysUtils, viotypes, vutil, vmath, vrltools, brui, vtextmap;
+uses SysUtils, brconfiguration, viotypes, vutil, vmath, vrltools, brui, vtextmap;
 
 type
 
@@ -35,7 +35,7 @@ type
 
   TBerserkTextUI = class( TBerserkUI, ITextMap )
     // Initialization of all data.
-    constructor Create; reintroduce;
+    constructor Create( aConfiguration : TBerserkConfiguration ); reintroduce;
     // Cleanup
     destructor Destroy; override;
     // Sends missile
@@ -68,7 +68,7 @@ type
 
 implementation
 
-uses vsystems, vsound, vuid, vvision, vioconsole, vtig,
+uses vsound, vuid, vvision, vioconsole, vtig,
 {$IFDEF UNIX}
      vcursesio, vcursesconsole,
 {$ELSE}
@@ -78,7 +78,7 @@ uses vsystems, vsound, vuid, vvision, vioconsole, vtig,
 
 { TBerserkTextUI }
 
-constructor TBerserkTextUI.Create;
+constructor TBerserkTextUI.Create( aConfiguration : TBerserkConfiguration );
 begin
 {$IFDEF UNIX}
   FIODriver := TCursesIODriver.Create( 80, 25 );
@@ -87,7 +87,7 @@ begin
   FIODriver := TTextIODriver.Create( 80, 25 );
   FConsole := TTextConsoleRenderer.Create( 80, 25, [VIO_CON_BGCOLOR, VIO_CON_CURSOR] );
 {$ENDIF}
-  inherited Create;
+  inherited Create( aConfiguration );
   FConsole.Clear;
   FTMap := TTextMap.Create( FConsole, Rectangle( 1, 1, 50, 25 ), Self );
   FMapEnabled := False;

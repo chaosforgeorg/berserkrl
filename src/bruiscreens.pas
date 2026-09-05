@@ -240,13 +240,13 @@ var i, iR  : DWord;
 begin
   inherited Create( nil );
   FContent := TIOStringArray.Create;
-  FCurrent := Integer( Berserk.Persistence.GetCurrent );
+  FCurrent := Integer( Berserk.Runtime.Persistence.GetCurrent );
   i := 0;
   iMode := IntToStr( Player.Mode );
   iMaxB := LuaSystem.Get(['beings','__counter']);
   repeat
     Inc( i );
-    iEntry := Berserk.Persistence.Get( i );
+    iEntry := Berserk.Runtime.Persistence.Get( i );
     if iEntry = nil then Break;
     if iEntry.GetAttribute('mode') = iMode then
     begin
@@ -307,15 +307,15 @@ begin
   inherited Create( nil );
   FKeys := TIOStringArray.Create;
   for i := 0 to High( KeyData ) do
-    FKeys.Push( Padded( KeyData[i].Entry, 17 ) +' {!' + Berserk.Config.GetKeybinding( KeyData[i].Command ) + '}' );
+    FKeys.Push( Padded( KeyData[i].Entry, 17 ) +' {!' + UI.Config.GetKeybinding( KeyData[i].Command ) + '}' );
   for i := 1 to SKILL_SLOTS do
   begin
     iSid := Player.FSkillSlots[ i ];
     if ( iSid > 0 ) and ( Player.FSkills[ i ] > 0 ) then
     with LuaSystem.GetTable( ['skills', iSid] ) do
     try
-      if IsFunction('OnUse')    then FKeys.Push( Padded( GetString('name_use'), 17 ) +' {!' + Berserk.Config.GetKeybinding( COMMAND_SKILL1-1+i ) + '}' );
-      if IsFunction('OnAltUse') then FKeys.Push( Padded( GetString('name_altuse'), 17 ) +' {!' + Berserk.Config.GetKeybinding( COMMAND_SKILLALT1-1+i ) + '}' );
+      if IsFunction('OnUse')    then FKeys.Push( Padded( GetString('name_use'), 17 ) +' {!' + UI.Config.GetKeybinding( COMMAND_SKILL1-1+i ) + '}' );
+      if IsFunction('OnAltUse') then FKeys.Push( Padded( GetString('name_altuse'), 17 ) +' {!' + UI.Config.GetKeybinding( COMMAND_SKILLALT1-1+i ) + '}' );
     finally
       Free;
     end;

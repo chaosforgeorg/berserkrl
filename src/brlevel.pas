@@ -49,7 +49,7 @@ type
   // system, because of simplicity issues. That's why TLevel inherits only
   // TVObject. Also, that means that TLevel is a singleton, accessible from
   // the whole program. Creating and Destroying TLevel is a responsibility
-  // of TBerserk.
+  // of TBerserkSession.
 
   { TLevel }
 
@@ -145,7 +145,7 @@ type
   end;
 
 // The Level singleton, for access by other units of the program. Initialized
-// and disposed of by the TBerserk singleton.
+// and disposed of by the active TBerserkSession.
 var
   Level : TLevel = nil;
 
@@ -185,7 +185,7 @@ begin
   FMode := nMode;
 
   if FMode = mode_Endless then
-    FArena := Berserk.GameRNG.RLongInt( 4 ) + 1;
+    FArena := Berserk.Runtime.GameRNG.RLongInt( 4 ) + 1;
 
   LuaSystem.ProtectedCall(['generator','run'],[]);
 
@@ -193,8 +193,8 @@ begin
 
   Add( Player );
   repeat
-    PlayerPosition.Create( Berserk.GameRNG.RLongInt( 20 ) + 15,
-      Berserk.GameRNG.RLongInt( 10 ) + 5 );
+    PlayerPosition.Create( Berserk.Runtime.GameRNG.RLongInt( 20 ) + 15,
+      Berserk.Runtime.GameRNG.RLongInt( 10 ) + 5 );
   until Player.TryMove( PlayerPosition ) = Move_Ok;
   Player.Displace( PlayerPosition );
   for c in FArea do
@@ -292,8 +292,8 @@ begin
     if Amount > 1 then
       for Count := 1 to Amount do
       begin
-        Shift.x := Berserk.GameRNG.RLongInt( 3 ) - 1;
-        Shift.y := Berserk.GameRNG.RLongInt( 3 ) - 1;
+        Shift.x := Berserk.Runtime.GameRNG.RLongInt( 3 ) - 1;
+        Shift.y := Berserk.Runtime.GameRNG.RLongInt( 3 ) - 1;
         if isproperCoord( Coord + Shift ) then
           Bleed( Coord + Shift, Amount - 1 );
       end;
@@ -376,7 +376,7 @@ begin
         begin
           if not Level.isEyeContact( Coord, Where ) then
             Continue;
-          Damage := Berserk.GameRNG.Dice( Strength, 6 ) div
+          Damage := Berserk.Runtime.GameRNG.Dice( Strength, 6 ) div
             Max( 1, Distance( Coord, Where ) div 2 );
           if Being[Coord] <> nil then
             with Being[Coord] do
@@ -446,7 +446,7 @@ begin
       if d > Range then
         Continue;
 
-      Damage := Round( Berserk.GameRNG.Dice( Strength, 6 ) /
+      Damage := Round( Berserk.Runtime.GameRNG.Dice( Strength, 6 ) /
         Max( 1, d div 3 ) );
 
       if Being[Coord] <> nil then
@@ -492,7 +492,8 @@ end;
 
 destructor TLevel.Destroy;
 begin
-  Clear;
+  if FCellMap <> nil then Clear;
+  Level := nil;
   inherited Destroy;
 end;
 
@@ -555,4 +556,3 @@ end;
 
 
 end.
-

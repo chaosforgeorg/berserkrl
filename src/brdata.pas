@@ -149,7 +149,10 @@ type TSkills = array[1..MAXSKILLS] of Byte;
      
 // Terrain data -- collection of tile definitions. Tile 0 is special -- it's
 // not supposed to be used, but is there to prevent and identify errors.
-var TerraData : array of TTerrainData;
+type TTerrainDataArray = array of TTerrainData;
+
+// Borrowed view of the Runtime generation's terrain definitions.
+var TerraData : TTerrainDataArray;
 
 // Visual representation data (sprite, ascii, color, overlay, etc)
 type TVisual = record
@@ -195,7 +198,7 @@ end;
 
 function RollDice : Integer;
 begin
-  RollDice := Berserk.GameRNG.Dice( 3, 6 );
+  RollDice := Berserk.Runtime.GameRNG.Dice( 3, 6 );
   if (RollDice = 3)  or (RollDice = 4)  then Exit(-100);
   if (RollDice = 17) or (RollDice = 18) then Exit(100);
 end;

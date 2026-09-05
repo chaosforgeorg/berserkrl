@@ -22,6 +22,10 @@ private
   FUIKeyBindings   : TBindingCatalog;
   function CatalogForEntry( const aID : AnsiString ) : TBindingCatalog;
 public
+  // Effective launch choices, populated before Runtime's virtual IO factory.
+  GraphicsMode : Boolean;
+  FullScreen   : Boolean;
+  AudioDriver  : AnsiString;
   property LuaConfig       : TGameConfig read FLuaConfig;
   property GameKeyBindings : TBindingCatalog read FGameKeyBindings;
   property UIKeyBindings   : TBindingCatalog read FUIKeyBindings;

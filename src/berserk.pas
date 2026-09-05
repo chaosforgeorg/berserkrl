@@ -29,76 +29,16 @@
 {$INCLUDE brinclude.inc}
 program berserkrl;
 uses
-  {$ifdef HEAPTRACE} heaptrc, {$endif}
-  SysUtils, vsystems, vos, vlog, vutil, vparams, vdebug,
-  brdata, brconfig, brmain, brui;
-  
-var RootPath : AnsiString = '';
-    Config   : TGameConfig;
-    CmdLine  : TParams;
+  {$IFDEF HEAPTRACE}heaptrc,{$ENDIF}
+  SysUtils, vapp, brapplication;
 
 begin
-  {$IFDEF Darwin}
-  {$IFDEF OSX_APP_BUNDLE}
-  RootPath := GetResourcesPath();
-  DataPath          := RootPath;
-  ConfigurationPath := RootPath + 'config.lua';
-  WritePath         := RootPath;
-  {$ENDIF}
-  {$ENDIF}
-
-  {$IFDEF Windows}
-  RootPath := ExtractFilePath( ParamStr(0) );
-  DataPath          := RootPath;
-  ConfigurationPath := RootPath + 'config.lua';
-  WritePath         := RootPath;
-  {$ENDIF}
-
-  CmdLine := TParams.Create;
-  if CmdLine.isSet('god')  then GodMode := True;
-  if CmdLine.isSet('quick') then QuickStart := True;
-  if CmdLine.isSet('config') then 
-    ConfigurationPath := CmdLine.get('config');
-
-  Config  := TGameConfig.Create( ConfigurationPath );
-  GraphicsMode := Config.Configure( 'GraphicsMode',True );
-  HighASCII    := Config.Configure( 'HighASCII', True );
-  AudioDriver  := Config.Configure( 'audio.driver', 'SDL' );
-  DataPath     := Config.Configure( 'DataPath', DataPath );
-  WritePath    := Config.Configure( 'WritePath', WritePath );
-  ScorePath    := Config.Configure( 'ScorePath', ScorePath );
-  
-  if CmdLine.isSet('nosound')    then AudioDriver  := 'NONE';
-  if CmdLine.isSet('console')    then GraphicsMode := False;
-  if CmdLine.isSet('graphics')   then GraphicsMode := True;
-  if CmdLine.isSet('lowascii')   then HighASCII    := False;
-  if CmdLine.isSet('fullscreen') then FullScreen   := True;
-
-  if CmdLine.isSet('datapath')   then DataPath          := CmdLine.get('datapath');
-  if CmdLine.isSet('writepath')  then WritePath         := CmdLine.get('writepath');
-  if CmdLine.isSet('scorepath')  then ScorePath         := CmdLine.get('scorepath');
-  if CmdLine.isSet('name')       then Option_AlwaysName := CmdLine.get('name');
-
-  FreeAndNil( CmdLine );
-
-  {$IFDEF HEAPTRACE}
-  SetHeapTraceOutput( WritePath + 'heap.txt' );
-  {$ENDIF}
-
-  Logger.AddSink( TTextFileLogSink.Create( LOGDEBUG, WritePath + 'log.txt', False ) );
-  LogSystemInfo();
-  Logger.Log( LOGINFO, 'Log path set to - '+WritePath );
-
-  Version := ReadVersion( DataPath + 'version.txt' );
-
-  if ScorePath = '' then ScorePath := WritePath;
-  ErrorLogFileName := WritePath + 'error.log';
-
-  Berserk := TBerserk.Create( Config );
+  Application := TBerserkApplication.Create;
   try
-    Berserk.Run;
+    Application.Title := 'Berserk!';
+    Application.Initialize;
+    if not Application.Terminated then Application.Run;
   finally
-    FreeAndNil( Berserk );
+    FreeAndNil( Application );
   end;
 end.
-
