@@ -19,7 +19,7 @@ const GameKeyBindingInfo : array[0..26] of TBindingInfo = (
   ( Action: COMMAND_WALKNW; ID: 'input_walk_nw'; Group: GAME_BINDING_GROUP_MOVEMENT; Default: VKEY_HOME; Name: 'Walk northwest'; Description: 'Move northwest.' ),
   ( Action: COMMAND_WALKSW; ID: 'input_walk_sw'; Group: GAME_BINDING_GROUP_MOVEMENT; Default: VKEY_END; Name: 'Walk southwest'; Description: 'Move southwest.' ),
   ( Action: COMMAND_WAIT; ID: 'input_wait'; Group: GAME_BINDING_GROUP_MOVEMENT; Default: VKEY_PERIOD; Name: 'Wait'; Description: 'Wait one turn.' ),
-  ( Action: COMMAND_QUIT; ID: 'input_quit'; Group: GAME_BINDING_GROUP_ACTIONS; Default: VKEY_Q or IOKeyCodeShiftMask; Name: 'Abandon game'; Description: 'Abandon the current run without saving.' ),
+  ( Action: COMMAND_QUIT; ID: 'input_quit'; Group: GAME_BINDING_GROUP_ACTIONS; Default: VKEY_Q or IOKeyCodeShiftMask; Name: 'Game menu'; Description: 'Open the game menu to resume or abandon the current run.' ),
   ( Action: COMMAND_ESCAPE; ID: 'input_escape'; Group: GAME_BINDING_GROUP_ACTIONS; Default: VKEY_ESCAPE; Name: 'Cancel / game menu'; Description: 'Cancel targeting; open the game menu during play.' ),
   ( Action: COMMAND_OK; ID: 'input_ok'; Group: GAME_BINDING_GROUP_ACTIONS; Default: VKEY_ENTER; Name: 'Confirm'; Description: 'Confirm a gameplay prompt.' ),
   ( Action: COMMAND_LOOK; ID: 'input_look'; Group: GAME_BINDING_GROUP_ACTIONS; Default: VKEY_L; Name: 'Look'; Description: 'Inspect the surroundings.' ),

@@ -269,8 +269,9 @@ begin
   repeat
     FIterate := iScan.Next;
     iScan.Tick;
+    if Berserk.Finished or UI.QuitRequested then Exit;
     iScan := FIterate as TBeing;
-  until (iScan = nil) or (iScan = Child) or Berserk.Escape;
+  until (iScan = nil) or (iScan = Child);
 
   Inc( FTickCount );
   LuaSystem.ProtectedCall( ['generator','tick'],[] );

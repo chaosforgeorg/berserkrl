@@ -528,7 +528,7 @@ begin
   glEnable( GL_DEPTH_TEST );
   FAnimations.Update( aMSec );
 
-  DrawSprites;
+  if Screen = Game then DrawSprites;
   FAnimations.Draw;
 
   if FStatusVisible then
@@ -583,7 +583,7 @@ end;
 procedure TBerserkGUI.Draw;
 begin
   inherited Draw;
-  UpdateLight( Level.Vision );
+  if Screen = Game then UpdateLight( Level.Vision );
 end;
 
 procedure TBerserkGUI.Clear;

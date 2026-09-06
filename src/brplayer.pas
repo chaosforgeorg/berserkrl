@@ -88,7 +88,7 @@ TPlayer = class(TBeing)
   // Initialize temporary stats
   procedure Init;
   // Handles character creation. Should be called after Create.
-  procedure CreateCharacter;
+  procedure CreateCharacter( aQuick : Boolean );
   // Resets the player for a new day, and runs advancement.
   procedure Advance;
   // Writes a post mortem and shows it on the screen.
@@ -186,9 +186,11 @@ begin
   for i := Low( FSkills ) to High( FSkills ) do FSkills[ i ] := 0;
 end;
 
-procedure TPlayer.CreateCharacter;
+procedure TPlayer.CreateCharacter( aQuick : Boolean );
+var i, iSkills : Integer;
 begin
   UI.RunLayer( TGameModeLayer.Create );
+  if Berserk.Finished or UI.QuitRequested then Exit;
   // Choose klass
   LuaSystem.ProtectedCall( ['klasses',FKlass,'OnCreate'], [Self, FMode]);
 
@@ -196,7 +198,7 @@ begin
     then FPoints := 14
     else FPoints := 8;
 
-  if QuickStart then
+  if aQuick then
   begin
     FName         := 'Epyon';
     Berserk.Arena := ARENA_TOWN;
@@ -208,6 +210,7 @@ begin
     FName := Option_AlwaysName;
     if (FName = '') and (not Option_AlwaysRandomName) then
       UI.RunLayer( TGameNameLayer.Create );
+    if Berserk.Finished or UI.QuitRequested then Exit;
     UI.Console.HideCursor;
     if FName = '' then
     case Berserk.Runtime.GameRNG.RLongInt(8) of
@@ -221,16 +224,20 @@ begin
     end;
 
     UI.RunLayer( TGameStatsLayer.Create );
+    if Berserk.Finished or UI.QuitRequested then Exit;
 
+    iSkills := 1;
     if FMode = mode_Massacre then
     begin
       UI.RunLayer( TGameArenaLayer.Create );
+      if Berserk.Finished or UI.QuitRequested then Exit;
+      iSkills := 3;
+    end;
+    for i := 1 to iSkills do
+    begin
       UI.RunLayer( TGameSkillsLayer.Create );
-      UI.RunLayer( TGameSkillsLayer.Create );
-      UI.RunLayer( TGameSkillsLayer.Create );
-    end
-    else
-      UI.RunLayer( TGameSkillsLayer.Create );
+      if Berserk.Finished or UI.QuitRequested then Exit;
+    end;
   end;
 
   FHPMax  := 100 + (En-10)*5 + FBonus[ BONUS_HP ];
@@ -247,9 +254,11 @@ begin
   Inc( FPoints );
   // Run advancement screens
   UI.RunLayer( TGameStatsLayer.Create );
+  if Berserk.Finished or UI.QuitRequested then Exit;
 
   // Choose skill
   UI.RunLayer( TGameSkillsLayer.Create );
+  if Berserk.Finished or UI.QuitRequested then Exit;
 
   // Recalculate stats
   FHPMax  := 100 + (EN-10)*5 + FBonus[ BONUS_HP ];
@@ -372,12 +381,12 @@ var iLast : DWord;
 begin
   FKills.Update(FTurnCount);
   FKills.Update(FTurnCount);
+  Berserk.Finish( BSR_DEAD );
   UI.Blink(Red,200,0);
   UI.Msg('You die!...');
   UI.Msg('Press <{^Enter}>...');
   UI.Draw;
   UI.PressEnter;
-  Berserk.Escape := True;
   UI.Screen := Menu;
   iLast := LuaSystem.Get(['beings',FLastEnemy,'nid']);
   Berserk.Runtime.Persistence.Add(FKills.Count, FName, FMode,  FKlass, FKills.Count, FTurnCount, FNight, iLast );
@@ -441,7 +450,15 @@ repeat
 
   if not Slip then
   begin
-    Command := UI.GetCommand;
+    repeat
+      Command := UI.GetCommand;
+      if UI.QuitRequested then Exit;
+      if Command in [COMMAND_ESCAPE, COMMAND_QUIT] then
+      begin
+        UI.RunLayer( TInGameMenuLayer.Create );
+        if Berserk.Finished or UI.QuitRequested then Exit;
+      end;
+    until not ( Command in [COMMAND_ESCAPE, COMMAND_QUIT] );
     UI.MsgUpdate;
     if Command = 0 then UI.Msg('Press <{^'+UI.Config.GetKeybinding(COMMAND_HELP)+'}> for help.');
   end;
@@ -500,15 +517,12 @@ repeat
     COMMAND_PLAYERINFO: UI.RunLayer( TGamePlayerLayer.Create );
     COMMAND_MESSAGES  : UI.RunLayer( TMessagesLayer.Create );
 
-    COMMAND_QUIT      : begin
-        Berserk.Escape := True;
-        FSpeedCount -= 1000;
-      end;
       
     COMMAND_SKILL1   ..COMMAND_SKILL0    : UseSkill( FSkillSlots[Command-COMMAND_SKILL1+1], Command );
     COMMAND_SKILLALT1..COMMAND_SKILLALT0 : UseSkill( FSkillSlots[Command-COMMAND_SKILLALT1+1], Command, True );
 
   end;
+  if Berserk.Finished or UI.QuitRequested then Exit;
 until FSpeedCount <= SPEEDLIMIT;
   if FHP <= FHPMax div 10 then FDefBonus += FBonus[ BONUS_SURVIVE ];
 end;
@@ -566,7 +580,7 @@ begin
       Key := UI.GetCommand(COMMANDS_MOVE+[COMMAND_ESCAPE,COMMAND_RUNNING, aFireCmd ])
     else
       Key := UI.GetCommand(COMMANDS_MOVE+[COMMAND_ESCAPE,COMMAND_RUNNING]);
-    if Key = COMMAND_ESCAPE   then begin Target := ZeroCoord2D; Break; end;
+    if UI.QuitRequested or ( Key = COMMAND_ESCAPE ) then begin Target := ZeroCoord2D; Break; end;
     if Key = COMMAND_RUNNING  then Target := Targets.Next;
     if (Key in COMMANDS_MOVE) then
     begin

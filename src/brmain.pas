@@ -29,7 +29,10 @@ interface
 uses SysUtils, vapp, vrlapp, viorl, vluasystem, vuid, vsound,
      brlua, brconfiguration, brdata, brlevel, brplayer, brpersistence;
 
-type TBerserkSession = class;
+type TBerserkSessionResult = ( BSR_RUNNING, BSR_CANCELLED, BSR_SAVED,
+       BSR_ABANDONED, BSR_DEAD, BSR_LOAD_FAILED, BSR_QUIT );
+
+     TBerserkSession = class;
 
      TBerserkRuntime = class( TRLRuntime )
      private
@@ -59,18 +62,22 @@ type TBerserkSession = class;
        FLevel       : TLevel;
        FUIDStore    : TUIDStore;
        FSaveWritten : Boolean;
+       FOutcome     : TBerserkSessionResult;
+       FCreating    : Boolean;
+       function GetFinished : Boolean;
        procedure ReleasePlayer;
        procedure AttachPlayer;
      public
-       Escape : Boolean;
        Arena  : Byte;
        constructor Create( aRuntime : TBerserkRuntime );
        destructor Destroy; override;
        procedure Save;
        procedure Load;
-       function SaveExists : Boolean;
        function CanCrashSave : Boolean;
-       procedure Run;
+       function Run( aContinue, aQuick : Boolean ) : TBerserkSessionResult;
+       procedure Finish( aOutcome : TBerserkSessionResult );
+       property Finished : Boolean read GetFinished;
+       property Creating : Boolean read FCreating;
        property Runtime : TBerserkRuntime read FRuntime;
      end;
 
@@ -123,10 +130,58 @@ begin
 end;
 
 function TBerserkRuntime.RunGame : TVRunResult;
+var iChoice : TMainMenuResult;
+    iQuick, iLaunch, iUseQuick : Boolean;
+    iOutcome : TBerserkSessionResult;
+    iSavePath : AnsiString;
 begin
-  // Keep the single-run destinations until the menu-lifetime stage.
-  FSession := TBerserkSession.Create( Self );
-  FSession.Run;
+  iQuick := QuickStart;
+  iLaunch := iQuick;
+  QuickStart := False;
+  iSavePath := Paths.WritePath + 'berserk.sav';
+  UI.ResetSession;
+  UI.RunLayer( TIntroLayer.Create );
+  while not UI.QuitRequested do
+  begin
+    UI.ResetSession;
+    if iLaunch then
+    begin
+      if FileExists( iSavePath ) then iChoice := MMR_CONTINUE else iChoice := MMR_NEW_GAME;
+    end
+    else
+      UI.RunLayer( TMainMenuLayer.Create( FPersistence, iSavePath, iChoice ) );
+    iLaunch := False;
+    if UI.QuitRequested then Break;
+    case iChoice of
+      MMR_NEW_GAME, MMR_CONTINUE :
+        begin
+          iUseQuick := iQuick and ( iChoice = MMR_NEW_GAME );
+          if iChoice = MMR_NEW_GAME then iQuick := False;
+          FSession := TBerserkSession.Create( Self );
+          try
+            try
+              iOutcome := FSession.Run( iChoice = MMR_CONTINUE, iUseQuick );
+            except
+              on E : Exception do
+              begin
+                // The shared exception notification happens after RunGame unwinds.
+                // Crash-save while this Session is still owned and alive.
+                HandleGameException( E );
+                raise;
+              end;
+            end;
+          finally
+            FreeAndNil( FSession );
+          end;
+          if iOutcome = BSR_QUIT then Break;
+        end;
+      MMR_QUIT :
+        begin
+          UI.RunLayer( TOutroLayer.Create );
+          Break;
+        end;
+    end;
+  end;
   Result := VRR_QUIT;
 end;
 
@@ -255,55 +310,86 @@ begin
   DeleteFile( FRuntime.Paths.WritePath + 'berserk.sav' );
 end;
 
-function TBerserkSession.SaveExists : Boolean;
-begin
-  Result := FileExists( FRuntime.Paths.WritePath + 'berserk.sav' );
-end;
-
 function TBerserkSession.CanCrashSave : Boolean;
 begin
   Result := ( FPlayer <> nil ) and ( FPlayer.FMode <> mode_Massacre ) and
             ( FPlayer.FNight > 0 ) and
-            not FSaveWritten;
+            not FSaveWritten and not Finished;
 end;
 
-procedure TBerserkSession.Run;
+function TBerserkSession.GetFinished : Boolean;
 begin
-  UI.RunLayer( TIntroLayer.Create );
+  Result := FOutcome <> BSR_RUNNING;
+end;
 
-  if SaveExists then Load
-                else Player.CreateCharacter;
-  
-  repeat
-    Inc(Player.FNight);
+procedure TBerserkSession.Finish( aOutcome : TBerserkSessionResult );
+begin
+  FOutcome := aOutcome;
+end;
+
+function TBerserkSession.Run( aContinue, aQuick : Boolean ) : TBerserkSessionResult;
+begin
+  if aContinue then
+  begin
+    try
+      Load;
+    except
+      on E : Exception do
+      begin
+        Finish( BSR_LOAD_FAILED );
+        UI.RunLayer( TLoadErrorLayer.Create( E.Message ) );
+      end;
+    end;
+  end
+  else
+  begin
+    FCreating := True;
+    try
+      Player.CreateCharacter( aQuick );
+    finally
+      FCreating := False;
+    end;
+  end;
+
+  if not Finished and not UI.QuitRequested then
+  begin
+    UI.Msg( 'Berserk!' );
+    UI.Msg( 'Press {^'+UI.Config.GetKeybinding( COMMAND_HELP )+'} for help.' );
+  end;
+  while not Finished and not UI.QuitRequested do
+  begin
+    Inc( Player.FNight );
     Player.Detach;
     Level.Clear;
     case Player.FMode of
-      mode_Massacre : Level.Generate(Arena,Player.FMode,1);
-      mode_Endless  : begin
+      mode_Massacre : Level.Generate( Arena, Player.FMode, 1 );
+      mode_Endless :
+        begin
           if Player.FNight > 1 then
           begin
             UI.RunLayer( TNightLayer.Create );
-            if SaveExists then Break;
+            if Finished or UI.QuitRequested then Break;
             Player.Advance;
+            if UI.QuitRequested then Break;
           end;
-          Level.Generate(1,Player.FMode,Player.FNight);
+          Level.Generate( 1, Player.FMode, Player.FNight );
         end;
     end;
     UI.Screen := Game;
     UI.Shift := Clamp( Player.Position.x-11, 0, MAP_MAXX-21 ) * 24;
-    if Assigned( Sound ) then
-      Sound.PlayMusic('passive');
+    if Assigned( Sound ) then Sound.PlayMusic( 'passive' );
     repeat
       Level.Tick;
-    until Escape or Level.Flags[ LF_CLEARED ];
-    if Assigned( Sound ) then
-      Sound.PlayMusic('menu');
+    until Finished or UI.QuitRequested or Level.Flags[ LF_CLEARED ];
+    if Assigned( Sound ) then Sound.PlayMusic( 'menu' );
     UI.Screen := Menu;
-  until Escape;
-  if not SaveExists then UI.RunLayer( THOFLayer.Create );
-
-  UI.RunLayer( TOutroLayer.Create );
+  end;
+  UI.Screen := Menu;
+  if UI.QuitRequested then Exit( BSR_QUIT );
+  if FOutcome in [BSR_DEAD, BSR_ABANDONED] then
+    UI.RunLayer( THOFLayer.Create( FRuntime.Persistence, Player.Mode, FOutcome = BSR_DEAD ) );
+  if UI.QuitRequested then Exit( BSR_QUIT );
+  Result := FOutcome;
 end;
 
 procedure TBerserkRuntime.LoadAudio;

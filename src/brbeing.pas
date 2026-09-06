@@ -514,7 +514,11 @@ begin
   if FFreeze > FSpeed-10 then FFreeze := FSpeed - 10;
   if UI.VisualRNG.RLongInt(1000) = 0 then PlaySound('passive');
   FSpeedCount += FSpeed - FFreeze;
-  while FSpeedCount > SPEEDLIMIT do Action;
+  while FSpeedCount > SPEEDLIMIT do
+  begin
+    Action;
+    if Berserk.Finished or UI.QuitRequested then Exit;
+  end;
   if (FPain > 0) or (FFreeze > 0) or (FEN < FENMAX) then
   begin
     FWillCount += WP*WP;

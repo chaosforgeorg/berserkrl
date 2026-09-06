@@ -336,7 +336,7 @@ end;
 
 procedure TBerserkTextUI.Update( aMSec : DWord );
 begin
-  if FMapEnabled then
+  if FMapEnabled and ( Screen = Game ) then
   begin
     FTMap.Update( aMSec );
     FTMap.OnRedraw;

@@ -86,6 +86,9 @@ type
     constructor Create( aConfiguration : TBerserkConfiguration ); reintroduce;
     // Runs a layer
     procedure RunLayer( aLayer : TIOLayer ); override;
+    function OnEvent( const aEvent : TIOEvent ) : Boolean; override;
+    procedure Clear; override;
+    procedure ResetSession;
     // Writes a tile description in the msg area.
     procedure MsgCoord( Coord : TCoord2D );
     // Reads a key from the keyboard and returns it's Command value.
@@ -130,9 +133,11 @@ type
     // Register API
     class procedure RegisterLuaAPI();
   protected
+    FQuitRequested : Boolean;
     FStatusVisible : Boolean;
     FShift         : Integer; // only in GFX mode
   public
+    property QuitRequested : Boolean read FQuitRequested;
     property StatusVisible : Boolean read FStatusVisible write FStatusVisible;
     property Shift     : Integer      read FShift  write FShift; // only in GFX mode
   end;
@@ -145,7 +150,7 @@ implementation
 
 uses SysUtils, DateUtils, variants, math, vsound, vtigstyle, vtig,
      vluasystem, vluagamestate,
-     brlevel, brplayer;
+     brlevel, brplayer, brmain, bruiscreens;
 
 { TBerserkUI }
 
@@ -293,11 +298,60 @@ begin
 end;
 
 procedure TBerserkUI.RunLayer( aLayer : TIOLayer );
+var iOverlay : Boolean;
 begin
-  FStatusVisible := False;
-  FConsole.Clear;
+  if FQuitRequested then
+  begin
+    aLayer.Free;
+    Exit;
+  end;
+  iOverlay := aLayer is TInGameMenuLayer;
+  if iOverlay then
+    Draw
+  else
+  begin
+    FStatusVisible := False;
+    FConsole.Clear;
+  end;
   FConsole.HideCursor;
   inherited RunLayer( aLayer );
+  if iOverlay then Draw;
+end;
+
+function TBerserkUI.OnEvent( const aEvent : TIOEvent ) : Boolean;
+var iLayer : TIOLayer;
+begin
+  if ( aEvent.EType = VEVENT_SYSTEM ) and ( aEvent.System.Code = VIO_SYSEVENT_QUIT ) then
+  begin
+    FQuitRequested := True;
+    for iLayer in FLayers do iLayer.Finish;
+    BreakKeyLoop;
+    Exit( False );
+  end;
+  Result := inherited OnEvent( aEvent );
+end;
+
+procedure TBerserkUI.Clear;
+begin
+  inherited Clear;
+  FTIGConsoleView := nil;
+  ClearAnimations;
+  FStatusVisible := False;
+  Screen := Menu;
+end;
+
+procedure TBerserkUI.ResetSession;
+const Windows : array[0..5] of AnsiString = ( 'mode', 'arena', 'name', 'stats', 'skill', 'night' );
+var i : Integer;
+begin
+  Clear;
+  MsgClear;
+  MarkClear;
+  FShift := 0;
+  if FTMap <> nil then FTMap.Shift := Point( 0, 0 );
+  Console.Clear;
+  Console.HideCursor;
+  for i := Low( Windows ) to High( Windows ) do VTIG_Reset( Windows[i] );
 end;
 
 function TBerserkUI.ResolveSoundID(const aID, aSound: AnsiString): AnsiString;
@@ -323,10 +377,12 @@ end;
 
 function TBerserkUI.GetCommand(Valid : TCommandSet) : byte;
 begin
+  if FQuitRequested then Exit( COMMAND_SYSQUIT );
   if Assigned( Sound ) then
     Sound.Listener := Player.Position;
   FStatusVisible := True;
-  Exit( WaitForCommand( Valid ) );
+  Result := WaitForCommand( Valid );
+  if FQuitRequested then Result := COMMAND_SYSQUIT;
 end;
 
 function TBerserkUI.ChooseDirection : TDirection;
@@ -337,6 +393,7 @@ end;
 procedure TBerserkUI.Draw;
 begin
   FConsole.Clear;
+  if Screen <> Game then Exit;
   Focus(Player.Position);
   Level.Vision.Run(Player.Position,Player.LightRadius);
 end;
