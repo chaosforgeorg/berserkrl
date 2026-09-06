@@ -384,7 +384,7 @@ begin
   Berserk.Finish( BSR_DEAD );
   UI.Blink(Red,200,0);
   UI.Msg('You die!...');
-  UI.Msg('Press <{^Enter}>...');
+  UI.Msg('Press <{^'+UI.GetKeybinding(COMMAND_OK)+'}>...');
   UI.Draw;
   UI.PressEnter;
   UI.Screen := Menu;
@@ -452,7 +452,7 @@ repeat
   begin
     repeat
       Command := UI.GetCommand;
-      if UI.QuitRequested then Exit;
+      if Berserk.Finished or UI.QuitRequested then Exit;
       if Command in [COMMAND_ESCAPE, COMMAND_QUIT] then
       begin
         UI.RunLayer( TInGameMenuLayer.Create );
@@ -460,7 +460,6 @@ repeat
       end;
     until not ( Command in [COMMAND_ESCAPE, COMMAND_QUIT] );
     UI.MsgUpdate;
-    if Command = 0 then UI.Msg('Press <{^'+UI.Config.GetKeybinding(COMMAND_HELP)+'}> for help.');
   end;
   
   if (Command in COMMANDS_MOVE) or Slip then

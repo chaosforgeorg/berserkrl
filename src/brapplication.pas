@@ -105,6 +105,7 @@ function TBerserkApplication.CreateRuntime( const aPaths : TGamePaths;
   var aConfiguration : TObject ) : TRLRuntime;
 begin
   // Diagnostics are ready before version/resource reads or Runtime creation.
+  TBerserkConfiguration( aConfiguration ).ReadSettings( aPaths.SettingsPath );
   Version := ReadVersion( aPaths.DataPath + 'version.txt' );
   Result := TBerserkRuntime.Create( aPaths, aConfiguration );
 end;

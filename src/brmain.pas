@@ -354,7 +354,7 @@ begin
   if not Finished and not UI.QuitRequested then
   begin
     UI.Msg( 'Berserk!' );
-    UI.Msg( 'Press {^'+UI.Config.GetKeybinding( COMMAND_HELP )+'} for help.' );
+    UI.Msg( 'Press {^'+UI.GetKeybinding( COMMAND_HELP )+'} for help.' );
   end;
   while not Finished and not UI.QuitRequested do
   begin

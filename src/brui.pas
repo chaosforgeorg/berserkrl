@@ -29,7 +29,7 @@ unit brui;
 interface
 
 uses vutil, vio, viorl, vrltools,
-     viotypes, vioevent, vioconsole,
+     viotypes, vioevent, vioconsole, vbindings,
      vmessages, brdata, brconfiguration;
 
 const
@@ -89,9 +89,12 @@ type
     function OnEvent( const aEvent : TIOEvent ) : Boolean; override;
     procedure Clear; override;
     procedure ResetSession;
+    procedure ApplyBindings;
+    function GetKeybinding( aCommand : Byte ) : AnsiString;
+    function GetUIKeybinding( aAction : TBindingAction ) : AnsiString;
     // Writes a tile description in the msg area.
     procedure MsgCoord( Coord : TCoord2D );
-    // Reads a key from the keyboard and returns it's Command value.
+    // Waits for a gameplay command in the active Session.
     function GetCommand(Valid : TCommandSet = []) : byte;
     // Interface function for choosing direction. Returns the direction, or 0 if escaped.
     function ChooseDirection : TDirection;
@@ -133,6 +136,7 @@ type
     // Register API
     class procedure RegisterLuaAPI();
   protected
+    FConfiguration : TBerserkConfiguration;
     FQuitRequested : Boolean;
     FStatusVisible : Boolean;
     FShift         : Integer; // only in GFX mode
@@ -155,9 +159,7 @@ uses SysUtils, DateUtils, variants, math, vsound, vtigstyle, vtig,
 { TBerserkUI }
 
 constructor TBerserkUI.Create( aConfiguration : TBerserkConfiguration );
-var iCount   : Byte;
-    iKey     : TIOKeyCode;
-    iConsole : TIOConsoleRenderer;
+var iConsole : TIOConsoleRenderer;
 begin
   // Initialize takes the renderer on success; retain it locally until then.
   iConsole := FConsole;
@@ -169,6 +171,7 @@ begin
   finally
     iConsole.Free;
   end;
+  FConfiguration := aConfiguration;
   Configure( aConfiguration.LuaConfig );
   VTIGDefaultStyle.Color[ VTIG_INPUT_TEXT_COLOR ]          := White;
   VTIGDefaultStyle.Color[ VTIG_INPUT_BACKGROUND_COLOR ]    := Black;
@@ -186,12 +189,7 @@ begin
 
   FIODriver.SetTitle('Berserk!','Berserk!');
 
-  Config.LoadKeybindings( 'Keybindings' );
-  for iCount in COMMAND_SKILLS do
-  begin
-    iKey := Config.GetKeyCode( iCount );
-    Config.Commands[ Byte(iKey) + IOKeyCodeShiftMask ] := iCount + COMMAND_SKILLALTSHIFT;
-  end;
+  ApplyBindings;
 
   if Option_MessageColoring then
     Config.EntryFeed( 'Messages', @FMessages.AddHighlightCallback );
@@ -199,8 +197,43 @@ begin
   Screen := Menu;
 
   Msg('Berserk!');
-  Msg('Press {^'+Config.GetKeybinding(COMMAND_HELP)+'} for help.');
+  Msg('Press {^'+GetKeybinding(COMMAND_HELP)+'} for help.');
   UI := Self;
+end;
+
+procedure TBerserkUI.ApplyBindings;
+var iCommand : Byte;
+    iKey : TIOKeyCode;
+begin
+  GameBindings.Clear;
+  GameBindings.LoadKeys( FConfiguration.GameKeyBindings );
+  if GodMode then FConfiguration.LuaConfig.LoadGodKeys( GameBindings );
+  for iCommand in COMMAND_SKILLS do
+  begin
+    iKey := GameBindings.GetKey( iCommand );
+    if iKey = 0 then Continue;
+    iKey := iKey or IOKeyCodeShiftMask;
+    if GameBindings.ResolveKey( iKey ) = BINDING_NONE then
+      GameBindings.BindKey( iKey, iCommand + COMMAND_SKILLALTSHIFT );
+  end;
+  UIBindings.Clear;
+  UIBindings.LoadKeys( FConfiguration.UIKeyBindings );
+end;
+
+function TBerserkUI.GetKeybinding( aCommand : Byte ) : AnsiString;
+var iKey : TIOKeyCode;
+begin
+  iKey := GameBindings.GetKey( aCommand );
+  if iKey = 0 then Exit( 'Unbound' );
+  Result := IOKeyCodeToString( iKey );
+end;
+
+function TBerserkUI.GetUIKeybinding( aAction : TBindingAction ) : AnsiString;
+var iKey : TIOKeyCode;
+begin
+  iKey := UIBindings.GetKey( aAction );
+  if iKey = 0 then Exit( 'Unbound' );
+  Result := IOKeyCodeToString( iKey );
 end;
 
 procedure TBerserkUI.DrawStatus;
@@ -212,7 +245,7 @@ var iCt     : Word;
       iAmmo   : Byte;
   begin
     iSkill  := Player.FSkillSlots[ iCt ];
-    Result  := '{^'+Config.GetKeybinding( COMMAND_SKILL1-1+aSkillSlot ) + '}:' + LuaSystem.Get(['skills',iSkill,'name_short']);
+    Result  := '{^'+GetKeybinding( COMMAND_SKILL1-1+aSkillSlot ) + '}:' + LuaSystem.Get(['skills',iSkill,'name_short']);
     iAmmo   := LuaSystem.Get(['skills',iSkill,'ammo_slot']);
     if iAmmo <> 0 then
     begin
@@ -375,14 +408,31 @@ begin
     UI.Msg('nothing');
 end;
 
-function TBerserkUI.GetCommand(Valid : TCommandSet) : byte;
+function TBerserkUI.GetCommand( Valid : TCommandSet ) : Byte;
+var iEvent : TIOEvent;
+    iAction : TBindingAction;
+    iValue : Variant;
 begin
   if FQuitRequested then Exit( COMMAND_SYSQUIT );
-  if Assigned( Sound ) then
-    Sound.Listener := Player.Position;
+  if Assigned( Sound ) then Sound.Listener := Player.Position;
   FStatusVisible := True;
-  Result := WaitForCommand( Valid );
-  if FQuitRequested then Result := COMMAND_SYSQUIT;
+  repeat
+    if not WaitForKeyEvent( iEvent ) then Exit( 0 );
+    if FQuitRequested then Exit( COMMAND_SYSQUIT );
+    if IsModal then Continue;
+    FKeyCode := IOKeyEventToIOKeyCode( iEvent.Key );
+    iAction := GameBindings.ResolveKey( FKeyCode );
+    if iAction = BINDING_FORWARD_LUA then
+    begin
+      if Berserk.Finished then Continue;
+      iValue := FConfiguration.LuaConfig.RunGodKey( FKeyCode );
+      if VarIsOrdinal( iValue ) and not VarIsType( iValue, varBoolean )
+        then iAction := Integer( iValue )
+        else Continue;
+    end;
+    if ( iAction <= 0 ) or ( iAction > High( Byte ) ) then Continue;
+    if ( Valid = [] ) or ( Byte( iAction ) in Valid ) then Exit( Byte( iAction ) );
+  until False;
 end;
 
 function TBerserkUI.ChooseDirection : TDirection;
@@ -507,7 +557,7 @@ function lua_ui_get_keybinding(L: Plua_State): Integer; cdecl;
 var iState   : TLuaGameState;
 begin
   iState.Init(L);
-  iState.Push( UI.Config.GetKeybinding( iState.ToInteger(1) ) );
+  iState.Push( UI.GetKeybinding( iState.ToInteger(1) ) );
   Result := 1;
 end;
 

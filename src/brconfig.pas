@@ -21,15 +21,19 @@
 {$INCLUDE brinclude.inc}
 unit brconfig;
 interface
-uses Classes, SysUtils, vluasystem, vluaconfig;
+uses Classes, SysUtils, vluasystem, vluaconfig, vbindings, vioevent;
 
 type TGameConfig = class(TLuaConfig)
   constructor Create( const FileName : Ansistring );
+  procedure LoadGodKeys( aContext : TBindingContext );
+  function RunGodKey( aKey : TIOKeyCode ) : Variant;
+private
+  FGodKeyNames : array of AnsiString;
 end;
 
 implementation
 
-uses brui, brdata, viotypes;
+uses brui, brdata, viotypes, vluatable, vlualibrary;
 
 { TGameConfig }
 
@@ -39,39 +43,8 @@ begin
   inherited Create;
   for b := 0 to 15 do SetConstant( ColorNames[b], b );
 
-  SetConstant( 'COMMAND_QUIT',      COMMAND_QUIT );
-  SetConstant( 'COMMAND_WALKNORTH', COMMAND_WALKNORTH );
-  SetConstant( 'COMMAND_WALKSOUTH', COMMAND_WALKSOUTH );
-  SetConstant( 'COMMAND_WALKEAST',  COMMAND_WALKEAST );
-  SetConstant( 'COMMAND_WALKWEST',  COMMAND_WALKWEST );
-  SetConstant( 'COMMAND_WALKNE',    COMMAND_WALKNE );
-  SetConstant( 'COMMAND_WALKSE',    COMMAND_WALKSE );
-  SetConstant( 'COMMAND_WALKNW',    COMMAND_WALKNW );
-  SetConstant( 'COMMAND_WALKSW',    COMMAND_WALKSW );
-  SetConstant( 'COMMAND_WAIT',      COMMAND_WAIT );
-  SetConstant( 'COMMAND_ESCAPE',    COMMAND_ESCAPE );
-  SetConstant( 'COMMAND_OK',        COMMAND_OK );
-  SetConstant( 'COMMAND_ENTER',     COMMAND_ENTER );
-
-  SetConstant( 'COMMAND_LOOK',       COMMAND_LOOK );
-  SetConstant( 'COMMAND_HELP',       COMMAND_HELP );
-  SetConstant( 'COMMAND_PLAYERINFO', COMMAND_PLAYERINFO );
-  SetConstant( 'COMMAND_RUNNING',    COMMAND_RUNNING );
-  SetConstant( 'COMMAND_MESSAGES',   COMMAND_MESSAGES );
-
-  SetConstant( 'COMMAND_SKILL1',  COMMAND_SKILL1 );
-  SetConstant( 'COMMAND_SKILL2',  COMMAND_SKILL2 );
-  SetConstant( 'COMMAND_SKILL3',  COMMAND_SKILL3 );
-  SetConstant( 'COMMAND_SKILL4',  COMMAND_SKILL4 );
-  SetConstant( 'COMMAND_SKILL5',  COMMAND_SKILL5 );
-  SetConstant( 'COMMAND_SKILL6',  COMMAND_SKILL6 );
-  SetConstant( 'COMMAND_SKILL7',  COMMAND_SKILL7 );
-  SetConstant( 'COMMAND_SKILL8',  COMMAND_SKILL8 );
-  SetConstant( 'COMMAND_SKILL9',  COMMAND_SKILL9 );
-  SetConstant( 'COMMAND_SKILL0',  COMMAND_SKILL0 );
-
+  
   LoadMain( FileName );
-  //if GodMode then Load( 'godmode.lua' );
 
   Option_AlwaysRandomName := Configure( 'AlwaysRandomName', False );
   Option_AlwaysName       := Configure( 'AlwaysName', '' );
@@ -79,6 +52,35 @@ begin
   Option_MessageBuffer    := Configure( 'MessageBuffer', 100 );
   Option_KillCount        := Configure( 'KillCount', False );
   Option_MortemMessages   := Configure( 'MortemMessages', 10 );
+end;
+
+procedure TGameConfig.LoadGodKeys( aContext : TBindingContext );
+var iTable : TLuaTable;
+    iPair : TLuaValuePair;
+    iKey : TIOKeyCode;
+begin
+  if not TableExists( 'GodKeys' ) then Exit;
+  SetLength( FGodKeyNames, IOKeyCodeMax + 1 );
+  iTable := TLuaTable.Create( Raw, 'GodKeys' );
+  try
+    for iPair in iTable.Pairs do
+      if iPair.Key.IsString and ( iPair.Value.LuaType = LUA_TFUNCTION ) then
+      begin
+        iKey := StringToIOKeyCode( iPair.Key.ToString );
+        if ( iKey <> 0 ) and ( aContext.ResolveKey( iKey ) = BINDING_NONE ) then
+        begin
+          FGodKeyNames[iKey] := iPair.Key.ToString;
+          aContext.BindKey( iKey, BINDING_FORWARD_LUA );
+        end;
+      end;
+  finally
+    iTable.Free;
+  end;
+end;
+
+function TGameConfig.RunGodKey( aKey : TIOKeyCode ) : Variant;
+begin
+  Result := Call( ['GodKeys', FGodKeyNames[aKey]], [] );
 end;
 
 end.

@@ -381,7 +381,7 @@ begin
   VTIG_Text( '' );
   VTIG_Text( FError );
   VTIG_Scrollbar;
-  VTIG_End( ' {lEnter} or {lEscape} to return ' );
+  VTIG_End( ' {l'+UI.GetUIKeybinding(VTIG_IE_CONFIRM)+'} or {l'+UI.GetUIKeybinding(VTIG_IE_CANCEL)+'} to return ' );
   if VTIG_EventConfirm or VTIG_EventCancel then FFinished := True;
 end;
 
@@ -451,7 +451,7 @@ constructor TFullScreenLayer.Create;
 begin
   VTIG_EventClear;
   FHeader   := '';
-  FFooter   := ' Use {!arrows}, {!PgUp}, {!PgDown} to scroll, {!Escape} or {!Enter} to exit.';
+  FFooter   := ' Scroll: {!'+UI.GetUIKeybinding(VTIG_IE_UP)+'}/{!'+UI.GetUIKeybinding(VTIG_IE_DOWN)+'}, {!'+UI.GetUIKeybinding(VTIG_IE_PGUP)+'}/{!'+UI.GetUIKeybinding(VTIG_IE_PGDOWN)+'}. Exit: {!'+UI.GetUIKeybinding(VTIG_IE_CANCEL)+'}/{!'+UI.GetUIKeybinding(VTIG_IE_CONFIRM)+'}.';
 end;
 
 procedure TFullScreenLayer.Update( aDTime : Integer; aActive : Boolean );
@@ -594,7 +594,7 @@ begin
   inherited Create( nil );
   FKeys := TIOStringArray.Create;
   for i := 0 to High( KeyData ) do
-    FKeys.Push( Padded( KeyData[i].Entry, 17 ) +' {!' + UI.Config.GetKeybinding( KeyData[i].Command ) + '}' );
+    FKeys.Push( Padded( KeyData[i].Entry, 17 ) +' {!' + UI.GetKeybinding( KeyData[i].Command ) + '}' );
   if Player <> nil then
     for i := 1 to SKILL_SLOTS do
     begin
@@ -602,8 +602,8 @@ begin
       if ( iSid > 0 ) and ( Player.FSkills[ i ] > 0 ) then
       with LuaSystem.GetTable( ['skills', iSid] ) do
       try
-        if IsFunction('OnUse')    then FKeys.Push( Padded( GetString('name_use'), 17 ) +' {!' + UI.Config.GetKeybinding( COMMAND_SKILL1-1+i ) + '}' );
-        if IsFunction('OnAltUse') then FKeys.Push( Padded( GetString('name_altuse'), 17 ) +' {!' + UI.Config.GetKeybinding( COMMAND_SKILLALT1-1+i ) + '}' );
+        if IsFunction('OnUse')    then FKeys.Push( Padded( GetString('name_use'), 17 ) +' {!' + UI.GetKeybinding( COMMAND_SKILL1-1+i ) + '}' );
+        if IsFunction('OnAltUse') then FKeys.Push( Padded( GetString('name_altuse'), 17 ) +' {!' + UI.GetKeybinding( COMMAND_SKILLALT1-1+i ) + '}' );
       finally
         Free;
       end;
@@ -676,7 +676,7 @@ begin
   VTIG_Text('  Thanks to {!Turgor}, {!Glowie}, {!Jorge}, {!Thomas},');
   VTIG_Text('  {!Malek} and {!Fingerzam} for beta testing.');
   VTIG_Text('');
-  VTIG_Text('          Press <{!Enter}> to begin...' );
+  VTIG_Text('          Press <{!'+UI.GetUIKeybinding(VTIG_IE_CONFIRM)+'}> to begin...' );
 
   VTIG_End;
   inherited Update( aDTime, aActive );
@@ -841,14 +841,14 @@ begin
   if Player.Mode = MODE_MASSACRE then
   begin
     FText     := 'Choose your basic statistics. Up and down to navigate, right to increase, and left lower.';
-    FDoneText := 'Press {!Enter} to accept the chosen stats. Excess points will be lost.';
+    FDoneText := 'Press {!'+UI.GetUIKeybinding(VTIG_IE_CONFIRM)+'} to accept the chosen stats. Excess points will be lost.';
   end
   else
   begin
     if Player.Night < 2
       then FText := 'Choose your basic statistics. Up and down to navigate, right to increase, and left lower. Unspent points may be used in the next avancement.'
       else FText := 'Choose which statistics to upgrade. Up and down to navigate, right to increase, and left lower. Unspent points will be kept.';
-      FDoneText := 'Press {!Enter} to accept the chosen stats. Excess points will be kept.';
+      FDoneText := 'Press {!'+UI.GetUIKeybinding(VTIG_IE_CONFIRM)+'} to accept the chosen stats. Excess points will be kept.';
   end;
 end;
 
@@ -1062,7 +1062,7 @@ begin
         VTIG_Text(' Survived for      : {!{0}t}',[ Player.turn_count ] );
       VTIG_EndGroup;
     VTIG_EndGroup;
-    VTIG_FreeLabel( '-- Press <{!Enter}> to exit... '+StringOfChar('-',37), Point(0,20) );
+    VTIG_FreeLabel( '-- Press <{!'+UI.GetUIKeybinding(VTIG_IE_CONFIRM)+'}> to exit... '+StringOfChar('-',37), Point(0,20) );
   VTIG_End;
   VTIG_PopStyle;
   inherited Update( aDTime, aActive );

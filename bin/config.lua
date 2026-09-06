@@ -53,38 +53,12 @@ Messages =
 	["*appeared*"] = YELLOW,
 }
 
-Keybindings =
+-- Ordinary gameplay and UI keys come from settings.lua and Pascal defaults.
+-- Only --god enables these function hooks, during an active gameplay Session.
+-- Explicit gameplay keys take precedence; hooks may return COMMAND_* actions.
+-- Numeric entries are ignored. Modifier chords use names such as CTRL+F1.
+GodKeys =
 {
-	["SHIFT+Q"]   = COMMAND_QUIT,
-	["LEFT"]      = COMMAND_WALKWEST,
-	["RIGHT"]     = COMMAND_WALKEAST,
-	["UP"]        = COMMAND_WALKNORTH,
-	["DOWN"]      = COMMAND_WALKSOUTH,
-	["PGUP"]      = COMMAND_WALKNE,
-	["PGDOWN"]    = COMMAND_WALKSE,
-	["HOME"]      = COMMAND_WALKNW,
-	["END"]       = COMMAND_WALKSW,
-	["PERIOD"]    = COMMAND_WAIT,
-	["ESCAPE"]    = COMMAND_ESCAPE,
-	["ENTER"]     = COMMAND_OK,
-	["TAB"]       = COMMAND_RUNNING,
-
-	["L"]         = COMMAND_LOOK,
-
-	["1"]        = COMMAND_SKILL1,
-	["2"]        = COMMAND_SKILL2,
-	["3"]        = COMMAND_SKILL3,
-	["4"]        = COMMAND_SKILL4,
-	["5"]        = COMMAND_SKILL5,
-	["6"]        = COMMAND_SKILL6,
-	["7"]        = COMMAND_SKILL7,
-	["8"]        = COMMAND_SKILL8,
-	["9"]        = COMMAND_SKILL9,
-	["0"]        = COMMAND_SKILL0,
-
-	["H"]         = COMMAND_HELP,
-	["SHIFT+P"]   = COMMAND_MESSAGES,
-	["SHIFT+C"]   = COMMAND_PLAYERINFO,
 }
 
 sounds = {
