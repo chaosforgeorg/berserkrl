@@ -32,7 +32,7 @@
         </Mode0>
       </Modes>
     </RunParams>
-    <Units Count="21">
+    <Units Count="22">
       <Unit0>
         <Filename Value="berserk.pas"/>
         <IsPartOfProject Value="True"/>
@@ -115,6 +115,10 @@
         <Filename Value="brbindings.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit20>
+      <Unit21>
+        <Filename Value="brsettingsview.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit21>
     </Units>
   </ProjectOptions>
   <CompilerOptions>

@@ -89,7 +89,8 @@ type
     function OnEvent( const aEvent : TIOEvent ) : Boolean; override;
     procedure Clear; override;
     procedure ResetSession;
-    procedure ApplyBindings;
+    procedure Reconfigure;
+    procedure ShowSettings( aRecoverInput : Boolean = False );
     function GetKeybinding( aCommand : Byte ) : AnsiString;
     function GetUIKeybinding( aAction : TBindingAction ) : AnsiString;
     // Writes a tile description in the msg area.
@@ -154,7 +155,7 @@ implementation
 
 uses SysUtils, DateUtils, variants, math, vsound, vtigstyle, vtig,
      vluasystem, vluagamestate,
-     brlevel, brplayer, brmain, bruiscreens;
+     brlevel, brplayer, brmain, bruiscreens, brsettingsview;
 
 { TBerserkUI }
 
@@ -189,7 +190,7 @@ begin
 
   FIODriver.SetTitle('Berserk!','Berserk!');
 
-  ApplyBindings;
+  Reconfigure;
 
   if Option_MessageColoring then
     Config.EntryFeed( 'Messages', @FMessages.AddHighlightCallback );
@@ -201,7 +202,7 @@ begin
   UI := Self;
 end;
 
-procedure TBerserkUI.ApplyBindings;
+procedure TBerserkUI.Reconfigure;
 var iCommand : Byte;
     iKey : TIOKeyCode;
 begin
@@ -218,6 +219,17 @@ begin
   end;
   UIBindings.Clear;
   UIBindings.LoadKeys( FConfiguration.UIKeyBindings );
+end;
+
+procedure TBerserkUI.ShowSettings( aRecoverInput : Boolean = False );
+var iView : TBerserkSettingsView;
+begin
+  Screen := Menu;
+  FStatusVisible := False;
+  FConsole.Clear;
+  iView := TBerserkSettingsView.Create( FConfiguration, @Reconfigure );
+  PushLayer( iView );
+  if aRecoverInput then iView.RecoverUIBindings;
 end;
 
 function TBerserkUI.GetKeybinding( aCommand : Byte ) : AnsiString;

@@ -15,9 +15,13 @@ type TBerserkConfiguration = class( TConfigurationManager )
   destructor Destroy; override;
   procedure ResetValues;
   procedure ResetGroup( const aGroupID : AnsiString );
+  function SnapshotValues : TConfigurationValueMap;
+  procedure RestoreValues( aValues : TConfigurationValueMap );
   function ReadSettings( const aFileName : AnsiString ) : Boolean;
+  function WriteSettings : Boolean;
 private
   FLuaConfig       : TGameConfig;
+  FSettingsPath    : AnsiString;
   FGameKeyBindings : TBindingCatalog;
   FUIKeyBindings   : TBindingCatalog;
   function CatalogForEntry( const aID : AnsiString ) : TBindingCatalog;
@@ -27,6 +31,7 @@ public
   FullScreen   : Boolean;
   AudioDriver  : AnsiString;
   property LuaConfig       : TGameConfig read FLuaConfig;
+  property SettingsPath    : AnsiString read FSettingsPath;
   property GameKeyBindings : TBindingCatalog read FGameKeyBindings;
   property UIKeyBindings   : TBindingCatalog read FUIKeyBindings;
 end;
@@ -123,12 +128,47 @@ begin
   end;
 end;
 
+function TBerserkConfiguration.SnapshotValues : TConfigurationValueMap;
+var iGroup : TConfigurationGroup;
+    iEntry : TConfigurationEntry;
+begin
+  Result := TConfigurationValueMap.Create;
+  for iGroup in Groups do
+    for iEntry in iGroup.Entries do
+      if iEntry is TIntegerConfigurationEntry then
+        Result[ iEntry.ID ] := TIntegerConfigurationEntry( iEntry ).Value
+      else if iEntry is TToggleConfigurationEntry then
+        Result[ iEntry.ID ] := TToggleConfigurationEntry( iEntry ).Value
+      else if iEntry is TStringConfigurationEntry then
+        Result[ iEntry.ID ] := TStringConfigurationEntry( iEntry ).Value;
+end;
+
+procedure TBerserkConfiguration.RestoreValues( aValues : TConfigurationValueMap );
+var iGroup : TConfigurationGroup;
+    iEntry : TConfigurationEntry;
+begin
+  for iGroup in Groups do
+    for iEntry in iGroup.Entries do
+      if iEntry is TIntegerConfigurationEntry then
+        TIntegerConfigurationEntry( iEntry ).Value := aValues[ iEntry.ID ]
+      else if iEntry is TToggleConfigurationEntry then
+        TToggleConfigurationEntry( iEntry ).Value := aValues[ iEntry.ID ]
+      else if iEntry is TStringConfigurationEntry then
+        TStringConfigurationEntry( iEntry ).Value := aValues[ iEntry.ID ];
+end;
+
 function TBerserkConfiguration.ReadSettings( const aFileName : AnsiString ) : Boolean;
 begin
+  FSettingsPath := aFileName;
   ResetValues;
   Result := True;
   if FileExists( aFileName ) then Result := inherited Read( aFileName );
   if not Result then ResetValues;
+end;
+
+function TBerserkConfiguration.WriteSettings : Boolean;
+begin
+  Result := inherited Write( FSettingsPath );
 end;
 
 end.

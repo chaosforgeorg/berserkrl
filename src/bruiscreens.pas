@@ -293,7 +293,7 @@ begin
     FFinished := True;
     Exit;
   end;
-  BeginMenu( 7 );
+  BeginMenu( 8 );
   if VTIG_Selectable( 'New Game' ) then
     if FHasSave
       then UI.PushLayer( TNewGameMenuLayer.Create( FSavePath, FNewGame ) )
@@ -305,6 +305,8 @@ begin
   end;
   if VTIG_Selectable( 'Hall of Fame' ) then UI.PushLayer( THighscoreMenuLayer.Create( FPersistence ) );
   if VTIG_Selectable( 'Help' ) then UI.PushLayer( THelpLayer.Create );
+  if VTIG_Selectable( 'Settings' ) then
+    UI.ShowSettings;
   if VTIG_Selectable( 'Quit' ) or VTIG_EventCancel then FFinished := True;
   VTIG_End;
 end;
@@ -403,7 +405,7 @@ begin
     UI.StatusVisible := True;
     UI.Draw;
   end;
-  BeginMenu( 5 );
+  BeginMenu( 6 );
   if VTIG_Selectable( 'Continue' ) or VTIG_EventCancel then FFinished := True;
   if VTIG_Selectable( 'Help' ) then
   begin
@@ -412,6 +414,7 @@ begin
     UI.Console.Clear;
     UI.PushLayer( THelpLayer.Create );
   end;
+  if VTIG_Selectable( 'Settings' ) then UI.ShowSettings;
   if VTIG_Selectable( 'Abandon run' ) then UI.PushLayer( TAbandonRunLayer.Create );
   VTIG_End;
 end;
@@ -655,6 +658,12 @@ end;
 
 procedure TIntroLayer.Update( aDTime : Integer; aActive : Boolean );
 begin
+  if not aActive then Exit;
+  if VTIG_GetIOState.KeyState.Activated( VKEY_F11 ) then
+  begin
+    UI.ShowSettings( True );
+    Exit;
+  end;
   UI.RenderWindow( Point( 49, 15 ), Point( 17, 3 ) );
   VTIG_Begin( 'intro', Point( 49, 15 ), Point( 17, 3 ) );
   VTIG_Text('{R   #####  ### #####   #  ### ##### #  #   ##}');
@@ -675,7 +684,7 @@ begin
   VTIG_Begin( 'intro_sub', Point( 49, 6 ), Point( 17, 19 ) );
   VTIG_Text('  Thanks to {!Turgor}, {!Glowie}, {!Jorge}, {!Thomas},');
   VTIG_Text('  {!Malek} and {!Fingerzam} for beta testing.');
-  VTIG_Text('');
+  VTIG_Text('          F11: input recovery');
   VTIG_Text('          Press <{!'+UI.GetUIKeybinding(VTIG_IE_CONFIRM)+'}> to begin...' );
 
   VTIG_End;
