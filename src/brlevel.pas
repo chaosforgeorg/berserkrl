@@ -45,11 +45,7 @@ type
   // Specialization of the enumerator for TLevel
   TLevelEnumerator = specialize TGNodeEnumerator<TBeing>;
 
-  // Level class. Berserk doesn't take advantage of Valkyries Node and Event
-  // system, because of simplicity issues. That's why TLevel inherits only
-  // TVObject. Also, that means that TLevel is a singleton, accessible from
-  // the whole program. Creating and Destroying TLevel is a responsibility
-  // of TBerserkSession.
+  // Session owns the Level and publishes its non-owning compatibility alias.
 
   { TLevel }
 
@@ -494,7 +490,6 @@ end;
 destructor TLevel.Destroy;
 begin
   if FCellMap <> nil then Clear;
-  Level := nil;
   inherited Destroy;
 end;
 

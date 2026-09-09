@@ -86,6 +86,7 @@ TBerserkGUI = class(TBerserkUI)
     FTerrain     : TGLTexturedColoredQuads;
     FTarget      : TCoord2D;
     FSpriteTexID : TTextureID;
+    FTextures    : TTextureManager;
     FAnimations  : TAnimations;
 
     FPixelSize   : TGLVec2f;
@@ -100,8 +101,6 @@ TBerserkGUI = class(TBerserkUI)
   end;
 
 var GUI : TBerserkGUI = nil;
-
-var Textures : TTextureManager = nil;
 
 
 implementation
@@ -285,10 +284,10 @@ begin
   if aConfiguration.FullScreen then Include( iFlags, SDLIO_FullScreen );
   FIODriver := TSDLIODriver.Create( 800, 600, 32, iFlags );
 
-  Textures := TTextureManager.Create( True );
-  Textures.LoadTextureFolder(aPaths.DataPath+'graphics');
-  Textures.Upload;
-  FSpriteTexID := Textures.TextureID['spritesheet'];
+  FTextures := TTextureManager.Create( True );
+  FTextures.LoadTextureFolder(aPaths.DataPath+'graphics');
+  FTextures.Upload;
+  FSpriteTexID := FTextures.TextureID['spritesheet'];
   FConsole := TGLConsoleRenderer.Create( aPaths.DataPath+'font10x18.png', 32, 256-32, 32, 80, 25, 6, [VIO_CON_CURSOR] );
   FConsole.HideCursor;
 
@@ -316,7 +315,7 @@ begin
   FPreQuads  := TGLTexturedColoredQuadLayer.Create;
   FTerrain   := TGLTexturedColoredQuads.Create;
 
-  iSheetSize := Textures.Textures['spritesheet'].GLSize;
+  iSheetSize := FTextures.Textures['spritesheet'].GLSize;
   FPixelSize.Init( iSheetSize.X / SpriteSheetSizeX, iSheetSize.Y / SpriteSheetSizeY );
   FSprite2424.Init( iSheetSize.X * 24 / SpriteSheetSizeX, iSheetSize.Y * 24 / SpriteSheetSizeY );
   FSprite2432.Init( iSheetSize.X * 24 / SpriteSheetSizeX, iSheetSize.Y * 32 / SpriteSheetSizeY );
@@ -472,8 +471,8 @@ procedure TBerserkGUI.RenderBG;
 const GLShade : TGLVec4f = ( Data : ( 0.5,0.5,0.5,1 ) );
 var iTexture : TTexture;
 begin
-  iTexture := Textures.Textures['menuback'];
-  GUI.PreQuads[ iTexture.GLTexture ].PushQuad(
+  iTexture := FTextures.Textures['menuback'];
+  FPreQuads[ iTexture.GLTexture ].PushQuad(
     GLVec3i(0,0,GMODE_GUI_Z), GLVec3i( 800-1,600-1,GMODE_GUI_Z), GLShade,
     GLVec2f(), iTexture.GLSize
   );
@@ -490,7 +489,7 @@ var iTexture      : TTexture;
     iColor        : TGLVec4f;
 const Z = GMODE_GUI_Z + 1;
 begin
-  iTexture := Textures.Textures['windowskin'];
+  iTexture := FTextures.Textures['windowskin'];
   iA.Init( (aPos.X-1)*10,         (aPos.Y-1)*24 );
   iB.Init( (aPos.X-1+aSize.X)*10, (aPos.Y-1)*24 );
   iC.Init( (aPos.X-1)*10,         (aPos.Y-1+aSize.Y)*24 );
@@ -533,17 +532,17 @@ begin
 
   if FStatusVisible then
   begin
-    FPreQuads[Textures.Texture[Textures.TextureID['background']].GLTexture].PushQuad(
+    FPreQuads[FTextures.Texture[FTextures.TextureID['background']].GLTexture].PushQuad(
       GLVec3i( 500, 0, GMODE_GUI_Z ), GLVec3i( 800, 600, GMODE_GUI_Z ),
       TGLVec4f.Create( 1, 1, 1, 1 ), GLVec2f(),
-      Textures.Texture[Textures.TextureID['background']].GLSize );
+      FTextures.Texture[FTextures.TextureID['background']].GLSize );
   end;
   FTerrain.Update;
   FPreQuads.Update;
 
   FProgram.Bind;
   glActiveTexture( GL_TEXTURE0 );
-  glBindTexture( GL_TEXTURE_2D,  Textures.Texture[FSpriteTexID].GLTexture );
+  glBindTexture( GL_TEXTURE_2D,  FTextures.Texture[FSpriteTexID].GLTexture );
   FTerrain.Draw;
   FTerrain.Clear;
   FPreQuads.Draw;
@@ -598,7 +597,7 @@ begin
   FreeAndNil(FAnimations);
   GUI := nil;
   FreeAndNil(FProgram);
-  FreeAndNil(Textures);
+  FreeAndNil(FTextures);
   FreeAndNil(FTerrain);
   FreeAndNil(FPreQuads);
   inherited Destroy;

@@ -30,20 +30,13 @@ uses vutil;
 
 const 
 
-      // All the below paths can be set from the command line (see berserk.pas),
-      // all except config can be set from the configuration file.
-
-      // This is the full path to the configuration file ("config.lua" by default)
-      ConfigurationPath : AnsiString = 'config.lua';
+      // Borrowed launch paths for help and mortem consumers, resolved by Application.
       // This is the directory path to the read only data folder ("" by default, 
       // needs slash at end)
       DataPath          : AnsiString = '';
       // This is the directory path for writing (save, log, crash) ("" by default, 
       // needs slash at end)
       WritePath         : AnsiString = '';
-      // This is the directory path for score table (by default it will be the
-      // same as WritePath, change for multi-user systems
-      ScorePath         : AnsiString = '';
 
 const COMMAND_QUIT       = 1;
       COMMAND_WALKNORTH  = 2;
@@ -102,10 +95,6 @@ var
     GraphicsMode : Boolean = True;
     // Whether we use High ASCII or not
     HighASCII    : Boolean = True;
-    // Whether to start in fullscreen (Graphics only)
-    FullScreen   : Boolean = False;
-    // Audio driver to use
-    AudioDriver  : AnsiString = 'SDL';
 
 
 const // Number of entries in the hall of fame. If changed then score.dat needs
@@ -262,4 +251,3 @@ begin
 end;
 
 end.
-

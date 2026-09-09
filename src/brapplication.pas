@@ -22,13 +22,13 @@ uses vos, vutil, brconfig, brconfiguration, brmain, brdata, brui;
 
 procedure TBerserkApplication.DefineOptions;
 begin
-  AddFlag( 'god', #0, 'Enable god mode and the debug console.' );
-  AddFlag( 'quick', #0, 'Use quick character creation after mode selection.' );
-  AddFlag( 'nosound', #0, 'Disable the audio backend.' );
-  AddFlag( 'console', #0, 'Use the text console.' );
-  AddFlag( 'graphics', #0, 'Use graphics; takes precedence over --console.' );
-  AddFlag( 'lowascii', #0, 'Use basic ASCII characters.' );
-  AddFlag( 'fullscreen', #0, 'Start graphics in fullscreen.' );
+  AddFlag( 'god',         #0, 'Enable god mode and the debug console.' );
+  AddFlag( 'quick',       #0, 'Use quick character creation after mode selection.' );
+  AddFlag( 'nosound',     #0, 'Disable the audio backend.' );
+  AddFlag( 'console',     #0, 'Use the text console.' );
+  AddFlag( 'graphics',    #0, 'Use graphics; takes precedence over --console.' );
+  AddFlag( 'lowascii',    #0, 'Use basic ASCII characters.' );
+  AddFlag( 'fullscreen',  #0, 'Start graphics in fullscreen.' );
   AddValueOption( 'name', #0, 'PLAYER_NAME', 'Override the default player name.' );
 end;
 
@@ -46,7 +46,7 @@ begin
   aPaths.ResourcePath := aPaths.ExecutablePath;
   {$ENDIF}
   aPaths.ConfigurationPath := aPaths.ResourcePath + 'config.lua';
-  aPaths.DataPath := aPaths.ResourcePath;
+  aPaths.DataPath  := aPaths.ResourcePath;
   aPaths.WritePath := aPaths.ResourcePath;
   aPaths.ScorePath := '';
 end;
@@ -55,19 +55,23 @@ procedure TBerserkApplication.BeforeConfiguration( var aPaths : TGamePaths );
 begin
   GodMode := HasOption( 'god' );
   QuickStart := HasOption( 'quick' );
-  ConfigurationPath := aPaths.ConfigurationPath;
 end;
 
 function TBerserkApplication.CreateConfiguration( var aPaths : TGamePaths ) : TObject;
-var iLua : TGameConfig;
+var iLua           : TGameConfig;
+    iAudioDriver   : AnsiString;
+    iConfiguration : TBerserkConfiguration;
 begin
   iLua := TGameConfig.Create( aPaths.ConfigurationPath );
   try
-    AudioDriver      := iLua.Configure( 'audio.driver', 'SDL' );
+    iAudioDriver     := iLua.Configure( 'audio.driver', 'SDL' );
     aPaths.DataPath  := iLua.Configure( 'DataPath', aPaths.DataPath );
     aPaths.WritePath := iLua.Configure( 'WritePath', aPaths.WritePath );
     aPaths.ScorePath := iLua.Configure( 'ScorePath', aPaths.ScorePath );
-    Result := TBerserkConfiguration.Create( iLua );
+
+    iConfiguration := TBerserkConfiguration.Create( iLua );
+    iConfiguration.AudioDriver := iAudioDriver;
+    Result := iConfiguration;
   finally
     iLua.Free;
   end;
@@ -76,20 +80,18 @@ end;
 procedure TBerserkApplication.ApplyOptions;
 var iConfiguration : TBerserkConfiguration;
 begin
-  if HasOption( 'nosound' ) then AudioDriver := 'NONE';
-  FullScreen := HasOption( 'fullscreen' );
   if FPaths.ScorePath = '' then FPaths.ScorePath := FPaths.WritePath;
   FPaths.SettingsPath := FPaths.WritePath + 'settings.lua';
-  DataPath := FPaths.DataPath;
+  
+  DataPath  := FPaths.DataPath;
   WritePath := FPaths.WritePath;
-  ScorePath := FPaths.ScorePath;
+
   iConfiguration := TBerserkConfiguration( Configuration );
   iConfiguration.LowASCIIOverride := HasOption( 'lowascii' );
-  iConfiguration.HasNameOverride := HasOption( 'name' );
-  if iConfiguration.HasNameOverride then
-    iConfiguration.NameOverride := GetOptionValue( 'name' );
-  iConfiguration.FullScreen := FullScreen;
-  iConfiguration.AudioDriver := AudioDriver;
+  iConfiguration.FullScreen       := HasOption( 'fullscreen' );
+  iConfiguration.HasNameOverride  := HasOption( 'name' );
+  if iConfiguration.HasNameOverride then iConfiguration.NameOverride := GetOptionValue( 'name' );
+  if HasOption( 'nosound' ) then iConfiguration.AudioDriver := 'NONE';
 end;
 
 procedure TBerserkApplication.BeforeDiagnostics;

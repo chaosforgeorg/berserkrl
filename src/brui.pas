@@ -481,8 +481,9 @@ end;
 
 destructor TBerserkUI.Destroy;
 begin
-  UI := nil;
+  // Layer destructors can still use the driver to end text input.
   inherited Destroy;
+  UI := nil;
 end;
 
 function TBerserkUI.CommandDirection(Command : byte) : TDirection;

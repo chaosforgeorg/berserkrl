@@ -32,22 +32,17 @@ type
 { TBerserkLua }
 
 TBerserkLua = class(TLuaSystem)
-  constructor Create;
-  procedure Load( const aDataPath : AnsiString; var aTerrainData : TTerrainDataArray );
+private
   procedure LoadCells( var aTerrainData : TTerrainDataArray );
+  procedure OnError( const aErrorString : AnsiString );
+public
+  procedure Load( const aDataPath : AnsiString; var aTerrainData : TTerrainDataArray );
   procedure RegisterPlayer( aPlayer : TPlayer; aLevel : TLevel );
-  // TODO: this is unused!
-  procedure OnError(const ErrorString : Ansistring);
 end;
 
 implementation
 uses vnode, vluatools, vluaentitynode, vluadungen, vdebug, vsound,
      brui, brbeing;
-
-constructor TBerserkLua.Create;
-begin
-  inherited Create;
-end;
 
 procedure TBerserkLua.Load( const aDataPath : AnsiString; var aTerrainData : TTerrainDataArray );
 var LuaInfo       : TLuaClassInfo;
@@ -147,15 +142,15 @@ begin
   RegisterKillsClass( Raw, aPlayer.FKills );
 end;
 
-procedure TBerserkLua.OnError(const ErrorString: Ansistring);
+procedure TBerserkLua.OnError( const aErrorString : AnsiString );
 begin
-  Log('LuaError: '+ErrorString);
+  Log('LuaError: '+aErrorString);
   if (UI <> nil)  then
   begin
-    UI.Msg( 'LuaError: '+ ErrorString );
+    UI.Msg( 'LuaError: '+ aErrorString );
   end
   else
-    raise ELuaException.Create('LuaError: '+ErrorString);
+    raise ELuaException.Create('LuaError: '+aErrorString);
 end;
 
 end.

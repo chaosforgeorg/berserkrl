@@ -734,7 +734,6 @@ destructor TPlayer.Destroy;
 begin
   FreeAndNil( FKills );
   inherited Destroy;
-  Player := nil;
 end;
 
 function lua_player_get_skill_slot(L: Plua_State): Integer; cdecl;
