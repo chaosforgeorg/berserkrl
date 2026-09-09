@@ -29,7 +29,7 @@ unit brui;
 interface
 
 uses vutil, vio, viorl, vrltools,
-     viotypes, vioevent, vioconsole, vbindings,
+     viotypes, vioevent, vioconsole, vbindings, vsound,
      vmessages, brdata, brconfiguration;
 
 const
@@ -138,13 +138,16 @@ type
     class procedure RegisterLuaAPI();
   protected
     FConfiguration : TBerserkConfiguration;
+    FAudio         : TSound;
     FQuitRequested : Boolean;
     FStatusVisible : Boolean;
     FShift         : Integer; // only in GFX mode
   public
+    // Non-owning reference to Runtime's audio service.
+    property Audio         : TSound  read FAudio write FAudio;
     property QuitRequested : Boolean read FQuitRequested;
     property StatusVisible : Boolean read FStatusVisible write FStatusVisible;
-    property Shift     : Integer      read FShift  write FShift; // only in GFX mode
+    property Shift         : Integer read FShift  write FShift; // only in GFX mode
   end;
 
 
@@ -153,7 +156,7 @@ const UI : TBerserkUI = nil;
 
 implementation
 
-uses SysUtils, DateUtils, variants, math, vsound, vtigstyle, vtig,
+uses SysUtils, DateUtils, variants, math, vtigstyle, vtig,
      vluasystem, vluagamestate,
      brlevel, brplayer, brmain, bruiscreens, brsettingsview;
 
@@ -206,6 +209,22 @@ procedure TBerserkUI.Reconfigure;
 var iCommand : Byte;
     iKey : TIOKeyCode;
 begin
+  HighASCII := FConfiguration.GetBoolean( 'high_ascii' ) and not FConfiguration.LowASCIIOverride;
+  Option_AlwaysRandomName := FConfiguration.GetBoolean( 'always_random_name' );
+  Option_AlwaysName := FConfiguration.GetString( 'always_name' );
+  if FConfiguration.HasNameOverride then Option_AlwaysName := FConfiguration.NameOverride;
+  if FAudio <> nil then
+  begin
+    if FAudio.SoundEnabled and not FConfiguration.GetBoolean( 'sound_enabled' ) then
+      FAudio.StopSound;
+    FAudio.SoundEnabled := FConfiguration.GetBoolean( 'sound_enabled' );
+    FAudio.SetSoundVolume( FConfiguration.GetInteger( 'volume_sound' ) );
+    // Keep track changes while muted, so unmuting resumes the appropriate music.
+    if FConfiguration.GetBoolean( 'music_enabled' ) then
+      FAudio.SetMusicVolume( FConfiguration.GetInteger( 'volume_music' ) )
+    else
+      FAudio.SetMusicVolume( 0 );
+  end;
   GameBindings.Clear;
   GameBindings.LoadKeys( FConfiguration.GameKeyBindings );
   if GodMode then FConfiguration.LuaConfig.LoadGodKeys( GameBindings );

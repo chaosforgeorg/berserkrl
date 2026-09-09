@@ -46,8 +46,6 @@ begin
   
   LoadMain( FileName );
 
-  Option_AlwaysRandomName := Configure( 'AlwaysRandomName', False );
-  Option_AlwaysName       := Configure( 'AlwaysName', '' );
   Option_MessageColoring  := Configure( 'MessageColoring', True );
   Option_MessageBuffer    := Configure( 'MessageBuffer', 100 );
   Option_KillCount        := Configure( 'KillCount', False );

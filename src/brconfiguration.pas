@@ -27,9 +27,12 @@ private
   function CatalogForEntry( const aID : AnsiString ) : TBindingCatalog;
 public
   // Effective launch choices, populated before Runtime's virtual IO factory.
-  GraphicsMode : Boolean;
-  FullScreen   : Boolean;
-  AudioDriver  : AnsiString;
+  GraphicsMode     : Boolean;
+  FullScreen       : Boolean;
+  AudioDriver      : AnsiString;
+  LowASCIIOverride : Boolean;
+  HasNameOverride  : Boolean;
+  NameOverride     : AnsiString;
   property LuaConfig       : TGameConfig read FLuaConfig;
   property SettingsPath    : AnsiString read FSettingsPath;
   property GameKeyBindings : TBindingCatalog read FGameKeyBindings;
@@ -50,32 +53,32 @@ begin
   iGroup := AddGroup( GAME_CONFIGURATION_GROUP_DISPLAY );
   iGroup.AddToggle( 'graphics_mode', True )
     .SetName( 'Graphics mode' )
-    .SetDescription( 'Use graphics instead of the text console. Requires restart; --console and --graphics override it for that process.' );
+    .SetDescription( 'Use graphics instead of the text console. Requires restart (--console and --graphics override it).' );
   iGroup.AddToggle( 'high_ascii', True )
     .SetName( 'Extended ASCII' )
-    .SetDescription( 'Use the extended block glyph for text effects. Applies immediately in console mode; --lowascii overrides it.' );
+    .SetDescription( 'Use extended block glyphs after Apply. Console only.' );
 
   iGroup := AddGroup( GAME_CONFIGURATION_GROUP_GAMEPLAY );
   iGroup.AddToggle( 'always_random_name', False )
     .SetName( 'Random player name' )
-    .SetDescription( 'Choose a random name for the next character. A nonempty default name or --name takes precedence.' );
+    .SetDescription( 'Choose a random name at character creation.' );
   iGroup.AddString( 'always_name', '' )
     .SetName( 'Default player name' )
-    .SetDescription( 'Name for the next character, up to 16 bytes. Empty asks for a name unless random naming is enabled; --name overrides it.' );
+    .SetDescription( 'Always use this name for the character, up to 16 bytes. Empty asks for a name unless random naming is enabled.' );
 
   iGroup := AddGroup( GAME_CONFIGURATION_GROUP_AUDIO );
   iGroup.AddToggle( 'sound_enabled', True )
     .SetName( 'Sound effects' )
-    .SetDescription( 'Mute or enable sound effects immediately while retaining the selected volume. Unavailable when the audio driver is NONE.' );
+    .SetDescription( 'Mute or enable sound effects on Apply, retaining the selected volume.' );
   iGroup.AddToggle( 'music_enabled', True )
     .SetName( 'Music' )
-    .SetDescription( 'Stop or resume music immediately while retaining the selected volume. Unavailable when the audio driver is NONE.' );
+    .SetDescription( 'Mute or unmute the current music on Apply, retaining the selected volume.' );
   iGroup.AddInteger( 'volume_sound', 80 ).SetRange( 0, 100, 5 )
     .SetName( 'Sound volume' )
-    .SetDescription( 'Sound effect volume from 0 to 100. Applies immediately when audio is available.' );
+    .SetDescription( 'Sound effect volume from 0 to 100. Takes effect on Apply.' );
   iGroup.AddInteger( 'volume_music', 80 ).SetRange( 0, 100, 5 )
     .SetName( 'Music volume' )
-    .SetDescription( 'Music volume from 0 to 100. Applies immediately, including the current track, when audio is available.' );
+    .SetDescription( 'Music volume from 0 to 100. Affects the current track on Apply.' );
 
   FGameKeyBindings := TBindingCatalog.Create( GameKeyBindingInfo );
   FGameKeyBindings.RegisterGroup( AddGroup( GAME_BINDING_GROUP_MOVEMENT ), GAME_BINDING_GROUP_MOVEMENT );

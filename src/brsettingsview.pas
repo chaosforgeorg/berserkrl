@@ -5,7 +5,7 @@ interface
 uses viotypes, vioevent, vbindings, vconfiguration, brconfiguration;
 
 type TBerserkSettingsApply = procedure of object;
-     TBerserkSettingsState = ( BSS_GENERAL, BSS_INPUT, BSS_UI,
+     TBerserkSettingsState = ( BSS_GENERAL, BSS_DISPLAY, BSS_GAME, BSS_AUDIO, BSS_INPUT, BSS_UI,
        BSS_MOVEMENT, BSS_GAMEPLAY, BSS_SKILLS );
 
      TBerserkSettingsView = class( TIOLayer )
@@ -17,14 +17,17 @@ type TBerserkSettingsApply = procedure of object;
        function IsModal : Boolean; override;
        procedure RecoverUIBindings;
      private
-       FConfiguration : TBerserkConfiguration;
+       FConfiguration  : TBerserkConfiguration;
        FOriginalValues : TConfigurationValueMap;
-       FOnApply : TBerserkSettingsApply;
-       FState : TBerserkSettingsState;
-       FCapture : Boolean;
-       FRecovery : Boolean;
-       FCaptureAction : TBindingAction;
-       FCaptureMessage, FError : AnsiString;
+       FStringEntry    : TStringConfigurationEntry;
+       FStringBuffer   : array[0..16] of Char;
+       FOnApply        : TBerserkSettingsApply;
+       FState          : TBerserkSettingsState;
+       FCapture        : Boolean;
+       FRecovery       : Boolean;
+       FCaptureAction  : TBindingAction;
+       FCaptureMessage : AnsiString;
+       FError          : AnsiString;
        procedure SetState( aState : TBerserkSettingsState );
        function BindingCatalog : TBindingCatalog;
        procedure ResetPage;
@@ -40,21 +43,27 @@ const CStates : array[ TBerserkSettingsState ] of record
         Parent : TBerserkSettingsState;
       end = (
         ( Title: 'Settings'; Group: ''; Parent: BSS_GENERAL ),
+        ( Title: 'Settings (Display)'; Group: GAME_CONFIGURATION_GROUP_DISPLAY; Parent: BSS_GENERAL ),
+        ( Title: 'Settings (Gameplay)'; Group: GAME_CONFIGURATION_GROUP_GAMEPLAY; Parent: BSS_GENERAL ),
+        ( Title: 'Settings (Audio)'; Group: GAME_CONFIGURATION_GROUP_AUDIO; Parent: BSS_GENERAL ),
         ( Title: 'Settings (Input)'; Group: ''; Parent: BSS_GENERAL ),
         ( Title: 'Settings (Input - UI)'; Group: UI_KEY_BINDING_GROUP; Parent: BSS_INPUT ),
         ( Title: 'Settings (Input - Movement)'; Group: GAME_BINDING_GROUP_MOVEMENT; Parent: BSS_INPUT ),
         ( Title: 'Settings (Input - Gameplay)'; Group: GAME_BINDING_GROUP_ACTIONS; Parent: BSS_INPUT ),
         ( Title: 'Settings (Input - Skills)'; Group: GAME_BINDING_GROUP_SKILLS; Parent: BSS_INPUT )
       );
-      CSub : array[0..4] of record
+      CSub : array[0..7] of record
         State : TBerserkSettingsState;
         Name, Description : AnsiString;
       end = (
-        ( State: BSS_INPUT; Name: 'Input'; Description: 'Configure keyboard input.' ),
-        ( State: BSS_UI; Name: 'UI'; Description: 'Menu and dialog keys. Only unmodified keys are supported.' ),
+        ( State: BSS_DISPLAY;  Name: 'Display'; Description: 'Backend selection and text glyphs.' ),
+        ( State: BSS_GAME;     Name: 'Gameplay'; Description: 'Name choices for the next character.' ),
+        ( State: BSS_AUDIO;    Name: 'Audio'; Description: 'Sound and music enable/volume.' ),
+        ( State: BSS_INPUT;    Name: 'Input'; Description: 'Configure keyboard input.' ),
+        ( State: BSS_UI;       Name: 'UI'; Description: 'Menu and dialog keys. Only unmodified keys are supported.' ),
         ( State: BSS_MOVEMENT; Name: 'Movement'; Description: 'Movement and waiting keys.' ),
         ( State: BSS_GAMEPLAY; Name: 'Gameplay'; Description: 'Gameplay actions and screens.' ),
-        ( State: BSS_SKILLS; Name: 'Skills'; Description: 'Skill slots. Shift shortcuts are derived from these bindings.' )
+        ( State: BSS_SKILLS;   Name: 'Skills'; Description: 'Skill slots. Shift shortcuts are derived from these bindings.' )
       );
 
 constructor TBerserkSettingsView.Create( aConfiguration : TBerserkConfiguration;
@@ -70,6 +79,7 @@ end;
 
 destructor TBerserkSettingsView.Destroy;
 begin
+  if FStringEntry <> nil then UI.Driver.StopTextInput;
   if FOriginalValues <> nil then
   begin
     FConfiguration.RestoreValues( FOriginalValues );
@@ -86,9 +96,11 @@ end;
 
 function TBerserkSettingsView.BindingCatalog : TBindingCatalog;
 begin
-  if FState = BSS_UI
-    then Result := FConfiguration.UIKeyBindings
-    else Result := FConfiguration.GameKeyBindings;
+  case FState of
+    BSS_UI : Result := FConfiguration.UIKeyBindings;
+    BSS_MOVEMENT, BSS_GAMEPLAY, BSS_SKILLS : Result := FConfiguration.GameKeyBindings;
+    else Result := nil;
+  end;
 end;
 
 procedure TBerserkSettingsView.RecoverUIBindings;
@@ -102,7 +114,9 @@ end;
 procedure TBerserkSettingsView.ResetPage;
 var iState : TBerserkSettingsState;
 begin
-  if CStates[ FState ].Group <> '' then
+  if FState = BSS_GENERAL then
+    FConfiguration.ResetValues
+  else if CStates[ FState ].Group <> '' then
     FConfiguration.ResetGroup( CStates[ FState ].Group )
   else
     for iState := BSS_UI to BSS_SKILLS do
@@ -134,7 +148,7 @@ var iGroup : TConfigurationGroup;
     iKey : TIOKeyCode;
     iValue, iDescription, iBackLabel : AnsiString;
     iNext : TBerserkSettingsState;
-    iHasNext, iReset, iApply, iBack : Boolean;
+    iHasNext, iReset, iApply, iBack, iEditable : Boolean;
 begin
   if not aActive then Exit;
   UI.DrawFire;
@@ -147,6 +161,27 @@ begin
       VTIG_Text( 'Settings file:' );
       VTIG_Text( FConfiguration.SettingsPath );
     VTIG_End( 'Enter/Escape: return to Settings' );
+    Exit;
+  end;
+  if FStringEntry <> nil then
+  begin
+    VTIG_BeginWindow( FStringEntry.Name, 'settings_string', Point( 76, 21 ), Point( 3, 3 ) );
+      VTIG_Text( 'Leave empty to use the random-name setting or ask for a name.' );
+      if VTIG_Input( @FStringBuffer[0], SizeOf( FStringBuffer ) ) then
+      begin
+        FStringEntry.Value := StrPas( @FStringBuffer[0] );
+        UI.Driver.StopTextInput;
+        FStringEntry := nil;
+        VTIG_EventClear;
+      end;
+    VTIG_End( UI.GetUIKeybinding( VTIG_IE_CONFIRM ) + ': accept   ' +
+      UI.GetUIKeybinding( VTIG_IE_CANCEL ) + ': cancel' );
+    if VTIG_EventCancel then
+    begin
+      UI.Driver.StopTextInput;
+      FStringEntry := nil;
+      VTIG_EventClear;
+    end;
     Exit;
   end;
   if FCapture then
@@ -172,6 +207,7 @@ begin
   iHover := nil;
   iCount := 0;
   iHasNext := False;
+  iEditable := ( FState <> BSS_AUDIO ) or ( FConfiguration.AudioDriver <> 'NONE' );
   VTIG_BeginWindow( CStates[ FState ].Title, 'settings', Point( 76, 21 ), Point( 3, 3 ) );
     if FRecovery then VTIG_ResetSelect( 'settings', iGroup.Entries.Size + 1 );
     VTIG_BeginGroup( 15, True );
@@ -192,16 +228,26 @@ begin
         else
           for iEntry in iGroup.Entries do
           begin
-            if VTIG_Selectable( iEntry.Name ) then
+            if VTIG_Selectable( iEntry.Name, iEditable ) then
             begin
-              FCaptureAction := iCatalog.ActionForID( iEntry.ID );
-              FCaptureMessage := '';
-              FCapture := True;
-              VTIG_EventClear;
+              if iCatalog <> nil then
+              begin
+                FCaptureAction := iCatalog.ActionForID( iEntry.ID );
+                FCaptureMessage := '';
+                FCapture := True;
+                VTIG_EventClear;
+              end
+              else if iEntry is TStringConfigurationEntry then
+              begin
+                FStringEntry := TStringConfigurationEntry( iEntry );
+                StrPLCopy( FStringBuffer, FStringEntry.Value, High( FStringBuffer ) );
+                UI.Driver.StartTextInput;
+                VTIG_EventClear;
+              end;
             end;
             Inc( iCount );
           end;
-        iReset := VTIG_Selectable( 'Reset to defaults' );
+        iReset := VTIG_Selectable( 'Reset to defaults', iEditable );
         iApply := VTIG_Selectable( 'Apply settings' ) or iApply;
         if FState = BSS_GENERAL
           then iBack := VTIG_Selectable( 'Discard changes' ) or iBack
@@ -213,9 +259,19 @@ begin
         if iGroup <> nil then
           for iEntry in iGroup.Entries do
           begin
-            iKey := TIOKeyCode( iCatalog.ConfigurationValue( iCatalog.ActionForID( iEntry.ID ) ) );
-            if iKey = 0 then iValue := 'Unbound' else iValue := IOKeyCodeToStringShort( iKey );
-            VTIG_InputField( iValue );
+            if iCatalog <> nil then
+            begin
+              iKey := TIOKeyCode( iCatalog.ConfigurationValue( iCatalog.ActionForID( iEntry.ID ) ) );
+              if iKey = 0 then iValue := 'Unbound' else iValue := IOKeyCodeToStringShort( iKey );
+              VTIG_InputField( iValue );
+            end
+            else if iEntry is TToggleConfigurationEntry then
+              VTIG_EnabledInput( TToggleConfigurationEntry( iEntry ).Access, iEditable and ( iIndex = iSelected ) )
+            else if iEntry is TIntegerConfigurationEntry then
+              with TIntegerConfigurationEntry( iEntry ) do
+                VTIG_IntInput( Access, iEditable and ( iIndex = iSelected ), Min, Max, Step )
+            else if iEntry is TStringConfigurationEntry then
+              VTIG_InputField( TStringConfigurationEntry( iEntry ).Value );
             if iIndex = iSelected then iHover := iEntry;
             Inc( iIndex );
           end;
@@ -234,16 +290,19 @@ begin
     end
     else if iHover <> nil then iDescription := iHover.Description;
     if iSelected = iCount then
-      if iGroup = nil
-        then iDescription := 'Reset all input bindings to defaults.'
-        else iDescription := 'Reset this page. Conflicting bindings on other pages are unbound.';
+      if FState = BSS_GENERAL then iDescription := 'Reset all settings to defaults.'
+      else if FState = BSS_INPUT then iDescription := 'Reset all input bindings to defaults.'
+      else if iCatalog <> nil then iDescription := 'Reset this page. Conflicting bindings on other pages are unbound.'
+      else iDescription := 'Reset this page to defaults.';
     if iSelected = iCount + 1 then iDescription := 'Apply all pending settings, save them and return.';
     if iSelected = iCount + 2 then
       if FState = BSS_GENERAL
         then iDescription := 'Close Settings and discard changes since opening or the last Apply.'
         else iDescription := 'Return to the previous page. Edits remain pending until Apply or Discard.';
     VTIG_Text( iDescription );
-    if FRecovery
+    if not iEditable then
+      VTIG_Text( 'Audio controls unavailable: audio is disabled for this process.' )
+    else if FRecovery
       then VTIG_Text( 'UI defaults are pending. Use Apply settings to restore controls.' )
       else VTIG_Text( 'Edits take effect on Apply settings.' );
   if FState = BSS_GENERAL then iBackLabel := 'discard' else iBackLabel := 'back';

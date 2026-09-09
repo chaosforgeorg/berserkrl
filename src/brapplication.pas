@@ -63,11 +63,8 @@ var iLua : TGameConfig;
 begin
   iLua := TGameConfig.Create( aPaths.ConfigurationPath );
   try
-    // Lua remains the sole live option source until the settings cutover.
-    GraphicsMode := iLua.Configure( 'GraphicsMode', True );
-    HighASCII := iLua.Configure( 'HighASCII', True );
-    AudioDriver := iLua.Configure( 'audio.driver', 'SDL' );
-    aPaths.DataPath := iLua.Configure( 'DataPath', aPaths.DataPath );
+    AudioDriver      := iLua.Configure( 'audio.driver', 'SDL' );
+    aPaths.DataPath  := iLua.Configure( 'DataPath', aPaths.DataPath );
     aPaths.WritePath := iLua.Configure( 'WritePath', aPaths.WritePath );
     aPaths.ScorePath := iLua.Configure( 'ScorePath', aPaths.ScorePath );
     Result := TBerserkConfiguration.Create( iLua );
@@ -80,18 +77,17 @@ procedure TBerserkApplication.ApplyOptions;
 var iConfiguration : TBerserkConfiguration;
 begin
   if HasOption( 'nosound' ) then AudioDriver := 'NONE';
-  if HasOption( 'console' ) then GraphicsMode := False;
-  if HasOption( 'graphics' ) then GraphicsMode := True;
-  if HasOption( 'lowascii' ) then HighASCII := False;
   FullScreen := HasOption( 'fullscreen' );
-  if HasOption( 'name' ) then Option_AlwaysName := GetOptionValue( 'name' );
   if FPaths.ScorePath = '' then FPaths.ScorePath := FPaths.WritePath;
   FPaths.SettingsPath := FPaths.WritePath + 'settings.lua';
   DataPath := FPaths.DataPath;
   WritePath := FPaths.WritePath;
   ScorePath := FPaths.ScorePath;
   iConfiguration := TBerserkConfiguration( Configuration );
-  iConfiguration.GraphicsMode := GraphicsMode;
+  iConfiguration.LowASCIIOverride := HasOption( 'lowascii' );
+  iConfiguration.HasNameOverride := HasOption( 'name' );
+  if iConfiguration.HasNameOverride then
+    iConfiguration.NameOverride := GetOptionValue( 'name' );
   iConfiguration.FullScreen := FullScreen;
   iConfiguration.AudioDriver := AudioDriver;
 end;
@@ -103,9 +99,15 @@ end;
 
 function TBerserkApplication.CreateRuntime( const aPaths : TGamePaths;
   var aConfiguration : TObject ) : TRLRuntime;
+var iConfiguration : TBerserkConfiguration;
 begin
   // Diagnostics are ready before version/resource reads or Runtime creation.
-  TBerserkConfiguration( aConfiguration ).ReadSettings( aPaths.SettingsPath );
+  iConfiguration := TBerserkConfiguration( aConfiguration );
+  iConfiguration.ReadSettings( aPaths.SettingsPath );
+  GraphicsMode := iConfiguration.GetBoolean( 'graphics_mode' );
+  if HasOption( 'console' )  then GraphicsMode := False;
+  if HasOption( 'graphics' ) then GraphicsMode := True;
+  iConfiguration.GraphicsMode := GraphicsMode;
   Version := ReadVersion( aPaths.DataPath + 'version.txt' );
   Result := TBerserkRuntime.Create( aPaths, aConfiguration );
 end;

@@ -115,7 +115,11 @@ begin
     else
       FSound := TSDLSound.Create( IO.VisualRNG );
     Sound := FSound;
-    FSound.Configure( iConfiguration.LuaConfig );
+    FSound.SurroundEnabled := iConfiguration.LuaConfig.Configure( 'audio.surround_enabled', False );
+    FSound.PosMinVolume    := iConfiguration.LuaConfig.Configure( 'audio.pos_min_volume', 30 );
+    FSound.PosFadeDist     := iConfiguration.LuaConfig.Configure( 'audio.pos_fade_distance', 25 );
+    UI.Audio := FSound;
+    UI.Reconfigure;
     LoadAudio;
     FSound.PlayMusic( 'menu' );
   end;
@@ -189,7 +193,11 @@ procedure TBerserkRuntime.ShutdownGameData;
 begin
   FreeAndNil( FSession );
   // Initialization can fail before a Session has acquired the IO layers.
-  if IO <> nil then IO.Clear;
+  if IO <> nil then
+  begin
+    IO.Clear;
+    TBerserkUI( IO ).Audio := nil;
+  end;
   TerraData := nil;
   FTerrainData := nil;
   Sound := nil;

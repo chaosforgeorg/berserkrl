@@ -2,10 +2,6 @@ audio = {
 	-- Set to "NONE" to disable audio altogether
 	driver            = "FMOD",
 	-- Common parameters
-	sound_enabled     = true,
-	music_enabled     = true,
-	sound_volume      = 80,
-	music_volume      = 80,
 	surround_enabled  = false, -- not working in SDL, working bad in FMOD
 	pos_min_volume    = 30,    -- minimum sound volume due to distance
 	pos_fade_distance = 24,    -- fade over distance (25 squares)
@@ -19,18 +15,7 @@ audio = {
 	fmod_mix_channels = 32,
 }
 
--- Set to false to always play in ASCII mode
-GraphicsMode     = true
-
--- Do we use the extended ASCII character set
-HighASCII        = true
-
--- Setting to TRUE will skip name entry procedure and choose a random name
--- instead
-AlwaysRandomName = false
-
--- Setting to non-empty string will always use given name (overrides Random)
-AlwaysName       = ""
+-- Display, player-name and basic audio preferences are stored in settings.lua.
 
 -- Sets wether message coloring will be enabled. Needs [messages] section.
 MessageColoring  = true
