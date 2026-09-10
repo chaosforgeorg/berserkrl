@@ -26,14 +26,9 @@
 unit brgui;
 interface
 
-uses vapp, brconfiguration, SysUtils, vutil, vgenerics, vrltools, vvision, vtextures, vglimage, viotypes,
-     vimage, brui, brdata, vglquadrenderer, vglquadarrays, vgltypes, vglprogram,
+uses vapp, brconfiguration, brdisplay, vioevent, SysUtils, vutil, vgenerics, vrltools, vvision, vtextures, vglimage, viotypes,
+     vimage, brui, brdata, vglquadrenderer, vgltypes, vspriteengine,
      vanimation, branimation;
-
-const
-  SpriteSheetSizeX = 384;
-  SpriteSheetSizeY = 384;
-  SpriteSheetLine  = SpriteSheetSizeX div 24;
 
 type
 
@@ -42,6 +37,14 @@ type
 TBerserkGUI = class(TBerserkUI)
     // Initialization of all data.
     constructor Create( aConfiguration : TBerserkConfiguration; const aPaths : TGamePaths );
+    procedure Reconfigure; override;
+    procedure FullUpdate; override;
+    procedure PreUpdate; override;
+    function OnEvent( const aEvent : TIOEvent ) : Boolean; override;
+    function DeviceCoordToConsoleCoord( aCoord : TIOPoint ) : TIOPoint; override;
+    function ConsoleCoordToDeviceCoord( aCoord : TIOPoint ) : TIOPoint; override;
+    procedure CenterCamera( const aWhere : TCoord2D ); override;
+    function CameraFor( const aWhere : TCoord2D ) : TGLVec2i;
     // Sends missile
     procedure SendMissile( const aSource, aTarget : TCoord2D; aType : Byte; aSequence : DWord ); override;
     // Draws target X
@@ -70,34 +73,37 @@ TBerserkGUI = class(TBerserkUI)
     // destructor
     destructor Destroy; override;
     procedure Clear; override;
-    function GetSpritePos( aIndex : Byte ) : TGLVec2f;
-    function GetSpriteSize( aSize : TGLVec2i ) : TGLVec2f;
-    function ToScreenVec( const aCoord : TCoord2D ) : TGLVec2i;
     function ToScreenCoord( const aCoord : TCoord2D ) : TCoord2D;
     function ToAbsPos( const aCoord : TCoord2D; aDepth : Integer ) : TGLVec3i;
-    procedure DrawSprite( aTile : Word; const aAbsPos : TGLVec3i; const aSize : TGLVec2i; const aColor : TGLQVec4f; aFlip : Boolean; aZoom : Single = 1.0 );
-    procedure SetOverlay( aColor : TGLVec4f );
+    procedure DrawSprite( aTile : Word; const aAbsPos : TGLVec3i; const aSize : TGLVec2i; const aColor : TGLRawQColor; aFlip : Boolean; aZoom : Single = 1.0 );
+    procedure RenderBlink( const aColor : TGLVec4f );
     private
     procedure DrawSprites;
   private
-    FLightVecMap : array [0..MAP_MAXX, 0..MAP_MAXY] of TGLVec4f;
-    FLightQVecMap: array [1..MAP_MAXX, 1..MAP_MAXY] of TGLQVec4f;
-    FPreQuads    : TGLTexturedColoredQuadLayer;
-    FTerrain     : TGLTexturedColoredQuads;
+    FAppliedDisplay : TBerserkDisplaySettings;
+    FLayout : TBerserkDisplayLayout;
+    FWindowSize, FLastWindowSize : TIOPoint;
+    FLightQVecMap: array [1..MAP_MAXX, 1..MAP_MAXY] of TGLRawQColor;
+    FBackgroundQuads : TGLQuadList;
+    FPreQuads    : TGLQuadList;
+    FPostQuads   : TGLQuadList;
+    FQuadRenderer : TGLQuadRenderer;
+    FSpriteEngine : TSpriteEngine;
+    FSprites     : TSpriteDataSet;
     FTarget      : TCoord2D;
-    FSpriteTexID : TTextureID;
     FTextures    : TTextureManager;
     FAnimations  : TAnimations;
 
-    FPixelSize   : TGLVec2f;
-    FSprite2424  : TGLVec2f;
-    FSprite2432  : TGLVec2f;
-
-    FProgram     : TGLProgram;
-    FLOverlay    : LongInt;
+    procedure ConfigureWindowResolutions( aConfiguration : TBerserkConfiguration );
+    function Projection( aScale : Integer ) : TMatrix44;
+    function ReadDisplaySize( out aWindowSize, aPixels : TIOPoint ) : Boolean;
+    function RefreshDisplay( const aSettings : TBerserkDisplaySettings ) : Boolean;
+    procedure SetDisplayMode( const aSettings : TBerserkDisplaySettings );
+    procedure RestoreDisplay( aWindowSize : TIOPoint );
     public
-    property PreQuads  : TGLTexturedColoredQuadLayer read FPreQuads;
-    property Terrain   : TGLTexturedColoredQuads     read FTerrain;
+    property Layout : TBerserkDisplayLayout read FLayout;
+    property SpriteEngine : TSpriteEngine read FSpriteEngine;
+    property Sprites : TSpriteDataSet read FSprites;
   end;
 
 var GUI : TBerserkGUI = nil;
@@ -107,30 +113,15 @@ implementation
 
 uses {$IFDEF WINDOWS}Windows,{$ENDIF}
      vuid, vgl3library, vsystems, vtig,
-     vioconsole, vsdlio, vglconsole, vlog,
-     vmath, vdebug, math,
+     vioconsole, vsdlio, vsdl3library, vglconsole, vlog,
+     vmath, vdebug, math, vcolor,
      brbeing, brplayer, brlevel;
 
 { TBerserkTextures }
 
-function TBerserkGUI.GetSpritePos( aIndex: Byte ): TGLVec2f;
-begin
-  Result.Init( FSprite2432.X*(( aIndex - 1 ) mod SpriteSheetLine ), FSprite2432.Y*((aIndex - 1) div SpriteSheetLine) );
-end;
-
-function TBerserkGUI.GetSpriteSize(aSize: TGLVec2i): TGLVec2f;
-begin
-  Result.Init( FPixelSize.X * aSize.X, FPixelSize.Y * aSize.Y );
-end;
-
-function TBerserkGUI.ToScreenVec( const aCoord: TCoord2D ): TGLVec2i;
-begin
-  Result.Init( ( aCoord.X - 1 )*24 - FShift + 12,( aCoord.Y - 1 )*24 + 12 );
-end;
-
 function TBerserkGUI.ToScreenCoord(const aCoord: TCoord2D): TCoord2D;
 begin
-  Result.Create( ( aCoord.X - 1 )*24  - FShift + 12,( aCoord.Y - 1 )*24 + 12 );
+  Result.Create( ( aCoord.X - 1 )*24 + 12,( aCoord.Y - 1 )*24 + 12 );
 end;
 
 function TBerserkGUI.ToAbsPos(const aCoord: TCoord2D; aDepth: Integer ): TGLVec3i;
@@ -138,55 +129,42 @@ begin
   Result.Init( ( aCoord.X - 1 )*24,( aCoord.Y - 1 )*24 - 8, aDepth );
 end;
 
-procedure TBerserkGUI.DrawSprite( aTile : Word; const aAbsPos : TGLVec3i; const aSize : TGLVec2i; const aColor : TGLQVec4f; aFlip : Boolean; aZoom : Single = 1.0);
-var iPos    : TGLVec3i;
-    iSize   : TGLVec2i;
-    iC1,iC2 : TGLVec3i;
-    iT1,iT2 : TGLVec2f;
-    iTemp   : Single;
+procedure TBerserkGUI.DrawSprite( aTile : Word; const aAbsPos : TGLVec3i; const aSize : TGLVec2i; const aColor : TGLRawQColor; aFlip : Boolean; aZoom : Single = 1.0 );
+var iSize, iP1, iP2 : TGLVec2i;
+    iT1, iT2 : TGLVec2f;
+    iColor : TGLRawQColor;
 begin
   if aTile = 0 then Exit;
-  iSize := aSize;
-  if aZoom <> 1.0 then
+  iSize.Init( Round( aSize.X * aZoom ), Round( aSize.Y * aZoom ) );
+  iP1.Init( aAbsPos.X + ( ( DISPLAY_TILE_SIZE - iSize.X ) div 2 ),
+    aAbsPos.Y + FSpriteEngine.TileSize.Y - iSize.Y );
+  iP2 := iP1 + iSize;
+  iT1.Init( 0, 0 );
+  iT2.Init( aSize.X / FSpriteEngine.TileSize.X, aSize.Y / FSpriteEngine.TileSize.Y );
+  if aFlip then
   begin
-    iSize.X := Round( iSize.X * aZoom );
-    iSize.Y := Round( iSize.Y * aZoom );
+    iT1.X := iT2.X;
+    iT2.X := 0;
   end;
-  iPos := aAbsPos;
-  iPos.X := iPos.X - FShift;
-  iC1.Init( iPos.X + ( ( 24-iSize.X ) div 2 ), iPos.Y + ( 32-iSize.Y ), iPos.Z );
-  iC2 := iC1 + GLVec3i( iSize );
-
-  iT1 := GetSpritePos( aTile );
-  iT2 := iT1 + GetSpriteSize( aSize );
-  if aFlip then begin iTemp := iT1.x; iT1.x := iT2.x; iT2.x := iTemp; end;
-  FTerrain.PushQuad( iC1, iC2, aColor, iT1,iT2 );
+  iColor := aColor;
+  FSprites.PushPart( aTile, iP1, iP2, @iColor, ColorZero, ColorZero, ColorZero,
+    aAbsPos.Z, iT1, iT2 );
 end;
 
-procedure TBerserkGUI.SetOverlay(aColor: TGLVec4f);
+procedure TBerserkGUI.RenderBlink( const aColor : TGLVec4f );
 begin
-  FProgram.Bind;
-  glUniform4f( FLOverlay, aColor.Data[0], aColor.Data[1], aColor.Data[2], aColor.Data[3] );
-  FProgram.UnBind;
+  FPostQuads.PushColoredQuad( GLVec2i(), GLVec2i( FLayout.Width, FLayout.Height ), aColor );
 end;
 
 procedure TBerserkGUI.DrawSprites;
-  function GetColor( aCoord : TCoord2D; ax, ay : ShortInt ) : TGLVec4f;
-  var iValue : Byte;
-  begin
-    GetColor := FLightVecMap[ aCoord.x + ax, aCoord.y + ay ];
-    if Player.isBerserk
-      then begin GetColor.Data[1] := 0.1; GetColor.Data[2] := 0.1; end;
-  end;
-
   function  RandomSide( aTerra : Word; aCoord : TCoord2D ) : boolean;
   begin
     if TF_NOMIRROR in TerraData[aTerra].Flags then Exit( False );
     Exit(((aCoord.x+5)*(aCoord.x+3)*aCoord.y mod 193*197) mod 2 = 0);
   end;
 
-var iColor4     : TGLQVec4f;
-    iColor      : TGLVec4f;
+var iColor4     : TGLRawQColor;
+    iColor      : TGLVec3b;
     iSSquare    : TGLVec2i;
     iSTall      : TGLVec2i;
     iSBig       : TGLVec2i;
@@ -197,27 +175,29 @@ var iColor4     : TGLQVec4f;
     iTerrain    : Word;
     iTerrainB   : Word;
     iRotation   : Byte;
-    iMin        : Integer;
-    iMax        : Integer;
+    iMin, iMax  : TCoord2D;
+    iView       : TIOPoint;
 
 begin
-  iMin   := ( FShift div 24 ) + 1;
-  iMax   := ( FShift div 24 ) + 21;
+  iView := FLayout.MapPixels;
+  iMin.Create( Max( FSpriteEngine.Position.X div 24, 1 ), Max( FSpriteEngine.Position.Y div 24, 1 ) );
+  iMax.Create( Min( ( FSpriteEngine.Position.X + iView.X div FLayout.SpriteScale ) div 24 + 2, MAP_MAXX ),
+    Min( ( FSpriteEngine.Position.Y + iView.Y div FLayout.SpriteScale ) div 24 + 2, MAP_MAXY ) );
 
   iSSquare.Init( 24, 24 );
   iSTall.Init( 24, 32 );
   iSBig.Init( 32, 32 );
 
-  for iCoord in NewArea(iMin,1,iMax,MAP_MAXY) do
+  for iCoord in NewArea( iMin, iMax ) do
   begin
     iDepth   := iCoord.Y * GMODE_STEP_Z;
     iTerrain := Level.GetCell( iCoord );
     iColor4  := FLightQVecMap[ iCoord.x, iCoord.y ];
     if Player.isBerserk then
-      for iCount := 0 to 5 do
+      for iCount := 0 to 3 do
       begin
-        iColor4.Data[ iCount ].Data[ 1 ] := 0.1;
-        iColor4.Data[ iCount ].Data[ 2 ] := 0.1;
+        iColor4.Data[ iCount ].Data[ 1 ] := 26;
+        iColor4.Data[ iCount ].Data[ 2 ] := 26;
       end;
 
     with Level.FMap[iCoord.X,iCoord.Y] do
@@ -248,28 +228,26 @@ begin
         if (Being[ iCoord ] <> nil) and (Being[ iCoord ].FVisual.AnimCount = 0) then
         with Being[ iCoord ] do
         begin
-          if not Player.isBerserk
-            then iColor.Init( 1.0*FVisual.Overlay[1], 1.0*FVisual.Overlay[2], 1.0*FVisual.Overlay[3], 1.0 )
-            else iColor.Init( 1.0, 0.3, 0.3, 1.0 );
+          if not Player.isBerserk then
+            for iCount := 0 to 2 do
+              iColor.Data[iCount] := Clamp( Round( 255 * FVisual.Overlay[iCount + 1] ), 0, 255 )
+          else iColor.Init( 255, 76, 76 );
           iSize := iStall;
           if Flags[ SF_BIG ] then iSize := iSBig;
-          DrawSprite( FVisual.Sprite, ToAbsPos( iCoord, iDepth ), iSize, TGLQVec4f.CreateAll( iColor ), not FVisual.Mirror );
+          iColor4.SetAll( iColor );
+          DrawSprite( FVisual.Sprite, ToAbsPos( iCoord, iDepth ), iSize, iColor4, not FVisual.Mirror );
         end;
   end;
           
-  iColor.Init(1,1,1,1);
+  iColor4.FillAll( 255 );
   if FTarget.X <> 0 then
-    DrawSprite( 30, ToAbsPos( FTarget, GMODE_GUI_Z ), iSTall, TGLQVec4f.CreateAll( iColor ), False );
+    DrawSprite( 30, ToAbsPos( FTarget, GMODE_GUI_Z ), iSTall, iColor4, False );
 end;
 
 { TBreserkGUI }
 
 constructor TBerserkGUI.Create( aConfiguration : TBerserkConfiguration; const aPaths : TGamePaths );
-var iCount       : DWord;
-    iFlags       : TSDLIOFlags;
-    iSheetSize   : TGLVec2f;
-    iProjection  : TMatrix44;
-    iLTexture    : Integer;
+var iFlags : TSDLIOFlags;
 begin
   {$IFDEF WINDOWS}
   if not GodMode then
@@ -280,52 +258,245 @@ begin
   end;
   {$ENDIF}
 
+  ConfigureWindowResolutions( aConfiguration );
+  FAppliedDisplay.Read( aConfiguration );
+  if not FAppliedDisplay.Valid then
+    raise EIOException.Create( 'Invalid display settings: use a listed resolution and nonnegative multipliers. Use --console to change them.' );
   iFlags := [ SDLIO_OpenGL ];
-  if aConfiguration.FullScreen then Include( iFlags, SDLIO_FullScreen );
-  FIODriver := TSDLIODriver.Create( 800, 600, 32, iFlags );
+  if FAppliedDisplay.Fullscreen or aConfiguration.FullScreenOverride then Include( iFlags, SDLIO_DesktopFullScreen );
+  FIODriver := TSDLIODriver.Create( FAppliedDisplay.Width, FAppliedDisplay.Height, 32, iFlags );
+  if not SDL_SyncWindow( TSDLIODriver( FIODriver ).NativeWindow ) then
+    raise EIOException.Create( 'Could not initialize display: ' + SDL_GetError() + '. Use --console.' );
+  if not SDL_GetWindowSize( TSDLIODriver( FIODriver ).NativeWindow, @FLastWindowSize.X, @FLastWindowSize.Y ) then
+    raise EIOException.Create( 'Could not read initial window size: ' + SDL_GetError() );
 
-  FTextures := TTextureManager.Create( True );
+  FTextures := TTextureManager.Create( False );
   FTextures.LoadTextureFolder(aPaths.DataPath+'graphics');
   FTextures.Upload;
-  FSpriteTexID := FTextures.TextureID['spritesheet'];
-  FConsole := TGLConsoleRenderer.Create( aPaths.DataPath+'font10x18.png', 32, 256-32, 32, 80, 25, 6, [VIO_CON_CURSOR] );
+  FConsole := TGLConsoleRenderer.Create( aPaths.DataPath+'ter_font8x14.png', 32, 256-32, 32, 80, 25, DISPLAY_LINE_SPACING, [VIO_CON_CURSOR] );
   FConsole.HideCursor;
 
-  LoadGL3;
-  FProgram := TGLProgram.Create(
-    SlurpFile( aPaths.DataPath+'graphics'+PathDelim+'basic.vert' ),
-    SlurpFile( aPaths.DataPath+'graphics'+PathDelim+'basic.frag' )
-  );
-  FProgram.Bind;
-  iLTexture    := FProgram.GetUniformLocation('utexture');
-  glUniform1i( iLTexture, 0 );
-
-  FLOverlay    := FProgram.GetUniformLocation('uoverlay');
-  glUniform4f( FLOverlay, 0, 0, 0, 0 );
-  iProjection := GLCreateOrtho( 0, FIODriver.GetSizeX, FIODriver.GetSizeY,0, -1000, 1000 );
-  glUniformMatrix4fv( FProgram.GetUniformLocation('utransform'), 1, GL_FALSE, @iProjection[0] );
-  FProgram.UnBind;
+  FSpriteEngine := TSpriteEngine.Create( GLVec2i( 24, 32 ) );
+  FSprites := FSpriteEngine.Layers[ FSpriteEngine.Add( FTextures.Textures['spritesheet'], nil, nil, nil, 0 ) ];
+  FQuadRenderer := TGLQuadRenderer.Create;
+  FBackgroundQuads := TGLQuadList.Create;
+  FPreQuads := TGLQuadList.Create;
+  FPostQuads := TGLQuadList.Create;
 
   inherited Create( aConfiguration );
   GUI := Self;
 
   FTarget.Create( 0,0 );
 
-  // VISTA DOESN'T LIKE NONBLENDED TEXTURES!
-  FPreQuads  := TGLTexturedColoredQuadLayer.Create;
-  FTerrain   := TGLTexturedColoredQuads.Create;
-
-  iSheetSize := FTextures.Textures['spritesheet'].GLSize;
-  FPixelSize.Init( iSheetSize.X / SpriteSheetSizeX, iSheetSize.Y / SpriteSheetSizeY );
-  FSprite2424.Init( iSheetSize.X * 24 / SpriteSheetSizeX, iSheetSize.Y * 24 / SpriteSheetSizeY );
-  FSprite2432.Init( iSheetSize.X * 24 / SpriteSheetSizeX, iSheetSize.Y * 32 / SpriteSheetSizeY );
-
   FAnimations  := TAnimations.Create;
 end;
 
+procedure TBerserkGUI.ConfigureWindowResolutions( aConfiguration : TBerserkConfiguration );
+var iMaximum, i : Integer;
+    iNames : array of AnsiString;
+    iNativeSize, iUsableSize : TIOPoint;
+    iBounds : SDL_Rect;
+begin
+  if not TSDLIODriver.GetCurrentResolution( iNativeSize ) then
+    raise EIOException.Create( 'Could not read native display size. Use --console.' );
+  iUsableSize := iNativeSize;
+  if SDL_GetDisplayUsableBounds( SDL_GetPrimaryDisplay(), @iBounds ) then
+    iUsableSize := vutil.Point( iBounds.w, iBounds.h );
+  // Native stays separate; every numbered choice is a smaller 640x360 multiple.
+  iMaximum := Max( 0, Min( 25, Min(
+    Min( ( iNativeSize.X - 1 ) div DISPLAY_WIDTH, ( iNativeSize.Y - 1 ) div DISPLAY_HEIGHT ),
+    Min( iUsableSize.X div DISPLAY_WIDTH, iUsableSize.Y div DISPLAY_HEIGHT ) ) ) );
+  SetLength( iNames, iMaximum + 1 );
+  iNames[0] := 'Native';
+  for i := 1 to iMaximum do
+    iNames[i] := IntToStr( DISPLAY_WIDTH * i ) + 'x' + IntToStr( DISPLAY_HEIGHT * i );
+  with aConfiguration.CastInteger( 'window_multiplier' ) do
+  begin
+    SetRange( 0, iMaximum ).SetNames( iNames );
+    // A saved window from a larger monitor falls back to this desktop's Native.
+    if ( Value < 0 ) or ( Value > iMaximum ) then Value := 0;
+  end;
+end;
+
+function TBerserkGUI.ReadDisplaySize( out aWindowSize, aPixels : TIOPoint ) : Boolean;
+var iWindow : PSDL_Window;
+begin
+  iWindow := TSDLIODriver( FIODriver ).NativeWindow;
+  Result := False;
+  if SDL_GetWindowFlags( iWindow ) and SDL_WINDOW_MINIMIZED <> 0 then Exit;
+  if not SDL_GetWindowSize( iWindow, @aWindowSize.X, @aWindowSize.Y ) or
+     not SDL_GetWindowSizeInPixels( iWindow, @aPixels.X, @aPixels.Y ) then
+    raise EIOException.Create( 'Could not read display size: ' + SDL_GetError() );
+  Result := ( aWindowSize.X > 0 ) and ( aWindowSize.Y > 0 ) and
+            ( aPixels.X > 0 ) and ( aPixels.Y > 0 );
+end;
+
+procedure TBerserkGUI.SetDisplayMode( const aSettings : TBerserkDisplaySettings );
+var iFlags : TSDLIOFlags;
+    iWindow : PSDL_Window;
+    iFullscreen : Boolean;
+begin
+  iWindow := TSDLIODriver( FIODriver ).NativeWindow;
+  iFullscreen := aSettings.Fullscreen or FConfiguration.FullScreenOverride;
+  iFlags := [ SDLIO_OpenGL ];
+  if iFullscreen then Include( iFlags, SDLIO_DesktopFullScreen )
+  else if SDL_GetWindowFlags( iWindow ) and SDL_WINDOW_MAXIMIZED <> 0 then
+    if not SDL_RestoreWindow( iWindow ) then
+      raise EIOException.Create( 'Could not restore window: ' + SDL_GetError() );
+  if not TSDLIODriver( FIODriver ).ResetVideoMode( aSettings.Width, aSettings.Height, 32, iFlags ) or
+     not SDL_SyncWindow( iWindow ) then
+    raise EIOException.Create( 'Could not change display mode: ' + SDL_GetError() );
+  if ( SDL_GetWindowFlags( iWindow ) and SDL_WINDOW_FULLSCREEN <> 0 ) <> iFullscreen then
+    raise EIOException.Create( 'The window system did not accept the display mode.' );
+end;
+
+function TBerserkGUI.RefreshDisplay( const aSettings : TBerserkDisplaySettings ) : Boolean;
+var iWindowSize, iPixels, iMouse : TIOPoint;
+    iLayout : TBerserkDisplayLayout;
+begin
+  Result := ReadDisplaySize( iWindowSize, iPixels );
+  if not Result then Exit;
+  if not iLayout.Calculate( iPixels.X, iPixels.Y, aSettings.FontMultiplier, aSettings.SpriteMultiplier ) then
+    raise EIOException.Create( 'The drawable must fit 640x360 pixels. Use --console if this display cannot fit x1.' );
+  FWindowSize := iWindowSize;
+  if not TSDLIODriver( FIODriver ).FullScreen then FLastWindowSize := iWindowSize;
+  if ( FLayout.Width = iLayout.Width ) and
+     ( FLayout.Height = iLayout.Height ) and ( FLayout.FontScale = iLayout.FontScale ) and
+     ( FLayout.SpriteScale = iLayout.SpriteScale ) then Exit;
+  FLayout := iLayout;
+  if FIODriver.GetMousePos( iMouse ) then
+    FMouse := FLayout.WindowToConsole( iMouse, FWindowSize );
+  TGLConsoleRenderer( FConsole ).SetPositionScale( FLayout.Left, FLayout.Top, DISPLAY_LINE_SPACING,
+    FLayout.FontScale, vutil.Point( FLayout.Width, FLayout.Height ) );
+  if FPlayer <> nil then CenterCamera( FPlayer.Position );
+end;
+
+function TBerserkGUI.CameraFor( const aWhere : TCoord2D ) : TGLVec2i;
+var iCamera : TIOPoint;
+begin
+  iCamera := FLayout.CameraFor( vutil.Point( aWhere.X, aWhere.Y ), vutil.Point( MAP_MAXX, MAP_MAXY ) );
+  Result.Init( iCamera.X, iCamera.Y );
+end;
+
+procedure TBerserkGUI.CenterCamera( const aWhere : TCoord2D );
+begin
+  FSpriteEngine.Position := CameraFor( aWhere );
+end;
+
+function TBerserkGUI.Projection( aScale : Integer ) : TMatrix44;
+begin
+  Result := GLCreateOrtho( -FLayout.Left / aScale,
+    ( FLayout.Width - FLayout.Left ) / aScale,
+    ( FLayout.Height - FLayout.Top ) / aScale,
+    -FLayout.Top / aScale, -1000, 1000 );
+end;
+
+procedure TBerserkGUI.RestoreDisplay( aWindowSize : TIOPoint );
+var iPrevious : TBerserkDisplaySettings;
+begin
+  iPrevious := FAppliedDisplay;
+  iPrevious.Width := aWindowSize.X;
+  iPrevious.Height := aWindowSize.Y;
+  SetDisplayMode( iPrevious );
+  RefreshDisplay( FAppliedDisplay );
+end;
+
+procedure TBerserkGUI.Reconfigure;
+var iSettings : TBerserkDisplaySettings;
+    iPreviousSize : TIOPoint;
+    iResize, iModeChange, iAttempted : Boolean;
+    iError : AnsiString;
+begin
+  iSettings.Read( FConfiguration );
+  iPreviousSize := FLastWindowSize;
+  iAttempted := False;
+  try
+    if not iSettings.Valid then
+      raise EIOException.Create( 'Choose a listed window resolution and nonnegative multipliers (0 = Automatic).' );
+    iResize := ( iSettings.Width <> FAppliedDisplay.Width ) or ( iSettings.Height <> FAppliedDisplay.Height );
+    iModeChange := ( iSettings.Fullscreen or FConfiguration.FullScreenOverride ) <>
+      TSDLIODriver( FIODriver ).FullScreen;
+    if iModeChange or ( iResize and not ( iSettings.Fullscreen or FConfiguration.FullScreenOverride ) ) then
+    begin
+      iAttempted := True;
+      SetDisplayMode( iSettings );
+    end;
+    if not RefreshDisplay( iSettings ) then
+      raise EIOException.Create( 'Restore the window before applying display changes.' );
+    if iResize and ( iSettings.Width > 0 ) and not ( iSettings.Fullscreen or FConfiguration.FullScreenOverride ) and
+       ( ( FWindowSize.X <> iSettings.Width ) or ( FWindowSize.Y <> iSettings.Height ) ) then
+      raise EIOException.Create( 'The window system did not accept the requested window size.' );
+    FAppliedDisplay := iSettings;
+    FAppliedDisplay.Write( FConfiguration );
+  except
+    on E : Exception do
+    begin
+      iError := E.Message;
+      FAppliedDisplay.Write( FConfiguration );
+      if iAttempted then
+        try
+          RestoreDisplay( iPreviousSize );
+        except
+          on R : Exception do
+            raise EIOException.Create( iError + ' Could not restore display: ' + R.Message );
+        end;
+      raise EIOException.Create( iError );
+    end;
+  end;
+  inherited Reconfigure;
+end;
+
+procedure TBerserkGUI.FullUpdate;
+var iError : AnsiString;
+    iPreviousSize : TIOPoint;
+begin
+  iPreviousSize := FLastWindowSize;
+  try
+    // Refresh once before starting a frame, including after DPI changes.
+    if not RefreshDisplay( FAppliedDisplay ) then
+    begin
+      FLastUpdate := FIODriver.GetMs;
+      Exit;
+    end;
+  except
+    on E : Exception do
+    begin
+      iError := E.Message;
+      RestoreDisplay( iPreviousSize );
+      ShowSettingsError( iError );
+    end;
+  end;
+  inherited FullUpdate;
+end;
+
+procedure TBerserkGUI.PreUpdate;
+begin
+  inherited PreUpdate;
+  glViewport( 0, 0, FLayout.Width, FLayout.Height );
+  glScissor( FLayout.Left, FLayout.Height - FLayout.Top - DISPLAY_HEIGHT * FLayout.FontScale,
+    DISPLAY_WIDTH * FLayout.FontScale, DISPLAY_HEIGHT * FLayout.FontScale );
+  glEnable( GL_SCISSOR_TEST );
+end;
+
+function TBerserkGUI.DeviceCoordToConsoleCoord( aCoord : TIOPoint ) : TIOPoint;
+begin
+  Result := FLayout.WindowToConsole( aCoord, FWindowSize );
+end;
+
+function TBerserkGUI.ConsoleCoordToDeviceCoord( aCoord : TIOPoint ) : TIOPoint;
+begin
+  Result := FLayout.ConsoleToWindow( aCoord, FWindowSize );
+end;
+
+function TBerserkGUI.OnEvent( const aEvent : TIOEvent ) : Boolean;
+begin
+  if aEvent.EType in [ VEVENT_MOUSEDOWN, VEVENT_MOUSEUP ] then
+    if DeviceCoordToConsoleCoord( aEvent.Mouse.Pos ).X < 0 then Exit( True );
+  Result := inherited OnEvent( aEvent );
+end;
+
 procedure TBerserkGUI.SendMissile( const aSource, aTarget : TCoord2D; aType : Byte; aSequence : DWord );
-var iPosition  : TCoord2D;
-    iDist      : Integer;
+var iDist      : Integer;
     iFull      : Integer;
     iVelocity  : Single;
     iColor     : TGLVec4f;
@@ -367,14 +538,7 @@ begin
 end;
 
 procedure TBerserkGUI.AddExplosion( aWhere : TCoord2D; aColor : byte; aRange : byte; aStep : byte; aDrawDelay, aSequence : Word );
-var iGLColor    : TGLVec4f;
-    iSource     : TGLVec2i;
-    iSize       : TGLVec2i;
-    iBase       : DWord;
-    iTime       : DWord;
-    iExplSprite : TGLVec2f;
-    iExplSize   : TGLVec2f;
-    iSpriteID   : Cardinal;
+var iGLColor : TGLVec4f;
 begin
   iGLColor.Init(1.0,1.0,1.0,1.0);
   case aColor of
@@ -434,7 +598,7 @@ begin
   with GLFloatColors[ aColor ] do
     FAnimations.AddAnimation(
       TGLBlinkAnimation.Create( aDuration, aSequence,
-      GLVec4f( Data[0], Data[1], Data[2], 1.0 ) )
+      GLVec4f( Data[0], Data[1], Data[2], 0.7 ) )
     );
 end;
 
@@ -446,7 +610,7 @@ begin
   if (iBeing <> nil) and (aFrom <> aTo) then
   begin
     FAnimations.AddAnimation( TGLMoveAnimation.Create( 150, 0, iBeing, aFrom, aTo ) );
-    if iBeing.isPlayer and (aFrom.X <> aTo.X) then
+    if iBeing.isPlayer then
       FAnimations.AddAnimation( TGLScreenMoveAnimation.Create( 150, 0, Level.UID, aFrom, aTo ) );
   end;
 end;
@@ -472,9 +636,9 @@ const GLShade : TGLVec4f = ( Data : ( 0.5,0.5,0.5,1 ) );
 var iTexture : TTexture;
 begin
   iTexture := FTextures.Textures['menuback'];
-  FPreQuads[ iTexture.GLTexture ].PushQuad(
-    GLVec3i(0,0,GMODE_GUI_Z), GLVec3i( 800-1,600-1,GMODE_GUI_Z), GLShade,
-    GLVec2f(), iTexture.GLSize
+  FBackgroundQuads.PushTexturedQuad(
+    GLVec2i(), GLVec2i( DISPLAY_WIDTH-1, DISPLAY_HEIGHT-1 ), GLShade,
+    GLVec2f(), iTexture.GLSize, iTexture.GLTexture, GMODE_GUI_Z
   );
 end;
 
@@ -490,38 +654,39 @@ var iTexture      : TTexture;
 const Z = GMODE_GUI_Z + 1;
 begin
   iTexture := FTextures.Textures['windowskin'];
-  iA.Init( (aPos.X-1)*10,         (aPos.Y-1)*24 );
-  iB.Init( (aPos.X-1+aSize.X)*10, (aPos.Y-1)*24 );
-  iC.Init( (aPos.X-1)*10,         (aPos.Y-1+aSize.Y)*24 );
-  iE.Init( (aPos.X-1+aSize.X)*10, (aPos.Y-1+aSize.Y)*24 );
+  iA.Init( (aPos.X-1)*DISPLAY_CELL_WIDTH,         (aPos.Y-1)*DISPLAY_CELL_HEIGHT );
+  iB.Init( (aPos.X-1+aSize.X)*DISPLAY_CELL_WIDTH, (aPos.Y-1)*DISPLAY_CELL_HEIGHT );
+  iC.Init( (aPos.X-1)*DISPLAY_CELL_WIDTH,         (aPos.Y-1+aSize.Y)*DISPLAY_CELL_HEIGHT );
+  iE.Init( (aPos.X-1+aSize.X)*DISPLAY_CELL_WIDTH, (aPos.Y-1+aSize.Y)*DISPLAY_CELL_HEIGHT );
 
   iv11.Init(10,10);
   iv10.Init(10, 0);
   iv01.Init( 0,10);
   ivi.Init(-10,10);
-  iColor.Init( 0.5, 0.5, 0.5, 0.7 );
+  iColor.Init( 0.5, 0.5, 0.5, 1.0 );
 
   is1  := iTexture.GLSize.X;
   is13 := iTexture.GLSize.X/3;
   is23 := (2*iTexture.GLSize.X)/3;
 
-  with FPreQuads[ iTexture.GLTexture ] do
+  with FPreQuads do
   begin
-    PushQuad( GLVec3i(iA,     Z), GLVec3i(iA+iv11,Z), iColor, TGLVec2f.Create( 0,   0 ),    TGLVec2f.Create( is13,is13 ) );
-    PushQuad( GLVec3i(iA+iv10,Z), GLVec3i(iB+ivi, Z), iColor, TGLVec2f.Create( is13,0 ),    TGLVec2f.Create( is23,is13 ) );
-    PushQuad( GLVec3i(iB-iv10,Z), GLVec3i(iB+iv01,Z), iColor, TGLVec2f.Create( is23,0 ),    TGLVec2f.Create( is1, is13 ) );
+    PushTexturedQuad( iA, iA+iv11, iColor, TGLVec2f.Create( 0,   0 ),    TGLVec2f.Create( is13,is13 ), iTexture.GLTexture, Z );
+    PushTexturedQuad( iA+iv10, iB+ivi, iColor, TGLVec2f.Create( is13,0 ),    TGLVec2f.Create( is23,is13 ), iTexture.GLTexture, Z );
+    PushTexturedQuad( iB-iv10, iB+iv01, iColor, TGLVec2f.Create( is23,0 ),    TGLVec2f.Create( is1, is13 ), iTexture.GLTexture, Z );
 
-    PushQuad( GLVec3i(iA+iv01,Z), GLVec3i(iC-ivi, Z), iColor, TGLVec2f.Create( 0,   is13 ), TGLVec2f.Create( is13,is23 ) );
-    PushQuad( GLVec3i(iA+iv11,Z), GLVec3i(iE-iv11,Z), iColor, TGLVec2f.Create( is13,is13 ), TGLVec2f.Create( is23,is23 ) );
-    PushQuad( GLVec3i(iB+ivi, Z), GLVec3i(iE-iv01,Z), iColor, TGLVec2f.Create( is23,is13 ), TGLVec2f.Create( is1, is23 ) );
+    PushTexturedQuad( iA+iv01, iC-ivi, iColor, TGLVec2f.Create( 0,   is13 ), TGLVec2f.Create( is13,is23 ), iTexture.GLTexture, Z );
+    PushTexturedQuad( iA+iv11, iE-iv11, iColor, TGLVec2f.Create( is13,is13 ), TGLVec2f.Create( is23,is23 ), iTexture.GLTexture, Z );
+    PushTexturedQuad( iB+ivi, iE-iv01, iColor, TGLVec2f.Create( is23,is13 ), TGLVec2f.Create( is1, is23 ), iTexture.GLTexture, Z );
 
-    PushQuad( GLVec3i(iC-iv01,Z), GLVec3i(iC+iv10,Z), iColor, TGLVec2f.Create( 0,   is23 ), TGLVec2f.Create( is13,is1 ) );
-    PushQuad( GLVec3i(iC-ivi, Z), GLVec3i(iE-iv10,Z), iColor, TGLVec2f.Create( is13,is23 ), TGLVec2f.Create( is23,is1 ) );
-    PushQuad( GLVec3i(iE-iv11,Z), GLVec3i(iE,     Z), iColor, TGLVec2f.Create( is23,is23 ), TGLVec2f.Create( is1,is1 ) );
+    PushTexturedQuad( iC-iv01, iC+iv10, iColor, TGLVec2f.Create( 0,   is23 ), TGLVec2f.Create( is13,is1 ), iTexture.GLTexture, Z );
+    PushTexturedQuad( iC-ivi, iE-iv10, iColor, TGLVec2f.Create( is13,is23 ), TGLVec2f.Create( is23,is1 ), iTexture.GLTexture, Z );
+    PushTexturedQuad( iE-iv11, iE, iColor, TGLVec2f.Create( is23,is23 ), TGLVec2f.Create( is1,is1 ), iTexture.GLTexture, Z );
   end;
 end;
 
 procedure TBerserkGUI.Update( aMSec : DWord );
+var iMap : TIOPoint;
 begin
   VTIG_Clear;
   glEnable( GL_DEPTH_TEST );
@@ -532,49 +697,51 @@ begin
 
   if FStatusVisible then
   begin
-    FPreQuads[FTextures.Texture[FTextures.TextureID['background']].GLTexture].PushQuad(
-      GLVec3i( 500, 0, GMODE_GUI_Z ), GLVec3i( 800, 600, GMODE_GUI_Z ),
+    FBackgroundQuads.PushTexturedQuad(
+      GLVec2i( DISPLAY_MAP_COLUMNS * DISPLAY_CELL_WIDTH, 0 ), GLVec2i( DISPLAY_WIDTH, DISPLAY_HEIGHT ),
       TGLVec4f.Create( 1, 1, 1, 1 ), GLVec2f(),
-      FTextures.Texture[FTextures.TextureID['background']].GLSize );
+      FTextures.Textures['background'].GLSize, FTextures.Textures['background'].GLTexture, GMODE_GUI_Z );
   end;
-  FTerrain.Update;
-  FPreQuads.Update;
-
-  FProgram.Bind;
-  glActiveTexture( GL_TEXTURE0 );
-  glBindTexture( GL_TEXTURE_2D,  FTextures.Texture[FSpriteTexID].GLTexture );
-  FTerrain.Draw;
-  FTerrain.Clear;
-  FPreQuads.Draw;
-  FPreQuads.Clear;
-  FProgram.UnBind;
+  iMap := FLayout.MapPixels;
+  glScissor( FLayout.Left, FLayout.Height - FLayout.Top - iMap.Y, iMap.X, iMap.Y );
+  FSpriteEngine.Update( Projection( FLayout.SpriteScale ) );
+  FSpriteEngine.Draw;
   glDisable( GL_DEPTH_TEST );
+  glScissor( FLayout.Left, FLayout.Height - FLayout.Top - DISPLAY_HEIGHT * FLayout.FontScale,
+    DISPLAY_WIDTH * FLayout.FontScale, DISPLAY_HEIGHT * FLayout.FontScale );
+  FQuadRenderer.Update( Projection( FLayout.FontScale ) );
+  FQuadRenderer.Render( FBackgroundQuads );
+  FQuadRenderer.Render( FPreQuads );
   if FStatusVisible then DrawStatus;
   inherited Update( aMSec );
+  glDisable( GL_SCISSOR_TEST );
+  FQuadRenderer.Update( GLCreateOrtho( 0, FLayout.Width, FLayout.Height, 0, -1000, 1000 ) );
+  FQuadRenderer.Render( FPostQuads );
 end;
 
 procedure TBerserkGUI.UpdateLight ( aVision : TVision ) ;
 var Y,X    : DWord;
     iValue : Byte;
+    iLight : array [0..MAP_MAXX, 0..MAP_MAXY] of TGLVec3b;
   function Get( X, Y : Byte ) : Byte;
   var c : TCoord2D;
   begin
     c.Create( X, Y );
-    if not Level.Vision.isVisible(c) then Exit( 30 );
-    Exit( 50+ Level.Vision.getLight(c)*2 ); // 15
+    if not aVision.isVisible(c) then Exit( 30 );
+    Exit( 50+ aVision.getLight(c)*2 ); // 15
   end;
 begin
   for X := 0 to MAP_MAXX do
     for Y := 0 to MAP_MAXY do
     begin
       iValue := ( Get(X,Y) + Get(X,Y+1) + Get(X+1,Y) + Get(X+1,Y+1) ) div 4;
-      FLightVecMap[X,Y].Init( iValue*0.01, iValue*0.01, iValue*0.01, 1.0 );
+      iLight[X,Y] := TGLVec3b.CreateAll( Min( Round( iValue * 2.55 ), 255 ) );
       if X*Y > 0 then
-        FLightQVecMap[X,Y] := TGLQVec4f.Create(
-          FLightVecMap[ X - 1, Y - 1 ],
-          FLightVecMap[ X - 1, Y     ],
-          FLightVecMap[ X    , Y     ],
-          FLightVecMap[ X    , Y - 1 ]
+        FLightQVecMap[X,Y] := TGLRawQColor.Create(
+          iLight[ X - 1, Y - 1 ],
+          iLight[ X - 1, Y     ],
+          iLight[ X    , Y     ],
+          iLight[ X    , Y - 1 ]
         );
     end;
 end;
@@ -590,16 +757,19 @@ begin
   inherited Clear;
   if FAnimations <> nil then FAnimations.Clear;
   FTarget.Create( 0, 0 );
+  FSpriteEngine.Position := GLVec2i();
 end;
 
 destructor TBerserkGUI.Destroy;
 begin
   FreeAndNil(FAnimations);
   GUI := nil;
-  FreeAndNil(FProgram);
-  FreeAndNil(FTextures);
-  FreeAndNil(FTerrain);
+  FreeAndNil(FSpriteEngine);
+  FreeAndNil(FQuadRenderer);
+  FreeAndNil(FBackgroundQuads);
   FreeAndNil(FPreQuads);
+  FreeAndNil(FPostQuads);
+  FreeAndNil(FTextures);
   inherited Destroy;
 end;
 

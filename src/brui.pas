@@ -89,7 +89,9 @@ type
     function OnEvent( const aEvent : TIOEvent ) : Boolean; override;
     procedure Clear; override;
     procedure ResetSession;
-    procedure Reconfigure;
+    procedure Reconfigure; virtual;
+    procedure PostUpdate; override;
+    procedure ShowSettingsError( const aError : AnsiString );
     procedure ShowSettings( aRecoverInput : Boolean = False );
     function GetKeybinding( aCommand : Byte ) : AnsiString;
     function GetUIKeybinding( aAction : TBindingAction ) : AnsiString;
@@ -114,6 +116,7 @@ type
     function CommandDirection(Command : byte) : TDirection;
     // Moves the cursor to the position x,y in terms of Map coords.
     procedure Focus( Where : TCoord2D );
+    procedure CenterCamera( const aWhere : TCoord2D ); virtual;
     // Renders an explosion on the screen.
     procedure AddExplosion( aWhere : TCoord2D; aColor : byte; aRange : byte; aStep : byte; aDrawDelay, aSequence : Word ); virtual; abstract;
     // Animates a move if in GFX
@@ -141,13 +144,11 @@ type
     FAudio         : TSound;
     FQuitRequested : Boolean;
     FStatusVisible : Boolean;
-    FShift         : Integer; // only in GFX mode
   public
     // Non-owning reference to Runtime's audio service.
     property Audio         : TSound  read FAudio write FAudio;
     property QuitRequested : Boolean read FQuitRequested;
     property StatusVisible : Boolean read FStatusVisible write FStatusVisible;
-    property Shift         : Integer read FShift  write FShift; // only in GFX mode
   end;
 
 
@@ -238,6 +239,20 @@ begin
   end;
   UIBindings.Clear;
   UIBindings.LoadKeys( FConfiguration.UIKeyBindings );
+end;
+
+procedure TBerserkUI.PostUpdate;
+begin
+  inherited PostUpdate;
+  if not FLayers.IsEmpty then
+    if FLayers.Top is TBerserkSettingsView then
+      TBerserkSettingsView( FLayers.Top ).ApplyPending;
+end;
+
+procedure TBerserkUI.ShowSettingsError( const aError : AnsiString );
+begin
+  if FLayers.IsEmpty or not ( FLayers.Top is TBerserkSettingsView ) then ShowSettings;
+  TBerserkSettingsView( FLayers.Top ).ReportError( aError );
 end;
 
 procedure TBerserkUI.ShowSettings( aRecoverInput : Boolean = False );
@@ -411,7 +426,6 @@ begin
   Clear;
   MsgClear;
   MarkClear;
-  FShift := 0;
   if FTMap <> nil then FTMap.Shift := Point( 0, 0 );
   Console.Clear;
   Console.HideCursor;
@@ -505,6 +519,10 @@ end;
 procedure TBerserkUI.Focus( Where : TCoord2D );
 begin
   FConsole.MoveCursor(Where.x+MAP_POSX-1,Where.y+MAP_POSX-1);
+end;
+
+procedure TBerserkUI.CenterCamera( const aWhere : TCoord2D );
+begin
 end;
 
 procedure TBerserkUI.AddMove(aWho: TUID; const aFrom, aTo: TCoord2D);

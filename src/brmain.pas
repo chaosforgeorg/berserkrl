@@ -384,7 +384,7 @@ begin
         end;
     end;
     UI.Screen := Game;
-    UI.Shift := Clamp( Player.Position.x-11, 0, MAP_MAXX-21 ) * 24;
+    UI.CenterCamera( Player.Position );
     if Assigned( Sound ) then Sound.PlayMusic( 'passive' );
     repeat
       Level.Tick;

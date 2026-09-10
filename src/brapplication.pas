@@ -28,7 +28,7 @@ begin
   AddFlag( 'console',     #0, 'Use the text console.' );
   AddFlag( 'graphics',    #0, 'Use graphics; takes precedence over --console.' );
   AddFlag( 'lowascii',    #0, 'Use basic ASCII characters.' );
-  AddFlag( 'fullscreen',  #0, 'Start graphics in fullscreen.' );
+  AddFlag( 'fullscreen',  #0, 'Start graphics in native desktop fullscreen.' );
   AddValueOption( 'name', #0, 'PLAYER_NAME', 'Override the default player name.' );
 end;
 
@@ -87,9 +87,9 @@ begin
   WritePath := FPaths.WritePath;
 
   iConfiguration := TBerserkConfiguration( Configuration );
-  iConfiguration.LowASCIIOverride := HasOption( 'lowascii' );
-  iConfiguration.FullScreen       := HasOption( 'fullscreen' );
-  iConfiguration.HasNameOverride  := HasOption( 'name' );
+  iConfiguration.LowASCIIOverride   := HasOption( 'lowascii' );
+  iConfiguration.FullScreenOverride := HasOption( 'fullscreen' );
+  iConfiguration.HasNameOverride    := HasOption( 'name' );
   if iConfiguration.HasNameOverride then iConfiguration.NameOverride := GetOptionValue( 'name' );
   if HasOption( 'nosound' ) then iConfiguration.AudioDriver := 'NONE';
 end;

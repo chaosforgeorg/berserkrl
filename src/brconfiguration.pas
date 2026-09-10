@@ -27,12 +27,12 @@ private
   function CatalogForEntry( const aID : AnsiString ) : TBindingCatalog;
 public
   // Effective launch choices, populated before Runtime's virtual IO factory.
-  GraphicsMode     : Boolean;
-  FullScreen       : Boolean;
-  AudioDriver      : AnsiString;
-  LowASCIIOverride : Boolean;
-  HasNameOverride  : Boolean;
-  NameOverride     : AnsiString;
+  GraphicsMode       : Boolean;
+  FullScreenOverride : Boolean;
+  AudioDriver        : AnsiString;
+  LowASCIIOverride   : Boolean;
+  HasNameOverride    : Boolean;
+  NameOverride       : AnsiString;
   property LuaConfig       : TGameConfig read FLuaConfig;
   property SettingsPath    : AnsiString read FSettingsPath;
   property GameKeyBindings : TBindingCatalog read FGameKeyBindings;
@@ -57,6 +57,21 @@ begin
   iGroup.AddToggle( 'high_ascii', True )
     .SetName( 'Extended ASCII' )
     .SetDescription( 'Use extended block glyphs after Apply. Console only.' );
+
+  iGroup.AddToggle( 'fullscreen', False )
+    .SetName( 'Desktop fullscreen' )
+    .SetDescription( 'Use the native desktop without changing its resolution. --fullscreen overrides this preference.' );
+  iGroup.AddInteger( 'window_multiplier', 0 ).SetRange( 0, 25 ).SetNames( [ 'Native' ] )
+    .SetName( 'Window resolution' )
+    .SetDescription( 'Native desktop size or a smaller 16:9 window. Fullscreen always uses native size. Takes effect on Apply.' );
+  iGroup.AddInteger( 'scale_multiplier', 0 ).SetRange( 0, High( Integer ) )
+    .SetNames( [ 'Automatic', 'x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7', 'x8' ] )
+    .SetName( 'Font multiplier' )
+    .SetDescription( 'Text and menus. Automatic fits the 640x360 layout: x2 at 720p, x3 at 1080p.' );
+  iGroup.AddInteger( 'sprite_multiplier', 0 ).SetRange( 0, High( Integer ) )
+    .SetNames( [ 'Automatic', 'x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7', 'x8' ] )
+    .SetName( 'Sprite multiplier' )
+    .SetDescription( 'Map tiles and effects. Automatic uses x1 at 720p, x2 at 1080p, x3 at QHD; independent of the font.' );
 
   iGroup := AddGroup( GAME_CONFIGURATION_GROUP_GAMEPLAY );
   iGroup.AddToggle( 'always_random_name', False )

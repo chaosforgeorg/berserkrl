@@ -42,7 +42,7 @@ makefile = {
 			lua      = "*.lua",
 			sound    = { "*.wav", "*.mp3", "*.ogg" },
 			music    = { "*.mp3", "*.ogg" },
-			graphics = { "*.png", "*.frag", "*.vert" },
+			graphics = "*.png",
 			help     = "*.hlp",
 		},
 		other = { "font10x18.png", "config.lua", "version.txt" },
