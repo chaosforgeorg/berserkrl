@@ -112,7 +112,7 @@ var GUI : TBerserkGUI = nil;
 implementation
 
 uses {$IFDEF WINDOWS}Windows,{$ENDIF}
-     vuid, vgl3library, vsystems, vtig,
+     vuid, vgl3library, vtig,
      vioconsole, vsdlio, vsdl3library, vglconsole, vlog,
      vmath, vdebug, math, vcolor,
      brbeing, brplayer, brlevel;
