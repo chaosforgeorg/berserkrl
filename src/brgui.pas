@@ -115,7 +115,7 @@ uses {$IFDEF WINDOWS}Windows,{$ENDIF}
      vuid, vgl3library, vtig,
      vioconsole, vsdlio, vsdl3library, vglconsole, vlog,
      vmath, vdebug, math, vcolor,
-     brbeing, brplayer, brlevel;
+     brbeing, brplayer, brlevel, brmain;
 
 { TBerserkTextures }
 
@@ -605,7 +605,7 @@ end;
 procedure TBerserkGUI.AddMove(aWho: TUID; const aFrom, aTo: TCoord2D);
 var iBeing : TBeing;
 begin
-  iBeing := UIDs.Get( aWho ) as TBeing;
+  iBeing := Berserk.UIDs.Get( aWho ) as TBeing;
   if Level.Vision.isVisible( aFrom ) or Level.Vision.isVisible( aTo ) then
   if (iBeing <> nil) and (aFrom <> aTo) then
   begin
@@ -620,7 +620,7 @@ procedure TBerserkGUI.AddAttack(aWho: TUID; aHit: Boolean; const aFrom,
 var iBeing : TBeing;
     iDelay : DWord;
 begin
-  iBeing := UIDs.Get( aWho ) as TBeing;
+  iBeing := Berserk.UIDs.Get( aWho ) as TBeing;
   if Level.Vision.isVisible( aFrom ) or Level.Vision.isVisible( aTo ) then
   if (iBeing <> nil) and (aFrom <> aTo) then
   begin

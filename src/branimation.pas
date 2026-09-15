@@ -128,7 +128,7 @@ end;
 
 implementation
 
-uses vmath, math, vcolor, vsound, vdebug, vuid, brplayer, brgui;
+uses vmath, math, vcolor, vsound, vdebug, vuid, brplayer, brgui, brmain;
 
 { TSoundAnimation }
 
@@ -167,7 +167,7 @@ var iBeing : TBeing;
 begin
   if FUID <> 0 then
   begin
-    iBeing := UIDs.Get( FUID ) as TBeing;
+    iBeing := Berserk.UIDs.Get( FUID ) as TBeing;
     if iBeing <> nil then
       Inc( iBeing.FVisual.AnimCount );
   end;
@@ -178,7 +178,7 @@ var iBeing : TBeing;
 begin
   if FUID <> 0 then
   begin
-    iBeing := UIDs.Get( FUID ) as TBeing;
+    iBeing := Berserk.UIDs.Get( FUID ) as TBeing;
     if iBeing <> nil then
       Dec( iBeing.FVisual.AnimCount );
     FUID := 0;

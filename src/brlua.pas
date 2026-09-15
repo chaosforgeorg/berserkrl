@@ -77,10 +77,10 @@ begin
   RegisterType( TBeing,  'being',  'beings' );
   RegisterType( TPlayer, 'player', 'beings' );
 
-  LuaInfo := LuaSystem.GetClassInfo( TBeing );
+  LuaInfo := GetClassInfo( TBeing );
   LuaInfo.RegisterHooks( Hooks_All, HookNames );
 
-  LuaInfo := LuaSystem.GetClassInfo( TPlayer );
+  LuaInfo := GetClassInfo( TPlayer );
   LuaInfo.RegisterHooks( Hooks_All, HookNames );
 
   TPlayer.RegisterLuaAPI();
@@ -101,13 +101,13 @@ var iAmount, iCount, iHook : DWord;
   function Resolve( const CellID : AnsiString ) : Word;
   begin
     if CellID = '' then Exit(0);
-    Exit( LuaSystem.Get(['cells',CellID,'nid']) );
+    Exit( Get(['cells',CellID,'nid']) );
   end;
 begin
-  iAmount := LuaSystem.Get(['cells','__counter']);
+  iAmount := Get(['cells','__counter']);
   SetLength( aTerrainData, iAmount+1 );
   for iCount := 1 to iAmount do
-  with LuaSystem.GetTable(['cells',iCount]) do
+  with GetTable(['cells',iCount]) do
   try
     with aTerrainData[ iCount ] do
     begin

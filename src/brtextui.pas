@@ -74,7 +74,7 @@ uses vsound, vuid, vvision, vioconsole, vtig,
 {$ELSE}
      vtextio, vtextconsole,
 {$ENDIF}
-     branimation, brlevel, brdata, brbeing, brplayer;
+     branimation, brlevel, brdata, brbeing, brplayer, brmain;
 
 { TBerserkTextUI }
 
@@ -204,7 +204,7 @@ end;
 procedure TBerserkTextUI.AddAttack(aWho: TUID; aHit: Boolean; const aFrom,  aTo: TCoord2D);
 var iBeing : TBeing;
 begin
-  iBeing := UIDs.Get( aWho ) as TBeing;
+  iBeing := Berserk.UIDs.Get( aWho ) as TBeing;
   if Assigned( Sound ) then
     FTMap.AddAnimation( TSoundAnimation.Create( 0, iBeing.Position, ResolveSoundID( iBeing.id, Iif( aHit, 'hit', 'miss' ) ) ) );
 end;

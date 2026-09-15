@@ -78,6 +78,7 @@ type TBerserkSessionResult = ( BSR_RUNNING, BSR_CANCELLED, BSR_SAVED,
        procedure Finish( aOutcome : TBerserkSessionResult );
        property Finished : Boolean read GetFinished;
        property Creating : Boolean read FCreating;
+       property UIDs : TUIDStore read FUIDStore;
        property Runtime : TBerserkRuntime read FRuntime;
      end;
 
@@ -130,7 +131,7 @@ begin
   TBerserkLua( Lua ).Load( Paths.DataPath, FTerrainData );
   TerraData := FTerrainData;
   FPersistence := TPersistence.Create( Paths.ScorePath );
-  if GodMode then IO.RegisterDebugConsole( VKEY_BQUOTE );
+  if GodMode then RegisterDebugConsole( VKEY_BQUOTE );
 end;
 
 function TBerserkRuntime.RunGame : TVRunResult;
@@ -232,7 +233,7 @@ begin
   Berserk := Self;
   FRuntime.GameRNG.Randomize;
   FUIDStore := TUIDStore.Create;
-  UIDs := FUIDStore;
+  vuid.UIDs := FUIDStore;
   FLevel := TLevel.Create;
   Level := FLevel;
   FPlayer := TPlayer.Create( NewCoord2D( 1, 1 ) );
@@ -270,7 +271,7 @@ begin
   end;
   Level := nil;
   FreeAndNil( FLevel );
-  UIDs := nil;
+  vuid.UIDs := nil;
   FreeAndNil( FUIDStore );
   Berserk := nil;
   inherited Destroy;
@@ -306,7 +307,7 @@ begin
     FLevel.Clear;
     FreeAndNil( FUIDStore );
     FUIDStore := TUIDStore.CreateFromStream( iSaveFile );
-    UIDs := FUIDStore;
+    vuid.UIDs := FUIDStore;
     // The arena is not serialized; keep its identity in the replacement store.
     FUIDStore.Register( FLevel, FLevel.UID );
     FPlayer := TPlayer.CreateFromStream( iSaveFile );
