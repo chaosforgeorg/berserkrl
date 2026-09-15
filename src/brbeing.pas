@@ -27,7 +27,7 @@
 {$INCLUDE brinclude.inc}
 unit brbeing;
 interface
-uses SysUtils, Classes, vutil, vnode, vmath, vluastate, vluaentitynode, vrltools, brdata, brui;
+uses SysUtils, Classes, vutil, vnode, vmath, vluastate, vluaentitynode, vrltools, brdata, brui, vluasystem;
 
 
 const Hook_OnCreate = 1;
@@ -197,7 +197,7 @@ TBeing = class(TLuaEntityNode)
   procedure WriteToStream( Stream : TStream ); override;
 
   // Register API
-  class procedure RegisterLuaAPI();
+  class procedure RegisterLuaAPI( aLuaSystem : TLuaSystem );
 
   protected
   procedure UpdateFacing(NewX : Word);
@@ -251,7 +251,7 @@ TBeing = class(TLuaEntityNode)
 end;
 
 implementation
-uses variants, vluasystem, vsound, vluaext, vvision, vlualibrary, brlevel,brmain, brplayer;
+uses variants, vsound, vluaext, vvision, vlualibrary, brlevel,brmain, brplayer;
 
 
 { TBeing }
@@ -290,7 +290,7 @@ end;
 procedure TBeing.ApplyTemplate( const bid : AnsiString; lvl : byte );
 var Hook : Byte;
 begin
-  with LuaSystem.GetTable( ['beings', bid] ) do
+  with FContext.Lua.GetTable( ['beings', bid] ) do
   try
     FGylph.ASCII   := GetChar('picture');
     FGylph.Color   := GetInteger('color');
@@ -364,7 +364,7 @@ begin
   if (not (TF_NOCORPSE in Level.getFlags( FPosition ))) and (not (BF_NOCORPSE in FFlags)) then
   begin
     Level.Bleed( FPosition, 2 );
-    Level.Cell[ FPosition ] := LuaSystem.Defines['bloody_corpse'];
+    Level.Cell[ FPosition ] := FContext.Lua.Defines['bloody_corpse'];
   end;
   Free;
 end;
@@ -987,9 +987,9 @@ const lua_being_lib : array[0..7] of luaL_Reg = (
 );
 
 // Register API
-class procedure TBeing.RegisterLuaAPI();
+class procedure TBeing.RegisterLuaAPI( aLuaSystem : TLuaSystem );
 begin
-  LuaSystem.Register( 'being', lua_being_lib );
+  aLuaSystem.Register( 'being', lua_being_lib );
 end;
 
 end.

@@ -30,7 +30,7 @@ interface
 
 uses vutil, vio, viorl, vrltools,
      viotypes, vioevent, vioconsole, vbindings, vsound,
-     vmessages, brdata, brconfiguration;
+     vmessages, brdata, brconfiguration, vluasystem;
 
 const
     // Option that makes the name always "random"
@@ -138,7 +138,7 @@ type
     // Resolve sound ID
     function ResolveSoundID( const aID, aSound : AnsiString ) : AnsiString;
     // Register API
-    class procedure RegisterLuaAPI();
+    class procedure RegisterLuaAPI( aLuaSystem : TLuaSystem );
   protected
     FConfiguration : TBerserkConfiguration;
     FAudio         : TSound;
@@ -158,7 +158,7 @@ const UI : TBerserkUI = nil;
 implementation
 
 uses SysUtils, DateUtils, variants, math, vtigstyle, vtig,
-     vluasystem, vluagamestate,
+     vluagamestate,
      brlevel, brplayer, brmain, bruiscreens, brsettingsview;
 
 { TBerserkUI }
@@ -291,12 +291,12 @@ var iCt     : Word;
       iAmmo   : Byte;
   begin
     iSkill  := Player.FSkillSlots[ iCt ];
-    Result  := '{^'+GetKeybinding( COMMAND_SKILL1-1+aSkillSlot ) + '}:' + LuaSystem.Get(['skills',iSkill,'name_short']);
-    iAmmo   := LuaSystem.Get(['skills',iSkill,'ammo_slot']);
+    Result  := '{^'+GetKeybinding( COMMAND_SKILL1-1+aSkillSlot ) + '}:' + Player.Context.Lua.Get(['skills',iSkill,'name_short']);
+    iAmmo   := Player.Context.Lua.Get(['skills',iSkill,'ammo_slot']);
     if iAmmo <> 0 then
     begin
       Result  += ' {^'+IntToStr( Player.FAmmo[ iAmmo ] )+'}';
-      iAmmo   := LuaSystem.Get(['skills',iSkill,'quiver_slot']);
+      iAmmo   := Player.Context.Lua.Get(['skills',iSkill,'quiver_slot']);
       if iAmmo <> 0 then Result += '/{^'+IntToStr( Player.FAmmo[ iAmmo ] )+'}';
     end;
   end;
@@ -623,9 +623,9 @@ const lua_ui_lib : array[0..7] of luaL_Reg = (
 );
 
 // Register API
-class procedure TBerserkUI.RegisterLuaAPI();
+class procedure TBerserkUI.RegisterLuaAPI( aLuaSystem : TLuaSystem );
 begin
-  LuaSystem.Register( 'ui', lua_ui_lib );
+  aLuaSystem.Register( 'ui', lua_ui_lib );
 end;
 
 

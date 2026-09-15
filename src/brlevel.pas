@@ -30,7 +30,7 @@ interface
 
 uses SysUtils,
      vluamapnode, vnode, vmath, vutil, vvision, vrltools,
-     brdata, brbeing;
+     brdata, brbeing, vluasystem;
 
 type
   // Data record on a single Map Cell on the map.
@@ -108,7 +108,7 @@ type
     // keep the player, remove it from the Beings array beforehand.
     destructor Destroy; override;
     // Register API
-    class procedure RegisterLuaAPI();
+    class procedure RegisterLuaAPI( aLuaSystem : TLuaSystem );
 
   private
     // Stores TerrainB values.
@@ -148,7 +148,7 @@ var
 
 implementation
 
-uses vluasystem, vluagamestate, vluatools, brmain, brlua, brui, brplayer;
+uses vluagamestate, vluatools, brmain, brlua, brui, brplayer;
 
 { TLevel }
 
@@ -183,7 +183,7 @@ begin
   if FMode = mode_Endless then
     FArena := Berserk.Runtime.GameRNG.RLongInt( 4 ) + 1;
 
-  LuaSystem.ProtectedCall(['generator','run'],[]);
+  FContext.Lua.ProtectedCall(['generator','run'],[]);
 
   StoreTerrain;
 
@@ -195,7 +195,7 @@ begin
   Player.Displace( PlayerPosition );
   for c in FArea do
     HitPoints[c] := TerraData[ getCell(c) ].DR;
-  LuaSystem.ProtectedCall(['generator','start'],[]);
+  FContext.Lua.ProtectedCall(['generator','start'],[]);
 
   for c in FArea do
     with Terrain[c] do
@@ -270,7 +270,7 @@ begin
   until (iScan = nil) or (iScan = Child);
 
   Inc( FTickCount );
-  LuaSystem.ProtectedCall( ['generator','tick'],[] );
+  FContext.Lua.ProtectedCall( ['generator','tick'],[] );
 end;
 
 
@@ -468,7 +468,7 @@ function TLevel.RunCellHook(const aWhere: TCoord2D; aHook: Byte;
   const aParams: array of const): Variant;
 begin
   if aHook in TerraData[GetCell(aWhere)].Hooks then
-    RunCellHook := LuaSystem.ProtectedCall(
+    RunCellHook := FContext.Lua.ProtectedCall(
       [ 'cells', GetCell(aWhere), TileHooks[ aHook ] ],
       ConcatConstArray( [LuaCoord( aWhere )], aParams )
     );
@@ -544,10 +544,10 @@ const lua_level_lib : array[0..3] of luaL_Reg = (
 );
 
 // Register API
-class procedure TLevel.RegisterLuaAPI();
+class procedure TLevel.RegisterLuaAPI( aLuaSystem : TLuaSystem );
 begin
-  TLuaMapNode.RegisterLuaAPI( 'level' );
-  LuaSystem.Register( 'level', lua_level_lib );
+  TLuaMapNode.RegisterLuaAPI( aLuaSystem, 'level' );
+  aLuaSystem.Register( 'level', lua_level_lib );
 end;
 
 

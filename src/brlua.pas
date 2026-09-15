@@ -66,12 +66,12 @@ begin
   else
     SetValue('audio',false);
 
-  TBerserkUI.RegisterLuaAPI();
-  TLevel.RegisterLuaAPI();
-  TBeing.RegisterLuaAPI();
-  TLuaEntityNode.RegisterLuaAPI( 'being' );
+  TBerserkUI.RegisterLuaAPI( Self );
+  TLevel.RegisterLuaAPI( Self );
+  TBeing.RegisterLuaAPI( Self );
+  TLuaEntityNode.RegisterLuaAPI( Self, 'being' );
 
-  TNode.RegisterLuaAPI( 'object' );
+  TNode.RegisterLuaAPI( Self, 'object' );
 
   RegisterType( TLevel,  'level',  'level' );
   RegisterType( TBeing,  'being',  'beings' );
@@ -83,7 +83,7 @@ begin
   LuaInfo := GetClassInfo( TPlayer );
   LuaInfo.RegisterHooks( Hooks_All, HookNames );
 
-  TPlayer.RegisterLuaAPI();
+  TPlayer.RegisterLuaAPI( Self );
 
   try
     RegisterModule('core',aDataPath+'lua' + DirectorySeparator );

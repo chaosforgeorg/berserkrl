@@ -130,7 +130,7 @@ end;
 
 procedure TBerserkRuntime.InitializeGameData;
 begin
-  TBerserkLua( Lua ).Load( Paths.DataPath, FTerrainData );
+  TBerserkLua( FLua ).Load( Paths.DataPath, FTerrainData );
   TerraData := FTerrainData;
   FPersistence := TPersistence.Create( Paths.ScorePath );
   if GodMode then RegisterDebugConsole( VKEY_BQUOTE );
@@ -156,7 +156,7 @@ begin
       if FileExists( iSavePath ) then iChoice := MMR_CONTINUE else iChoice := MMR_NEW_GAME;
     end
     else
-      UI.RunLayer( TMainMenuLayer.Create( FPersistence, iSavePath, iChoice ) );
+      UI.RunLayer( TMainMenuLayer.Create( FLua, FPersistence, iSavePath, iChoice ) );
     iLaunch := False;
     if UI.QuitRequested then Break;
     case iChoice of
@@ -237,7 +237,7 @@ begin
   FRuntime.GameRNG.Randomize;
   FUIDStore := TUIDStore.Create;
   FContext.BindUIDs( FUIDStore );
-  vuid.UIDs := FUIDStore;
+  FContext.Lua.Context.BindUIDs( FUIDStore );
   FLevel := TLevel.Create;
   Level := FLevel;
   FPlayer := TPlayer.Create( NewCoord2D( 1, 1 ) );
@@ -275,7 +275,7 @@ begin
   end;
   Level := nil;
   FreeAndNil( FLevel );
-  vuid.UIDs := nil;
+  FContext.Lua.Context.BindUIDs( nil );
   FreeAndNil( FUIDStore );
   FreeAndNil( FContext );
   Berserk := nil;
@@ -311,10 +311,11 @@ begin
     ReleasePlayer;
     FLevel.Clear;
     FContext.BindUIDs( nil );
+    FContext.Lua.Context.BindUIDs( nil );
     FreeAndNil( FUIDStore );
     FUIDStore := TUIDStore.CreateFromStream( iSaveFile );
     FContext.BindUIDs( FUIDStore );
-    vuid.UIDs := FUIDStore;
+    FContext.Lua.Context.BindUIDs( FUIDStore );
     // The arena is not serialized; keep its identity in the replacement store.
     FUIDStore.Register( FLevel, FLevel.UID );
     FPlayer := TPlayer.CreateFromStream( iSaveFile );
@@ -403,7 +404,7 @@ begin
   UI.Screen := Menu;
   if UI.QuitRequested then Exit( BSR_QUIT );
   if FOutcome in [BSR_DEAD, BSR_ABANDONED] then
-    UI.RunLayer( THOFLayer.Create( FRuntime.Persistence, Player.Mode, FOutcome = BSR_DEAD ) );
+    UI.RunLayer( THOFLayer.Create( FRuntime.Lua, FRuntime.Persistence, Player.Mode, FOutcome = BSR_DEAD ) );
   if UI.QuitRequested then Exit( BSR_QUIT );
   Result := FOutcome;
 end;

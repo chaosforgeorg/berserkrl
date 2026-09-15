@@ -27,7 +27,7 @@
 {$INCLUDE brinclude.inc}
 unit brplayer;
 interface
-uses SysUtils, Classes, vrltools, brbeing, brdata, brui;
+uses SysUtils, Classes, vrltools, brbeing, brdata, brui, vluasystem;
 
 type
 
@@ -133,7 +133,7 @@ TPlayer = class(TBeing)
   constructor CreateFromStream( Stream : TStream ); override;
   // Write to stream
   procedure WriteToStream( Stream : TStream ); override;
-  class procedure RegisterLuaAPI();
+  class procedure RegisterLuaAPI( aLuaSystem : TLuaSystem );
 published
   property turn_count     : DWord    read FTurnCount;
   property mode           : Byte     read FMode       write FMode;
@@ -152,7 +152,7 @@ var Player : TPlayer = nil;
 
 
 implementation
-uses math, vsound, vutil, vluastate, vluasystem, vluatable,
+uses math, vsound, vutil, vluastate, vluatable,
      brmain, brlevel, bruiscreens;
 
 { TPlayer }
@@ -192,7 +192,7 @@ begin
   UI.RunLayer( TGameModeLayer.Create );
   if Berserk.Finished or UI.QuitRequested then Exit;
   // Choose klass
-  LuaSystem.ProtectedCall( ['klasses',FKlass,'OnCreate'], [Self, FMode]);
+  FContext.Lua.ProtectedCall( ['klasses',FKlass,'OnCreate'], [Self, FMode]);
 
   if FMode = mode_Massacre
     then FPoints := 14
@@ -203,7 +203,7 @@ begin
     FName         := 'Epyon';
     Berserk.Arena := ARENA_TOWN;
     FPoints       := 0;
-    LuaSystem.ProtectedCall( ['klasses',FKlass,'OnQuick'], [Self, FMode]);
+    FContext.Lua.ProtectedCall( ['klasses',FKlass,'OnQuick'], [Self, FMode]);
   end
   else
   begin
@@ -270,7 +270,7 @@ begin
   FEN := FENMax;
   FHP := Min(FHPMax,FHP+EN*5);
 
-  LuaSystem.ProtectedCall( ['klasses',FKlass,'OnAdvance'], [Self, FMode]);
+  FContext.Lua.ProtectedCall( ['klasses',FKlass,'OnAdvance'], [Self, FMode]);
 
   // Game stats reset
   FTarget      := nil;
@@ -326,10 +326,10 @@ begin
   for Count := 1 to MAXSKILLS do
     if FSkills[Count] > 0 then
     begin
-      Count2 := LuaSystem.Get(['skills',Count,'ammo_slot']);
+      Count2 := FContext.Lua.Get(['skills',Count,'ammo_slot']);
       if (Count2 <> 0) and (FAmmo[ Count2 ] > 0) then
       begin
-        Write(Mortem,'  ',LuaSystem.Get(['skills',Count,'name']),' (',FAmmo[ Count2 ],')');
+        Write(Mortem,'  ',FContext.Lua.Get(['skills',Count,'name']),' (',FAmmo[ Count2 ],')');
         iFound := True;
       end;
     end;
@@ -337,13 +337,13 @@ begin
   Writeln(Mortem,'');
   Writeln(Mortem,Padded('-- Kills ('+IntToStr(FKills.Count)+') ',70,'-'));
   Writeln(Mortem,'');
-  Count2 := LuaSystem.Get(['beings','__counter']);
+  Count2 := FContext.Lua.Get(['beings','__counter']);
   for Count := 1 to Count2 do
   begin
-    iAmount := FKills.Get( LuaSystem.Get(['beings',Count,'id']) );
+    iAmount := FKills.Get( FContext.Lua.Get(['beings',Count,'id']) );
     if iAmount <> 0 then
-      if iAmount = 1 then Writeln(Mortem,'  1 ',LuaSystem.Get(['beings',Count,'name']))
-                     else Writeln(Mortem,'  ',iAmount,' ',LuaSystem.Get(['beings',Count,'namep']));
+      if iAmount = 1 then Writeln(Mortem,'  1 ',FContext.Lua.Get(['beings',Count,'name']))
+                     else Writeln(Mortem,'  ',iAmount,' ',FContext.Lua.Get(['beings',Count,'namep']));
   end;
   Writeln(Mortem,'');
   Count2 := 0;
@@ -353,8 +353,8 @@ begin
   Writeln(Mortem,'');
   for Count := 1 to MAXSKILLS do
     if FSkills[Count] > 0 then
-      if LuaSystem.Get(['skills',Count,'pickable']) then
-        Writeln(Mortem,'  ',LuaSystem.Get(['skills',Count,'name']),' (level ',FSkills[Count],')');
+      if FContext.Lua.Get(['skills',Count,'pickable']) then
+        Writeln(Mortem,'  ',FContext.Lua.Get(['skills',Count,'name']),' (level ',FSkills[Count],')');
   Writeln(Mortem,'');
   Writeln(Mortem,Padded('-- Messages ',70,'-'));
   Writeln(Mortem,'');
@@ -369,7 +369,7 @@ begin
   Writeln(Mortem,'  Died on                  : ',ArenaToString(Level.FArena));
   Write  (Mortem,'  Reason of death          : ');
   if FLastEnemy = 'player' then Writeln(Mortem,'suicide')
-    else if (FLastEnemy <> '') then Writeln(Mortem,'killed by a ',LuaSystem.Get(['beings',FLastEnemy,'name']))
+    else if (FLastEnemy <> '') then Writeln(Mortem,'killed by a ',FContext.Lua.Get(['beings',FLastEnemy,'name']))
     else Writeln(Mortem,'unknown');
   Writeln(Mortem,'');
   Close(Mortem);
@@ -388,7 +388,7 @@ begin
   UI.Draw;
   UI.PressEnter;
   UI.Screen := Menu;
-  iLast := LuaSystem.Get(['beings',FLastEnemy,'nid']);
+  iLast := FContext.Lua.Get(['beings',FLastEnemy,'nid']);
   Berserk.Runtime.Persistence.Add(FKills.Count, FName, FMode,  FKlass, FKills.Count, FTurnCount, FNight, iLast );
   WriteMortem;
 end;
@@ -402,18 +402,18 @@ begin
   end;
   if FSkills[aSkillID] = 0 then
   begin
-    UI.Msg('You don''t have the '+LuaSystem.Get(['skills',aSkillID,'name'])+' skill!');
+    UI.Msg('You don''t have the '+FContext.Lua.Get(['skills',aSkillID,'name'])+' skill!');
     Exit( False );
   end;
   if aAlt then
   begin
-    if LuaSystem.Defined(['skills',aSkillID,'OnAltUse']) then
-      Exit( LuaSystem.ProtectedCall(['skills',aSkillID,'OnAltUse'],[Player,FSkills[aSkillID], aCommand ] ) );
+    if FContext.Lua.Defined(['skills',aSkillID,'OnAltUse']) then
+      Exit( FContext.Lua.ProtectedCall(['skills',aSkillID,'OnAltUse'],[Player,FSkills[aSkillID], aCommand ] ) );
     UI.Msg( 'What?' );
     Exit( False );
   end
   else
-    Exit( LuaSystem.ProtectedCall(['skills',aSkillID,'OnUse'],[Player,FSkills[aSkillID], aCommand ] ) );
+    Exit( FContext.Lua.ProtectedCall(['skills',aSkillID,'OnUse'],[Player,FSkills[aSkillID], aCommand ] ) );
 end;
 
 procedure TPlayer.Action;
@@ -430,7 +430,7 @@ var Command    : Byte;
 begin
   Inc(FTurnCount);
   FDefBonus  := 0;
-  LuaSystem.ProtectedCall(['klasses',FKlass,'OnTick'],[Self]);
+  FContext.Lua.ProtectedCall(['klasses',FKlass,'OnTick'],[Self]);
   if FKills.ThisTurn > 5 then UI.Msg(IntToStr(FKills.ThisTurn)+' kills!');
   FKills.Update(FTurnCount);
 
@@ -512,7 +512,7 @@ repeat
       if isRunning  then Exclude(FFlags,BF_RUNNING)
                     else Include(FFlags,BF_RUNNING);
 
-    COMMAND_HELP      : UI.RunLayer( THelpLayer.Create );
+    COMMAND_HELP      : UI.RunLayer( THelpLayer.Create( FContext.Lua ) );
     COMMAND_PLAYERINFO: UI.RunLayer( TGamePlayerLayer.Create );
     COMMAND_MESSAGES  : UI.RunLayer( TMessagesLayer.Create );
 
@@ -626,7 +626,7 @@ end;
 procedure TPlayer.IncSkill(aSkillID: DWord);
 var i : Byte;
 begin
-  if LuaSystem.Defined( ['skills', aSkillID, 'OnUse'] ) then
+  if FContext.Lua.Defined( ['skills', aSkillID, 'OnUse'] ) then
     if FSkills[ aSkillID ] = 0 then
       for i := Low( FSkillSlots ) to High( FSkillSlots ) do
         if FSkillSlots[i] = 0 then
@@ -635,8 +635,8 @@ begin
           Break;
         end;
   Inc( FSkills[ aSkillID ] );
-  if LuaSystem.Defined( ['skills', aSkillID, 'OnPick'] ) then
-    LuaSystem.ProtectedCall( ['skills', aSkillID, 'OnPick'], [ Self, FSkills[ aSkillID ] ] );
+  if FContext.Lua.Defined( ['skills', aSkillID, 'OnPick'] ) then
+    FContext.Lua.ProtectedCall( ['skills', aSkillID, 'OnPick'], [ Self, FSkills[ aSkillID ] ] );
 end;
 
 function TPlayer.ReqMet(const aID: AnsiString; aReqValue: DWord): Boolean;
@@ -647,7 +647,7 @@ begin
   if aID = 'dx' then Exit(DX >= aReqValue);
   if aID = 'wp' then Exit(WP >= aReqValue);
   if aID = 'en' then Exit(EN >= aReqValue);
-  iSkillID := LuaSystem.Defines[ aID ];
+  iSkillID := FContext.Lua.Defines[ aID ];
   Exit( FSkills[ iSkillID ] >=  aReqValue );
 end;
 
@@ -655,7 +655,7 @@ function TPlayer.ReqsMet(aSkillID: DWord): Boolean;
 var iPair : TLuaValuePair;
 begin
   ReqsMet := True;
-  with LuaSystem.GetTable(['skills',aSkillID,'reqs']) do
+  with FContext.Lua.GetTable(['skills',aSkillID,'reqs']) do
   try
     for iPair in Pairs do
       if not ReqMet( iPair.Key.ToString, iPair.Value.ToInteger ) then Exit( False );
@@ -670,7 +670,7 @@ begin
   if aID = 'dx' then Exit('Dexterity '+IntToStr(aReqValue));
   if aID = 'wp' then Exit('Willpower '+IntToStr(aReqValue));
   if aID = 'en' then Exit('Endurance '+IntToStr(aReqValue));
-  Exit( LuaSystem.Get(['skills',aID,'name'])+' level '+IntToStr(aReqValue) );
+  Exit( FContext.Lua.Get(['skills',aID,'name'])+' level '+IntToStr(aReqValue) );
 end;
 
 function TPlayer.LightRadius : Byte;
@@ -746,27 +746,27 @@ begin
   Result := 1;
 end;
 
-function lua_player_get_skill(L: Plua_State): Integer; cdecl;
-var State  : TLuaState;
-    Player : TPlayer;
+function lua_player_get_skill( L : PLua_State ): Integer; cdecl;
+var iState  : TLuaState;
+    iPlayer : TPlayer;
 begin
-  State.Init(L);
-  Player := State.ToObject(1) as TPlayer;
-  if State.IsNumber(2)
-    then State.Push( Player.FSkills[State.ToInteger(2)] )
-    else State.Push( Player.FSkills[LuaSystem.Defines[State.ToString(2)]] );
+  iState.Init(L);
+  iPlayer := iState.ToObject(1) as TPlayer;
+  if iState.IsNumber(2)
+    then iState.Push( iPlayer.FSkills[iState.ToInteger(2)] )
+    else iState.Push( iPlayer.FSkills[iPlayer.Context.Lua.Defines[iState.ToString(2)]] );
   Result := 1;
 end;
 
-function lua_player_inc_skill(L: Plua_State): Integer; cdecl;
-var State  : TLuaState;
-    Player : TPlayer;
+function lua_player_inc_skill( L : PLua_State ): Integer; cdecl;
+var iState  : TLuaState;
+    iPlayer : TPlayer;
 begin
-  State.Init(L);
-  Player := State.ToObject(1) as TPlayer;
-  if State.IsNumber(2)
-    then Player.IncSkill(State.ToInteger(2))
-    else Player.IncSkill(LuaSystem.Defines[State.ToString(2)]);
+  iState.Init(L);
+  iPlayer := iState.ToObject(1) as TPlayer;
+  if iState.IsNumber(2)
+    then iPlayer.IncSkill(iState.ToInteger(2))
+    else iPlayer.IncSkill(iPlayer.Context.Lua.Defines[iState.ToString(2)]);
   Result := 1;
 end;
 
@@ -811,9 +811,9 @@ const lua_player_lib : array[0..6] of luaL_Reg = (
 );
 
 // Register API
-class procedure TPlayer.RegisterLuaAPI();
+class procedure TPlayer.RegisterLuaAPI( aLuaSystem : TLuaSystem );
 begin
-  LuaSystem.Register( 'player', lua_player_lib );
+  aLuaSystem.Register( 'player', lua_player_lib );
 end;
 
 

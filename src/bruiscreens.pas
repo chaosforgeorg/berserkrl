@@ -23,7 +23,7 @@
 {$INCLUDE brinclude.inc}
 unit bruiscreens;
 interface
-uses vioevent, viotypes, vtigstyle, brpersistence;
+uses vioevent, viotypes, vtigstyle, brpersistence, vluasystem;
 
 type TScreenLayer = class( TIOLayer )
   constructor Create;
@@ -48,11 +48,12 @@ end;
 type TMainMenuResult = ( MMR_QUIT, MMR_NEW_GAME, MMR_CONTINUE );
 
 type TMainMenuLayer = class( TLogoMenuLayer )
-  constructor Create( aPersistence : TPersistence; const aSavePath : AnsiString;
+  constructor Create( aLuaSystem : TLuaSystem; aPersistence : TPersistence; const aSavePath : AnsiString;
     var aResult : TMainMenuResult );
 protected
   procedure DrawMenu; override;
 private
+  FLua : TLuaSystem; // borrowed from Runtime
   FPersistence : TPersistence;
   FSavePath : AnsiString;
   FHasSave, FNewGame : Boolean;
@@ -60,10 +61,11 @@ private
 end;
 
 type THighscoreMenuLayer = class( TLogoMenuLayer )
-  constructor Create( aPersistence : TPersistence );
+  constructor Create( aLuaSystem : TLuaSystem; aPersistence : TPersistence );
 protected
   procedure DrawMenu; override;
 private
+  FLua : TLuaSystem; // borrowed from Runtime
   FPersistence : TPersistence;
 end;
 
@@ -197,14 +199,14 @@ type TMessagesLayer = class( TScrollingLayer )
 end;
 
 type THOFLayer = class( TScrollingLayer )
-  constructor Create( aPersistence : TPersistence; aMode : Byte; aHighlight : Boolean = False );
+  constructor Create( aLuaSystem : TLuaSystem; aPersistence : TPersistence; aMode : Byte; aHighlight : Boolean = False );
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
 protected
   FCurrent : Integer;
 end;
 
 type THelpLayer = class( TScrollingLayer )
-  constructor Create;
+  constructor Create( aLuaSystem : TLuaSystem );
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
   destructor Destroy; override;
 protected
@@ -214,7 +216,7 @@ end;
 
 implementation
 
-uses sysutils, vutil, vtig, vtigio, vluasystem, vluatable, vxmldata,
+uses sysutils, vutil, vtig, vtigio, vluatable, vxmldata,
      brdata, brui, brplayer, brmain;
 
 constructor TScreenLayer.Create;
@@ -274,10 +276,11 @@ begin
   VTIG_BringToTop( FID );
 end;
 
-constructor TMainMenuLayer.Create( aPersistence : TPersistence;
+constructor TMainMenuLayer.Create( aLuaSystem : TLuaSystem; aPersistence : TPersistence;
   const aSavePath : AnsiString; var aResult : TMainMenuResult );
 begin
   inherited Create( 'main_menu' );
+  FLua := aLuaSystem;
   FPersistence := aPersistence;
   FSavePath := aSavePath;
   FHasSave := FileExists( FSavePath );
@@ -303,25 +306,26 @@ begin
     FResult^ := MMR_CONTINUE;
     FFinished := True;
   end;
-  if VTIG_Selectable( 'Hall of Fame' ) then UI.PushLayer( THighscoreMenuLayer.Create( FPersistence ) );
-  if VTIG_Selectable( 'Help' ) then UI.PushLayer( THelpLayer.Create );
+  if VTIG_Selectable( 'Hall of Fame' ) then UI.PushLayer( THighscoreMenuLayer.Create( FLua, FPersistence ) );
+  if VTIG_Selectable( 'Help' ) then UI.PushLayer( THelpLayer.Create( FLua ) );
   if VTIG_Selectable( 'Settings' ) then
     UI.ShowSettings;
   if VTIG_Selectable( 'Quit' ) or VTIG_EventCancel then FFinished := True;
   VTIG_End;
 end;
 
-constructor THighscoreMenuLayer.Create( aPersistence : TPersistence );
+constructor THighscoreMenuLayer.Create( aLuaSystem : TLuaSystem; aPersistence : TPersistence );
 begin
   inherited Create( 'highscore_menu' );
+  FLua := aLuaSystem;
   FPersistence := aPersistence;
 end;
 
 procedure THighscoreMenuLayer.DrawMenu;
 begin
   BeginMenu( 5 );
-  if VTIG_Selectable( 'Endless' ) then UI.PushLayer( THOFLayer.Create( FPersistence, mode_Endless ) );
-  if VTIG_Selectable( 'Massacre' ) then UI.PushLayer( THOFLayer.Create( FPersistence, mode_Massacre ) );
+  if VTIG_Selectable( 'Endless' ) then UI.PushLayer( THOFLayer.Create( FLua, FPersistence, mode_Endless ) );
+  if VTIG_Selectable( 'Massacre' ) then UI.PushLayer( THOFLayer.Create( FLua, FPersistence, mode_Massacre ) );
   if VTIG_Selectable( 'Back' ) or VTIG_EventCancel then FFinished := True;
   VTIG_End;
 end;
@@ -412,7 +416,7 @@ begin
     UI.Screen := Menu;
     UI.StatusVisible := False;
     UI.Console.Clear;
-    UI.PushLayer( THelpLayer.Create );
+    UI.PushLayer( THelpLayer.Create( Player.Context.Lua ) );
   end;
   if VTIG_Selectable( 'Settings' ) then UI.ShowSettings;
   if VTIG_Selectable( 'Abandon run' ) then UI.PushLayer( TAbandonRunLayer.Create );
@@ -518,7 +522,7 @@ begin
   FScrollDown := True;
 end;
 
-constructor THOFLayer.Create( aPersistence : TPersistence; aMode : Byte; aHighlight : Boolean );
+constructor THOFLayer.Create( aLuaSystem : TLuaSystem; aPersistence : TPersistence; aMode : Byte; aHighlight : Boolean );
 var i, iR  : DWord;
     iEntry : TScoreEntry;
     iMode  : Ansistring;
@@ -533,7 +537,7 @@ begin
   if aHighlight then FCurrent := Integer( aPersistence.GetCurrent );
   i := 0;
   iMode := IntToStr( aMode );
-  iMaxB := LuaSystem.Get(['beings','__counter']);
+  iMaxB := aLuaSystem.Get(['beings','__counter']);
   repeat
     Inc( i );
     iEntry := aPersistence.Get( i );
@@ -546,7 +550,7 @@ begin
       iR    := StrToInt( iEntry.GetAttribute('result') );
       iLine := Padded('{!'+iName+'}',17)+' '+Padded('survived {!'+iT+'} turns', 25) + ' ' + Padded('{!'+iK+'} kills',15)+' ';
       if ( iR > 1 ) and ( iR <= iMaxB )
-        then iLine += 'killed by {!'+LuaSystem.Get(['beings',iR,'name'])+'}'
+        then iLine += 'killed by {!'+aLuaSystem.Get(['beings',iR,'name'])+'}'
         else iLine += 'commited suicide';
       if i = FCurrent then iLine := '{y'+iLine+'}';
       FContent.Push( iLine );
@@ -591,7 +595,7 @@ const KeyData : array[0..5] of TKeyInfo = (
   ( Entry : 'Game menu';        Command : COMMAND_QUIT; ),
   ( Entry : 'Help';             Command : COMMAND_HELP; ) );
 
-constructor THelpLayer.Create;
+constructor THelpLayer.Create( aLuaSystem : TLuaSystem );
 var i, iSid : Integer;
 begin
   inherited Create( nil );
@@ -603,7 +607,7 @@ begin
     begin
       iSid := Player.FSkillSlots[ i ];
       if ( iSid > 0 ) and ( Player.FSkills[ i ] > 0 ) then
-      with LuaSystem.GetTable( ['skills', iSid] ) do
+      with aLuaSystem.GetTable( ['skills', iSid] ) do
       try
         if IsFunction('OnUse')    then FKeys.Push( Padded( GetString('name_use'), 17 ) +' {!' + UI.GetKeybinding( COMMAND_SKILL1-1+i ) + '}' );
         if IsFunction('OnAltUse') then FKeys.Push( Padded( GetString('name_altuse'), 17 ) +' {!' + UI.GetKeybinding( COMMAND_SKILLALT1-1+i ) + '}' );
@@ -723,11 +727,11 @@ constructor TNightLayer.Create;
 var i : Integer;
 begin
   inherited Create;
-  i := LuaSystem.GetTableSize('quotes');
+  i := Player.Context.Lua.GetTableSize('quotes');
   i := UI.VisualRNG.RLongInt( i ) + 1;
-  FQuote  := LuaSystem.Get( ['quotes', i, 'text'] ) +
+  FQuote  := Player.Context.Lua.Get( ['quotes', i, 'text'] ) +
              #10+'                        {d-- }'+
-             LuaSystem.Get( ['quotes', i, 'author'] );
+             Player.Context.Lua.Get( ['quotes', i, 'author'] );
 end;
 
 procedure TNightLayer.Update( aDTime : Integer; aActive : Boolean );
@@ -918,12 +922,12 @@ var i, iMax, iV, iC : Integer;
     iPair           : TLuaValuePair;
 begin
   inherited Create;
-  iMax := LuaSystem.Get(['skills','__counter']);
+  iMax := Player.Context.Lua.Get(['skills','__counter']);
   SetLength( FSkillData, iMax );
   iC := 0;
   for i := 0 to iMax - 1 do
     with FSkillData[iC] do
-      with LuaSystem.GetTable(['skills',i+1]) do
+      with Player.Context.Lua.GetTable(['skills',i+1]) do
         try
           if GetBoolean('pickable',False) then
           begin
@@ -937,7 +941,7 @@ begin
             Pic   := GetString( 'picture' );
             Allow := Player.ReqsMet( Index );
             Reqs  := '';
-            with LuaSystem.GetTable(['skills',Index,'reqs']) do
+            with Player.Context.Lua.GetTable(['skills',Index,'reqs']) do
             try
               for iPair in Pairs do
               begin
@@ -1001,11 +1005,11 @@ begin
   inherited Create;
   FSkills := '';
   FAmmo   := '';
-  iMax := LuaSystem.Get(['skills','__counter']);
+  iMax := Player.Context.Lua.Get(['skills','__counter']);
   iC   := 0;
   for i := 1 to iMax do
     if Player.FSkills[ i ] > 0 then
-    with LuaSystem.GetTable(['skills',i]) do
+    with Player.Context.Lua.GetTable(['skills',i]) do
       try
         if GetBoolean('pickable',False) then
           FSkills += ' '+GetString( 'name' )+' (level {!'+IntToStr(Player.FSkills[ i ])+'})'#10;
