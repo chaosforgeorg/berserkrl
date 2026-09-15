@@ -27,7 +27,7 @@
 {$INCLUDE brinclude.inc}
 unit brbeing;
 interface
-uses SysUtils, Classes, vutil, vnode, vmath, vluastate, vluaentitynode, vrltools, brdata, brui, vluasystem;
+uses sysutils, classes, vutil, vnode, vmath, vluastack, vluaentitynode, vrltools, vlua, brdata, brui;
 
 
 const Hook_OnCreate = 1;
@@ -197,7 +197,7 @@ TBeing = class(TLuaEntityNode)
   procedure WriteToStream( Stream : TStream ); override;
 
   // Register API
-  class procedure RegisterLuaAPI( aLuaSystem : TLuaSystem );
+  class procedure RegisterLuaAPI( aLua : TLua );
 
   protected
   procedure UpdateFacing(NewX : Word);
@@ -251,7 +251,7 @@ TBeing = class(TLuaEntityNode)
 end;
 
 implementation
-uses variants, vsound, vluaext, vvision, vlualibrary, brlevel,brmain, brplayer;
+uses variants, vsound, vluaext, vvision, vlualibrary, brlevel, brmain, brplayer;
 
 
 { TBeing }
@@ -846,7 +846,7 @@ end;
 
 function TBeing.GetProperty( L : PLua_State; const aPropertyName: AnsiString
   ): Integer;
-var iState : TLuaState;
+var iState : TLuaStack;
 begin
   iState.Init(L);
   if aPropertyName = 'target'    then begin iState.Push( Level.Being[FTargetCoord] ); Exit( 1 ); end;
@@ -899,7 +899,7 @@ begin
 end;
 
 function lua_being_die(L: Plua_State): Integer; cdecl;
-var State : TLuaState;
+var State : TLuaStack;
     Being : TBeing;
 begin
   State.Init(L);
@@ -909,7 +909,7 @@ begin
 end;
 
 function lua_being_send_missile(L: Plua_State): Integer; cdecl;
-var State : TLuaState;
+var State : TLuaStack;
     Being : TBeing;
 begin
   State.Init(L);
@@ -919,7 +919,7 @@ begin
 end;
 
 function lua_being_attack(L: Plua_State): Integer; cdecl;
-var State : TLuaState;
+var State : TLuaStack;
     Being : TBeing;
 begin
   State.Init(L);
@@ -929,7 +929,7 @@ begin
 end;
 
 function lua_being_try_move(L: Plua_State): Integer; cdecl;
-var State : TLuaState;
+var State : TLuaStack;
     Being : TBeing;
 begin
   State.Init(L);
@@ -939,7 +939,7 @@ begin
 end;
 
 function lua_being_apply_damage(L: Plua_State): Integer; cdecl;
-var State : TLuaState;
+var State : TLuaStack;
     Being : TBeing;
 begin
   State.Init(L);
@@ -949,7 +949,7 @@ begin
 end;
 
 function lua_being_breath(L: Plua_State): Integer; cdecl;
-var State : TLuaState;
+var State : TLuaStack;
     Being : TBeing;
 begin
   State.Init(L);
@@ -964,7 +964,7 @@ begin
 end;
 
 function lua_being_knockback(L: Plua_State): Integer; cdecl;
-var State : TLuaState;
+var State : TLuaStack;
     Being : TBeing;
 begin
   State.Init(L);
@@ -987,9 +987,9 @@ const lua_being_lib : array[0..7] of luaL_Reg = (
 );
 
 // Register API
-class procedure TBeing.RegisterLuaAPI( aLuaSystem : TLuaSystem );
+class procedure TBeing.RegisterLuaAPI( aLua : TLua );
 begin
-  aLuaSystem.Register( 'being', lua_being_lib );
+  aLua.Register( 'being', lua_being_lib );
 end;
 
 end.

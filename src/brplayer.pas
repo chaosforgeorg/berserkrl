@@ -27,7 +27,7 @@
 {$INCLUDE brinclude.inc}
 unit brplayer;
 interface
-uses SysUtils, Classes, vrltools, brbeing, brdata, brui, vluasystem;
+uses sysutils, classes, vrltools, vlua, brbeing, brdata, brui;
 
 type
 
@@ -133,7 +133,7 @@ TPlayer = class(TBeing)
   constructor CreateFromStream( Stream : TStream ); override;
   // Write to stream
   procedure WriteToStream( Stream : TStream ); override;
-  class procedure RegisterLuaAPI( aLuaSystem : TLuaSystem );
+  class procedure RegisterLuaAPI( aLua : TLua );
 published
   property turn_count     : DWord    read FTurnCount;
   property mode           : Byte     read FMode       write FMode;
@@ -152,8 +152,7 @@ var Player : TPlayer = nil;
 
 
 implementation
-uses math, vsound, vutil, vluastate, vluatable,
-     brmain, brlevel, bruiscreens;
+uses math, vsound, vutil, vluastack, vluatable, brmain, brlevel, bruiscreens;
 
 { TPlayer }
 
@@ -737,7 +736,7 @@ begin
 end;
 
 function lua_player_get_skill_slot(L: Plua_State): Integer; cdecl;
-var State  : TLuaState;
+var State  : TLuaStack;
     Player : TPlayer;
 begin
   State.Init(L);
@@ -747,7 +746,7 @@ begin
 end;
 
 function lua_player_get_skill( L : PLua_State ): Integer; cdecl;
-var iState  : TLuaState;
+var iState  : TLuaStack;
     iPlayer : TPlayer;
 begin
   iState.Init(L);
@@ -759,7 +758,7 @@ begin
 end;
 
 function lua_player_inc_skill( L : PLua_State ): Integer; cdecl;
-var iState  : TLuaState;
+var iState  : TLuaStack;
     iPlayer : TPlayer;
 begin
   iState.Init(L);
@@ -771,7 +770,7 @@ begin
 end;
 
 function lua_player_get_ammo(L: Plua_State): Integer; cdecl;
-var State  : TLuaState;
+var State  : TLuaStack;
     Player : TPlayer;
 begin
   State.Init(L);
@@ -781,7 +780,7 @@ begin
 end;
 
 function lua_player_set_ammo(L: Plua_State): Integer; cdecl;
-var State  : TLuaState;
+var State  : TLuaStack;
     Player : TPlayer;
 begin
   State.Init(L);
@@ -791,7 +790,7 @@ begin
 end;
 
 function lua_player_choose_target(L: Plua_State): Integer; cdecl;
-var State  : TLuaState;
+var State  : TLuaStack;
     Player : TPlayer;
 begin
   State.Init(L);
@@ -811,9 +810,9 @@ const lua_player_lib : array[0..6] of luaL_Reg = (
 );
 
 // Register API
-class procedure TPlayer.RegisterLuaAPI( aLuaSystem : TLuaSystem );
+class procedure TPlayer.RegisterLuaAPI( aLua : TLua );
 begin
-  aLuaSystem.Register( 'player', lua_player_lib );
+  aLua.Register( 'player', lua_player_lib );
 end;
 
 

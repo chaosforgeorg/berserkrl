@@ -28,9 +28,8 @@
 unit brui;
 interface
 
-uses vutil, vio, viorl, vrltools,
-     viotypes, vioevent, vioconsole, vbindings, vsound,
-     vmessages, brdata, brconfiguration, vluasystem;
+uses vutil, vio, viorl, vrltools, viotypes, vioevent, vioconsole, vbindings, vsound, vmessages, vlua,
+     brdata, brconfiguration;
 
 const
     // Option that makes the name always "random"
@@ -138,7 +137,7 @@ type
     // Resolve sound ID
     function ResolveSoundID( const aID, aSound : AnsiString ) : AnsiString;
     // Register API
-    class procedure RegisterLuaAPI( aLuaSystem : TLuaSystem );
+    class procedure RegisterLuaAPI( aLua : TLua );
   protected
     FConfiguration : TBerserkConfiguration;
     FAudio         : TSound;
@@ -157,8 +156,8 @@ const UI : TBerserkUI = nil;
 
 implementation
 
-uses SysUtils, DateUtils, variants, math, vtigstyle, vtig,
-     vluagamestate,
+uses sysutils, dateutils, variants, math,
+     vtigstyle, vtig, vluagamestack,
      brlevel, brplayer, brmain, bruiscreens, brsettingsview;
 
 { TBerserkUI }
@@ -555,7 +554,7 @@ begin
 end;
 
 function lua_ui_msg(L: Plua_State): Integer; cdecl;
-var State : TLuaGameState;
+var State : TLuaGameStack;
 begin
   State.Init(L);
   if State.StackSize = 0 then Exit(0);
@@ -570,7 +569,7 @@ begin
 end;
 
 function lua_ui_blink(L: Plua_State): Integer; cdecl;
-var State : TLuaGameState;
+var State : TLuaGameStack;
 begin
   State.Init(L);
   UI.Blink( State.ToInteger( 1 ), State.ToInteger( 2, 50 ), State.ToInteger( 3, 0 ) );
@@ -578,7 +577,7 @@ begin
 end;
 
 function lua_ui_choose_dir(L: Plua_State): Integer; cdecl;
-var State : TLuaGameState;
+var State : TLuaGameStack;
     Dir   : TDirection;
 begin
   State.Init(L);
@@ -596,7 +595,7 @@ begin
 end;
 
 function lua_ui_resolve_sound_id(L: Plua_State): Integer; cdecl;
-var iState   : TLuaGameState;
+var iState   : TLuaGameStack;
 begin
   iState.Init(L);
   iState.Push( UI.ResolveSoundID( iState.ToString(1), iState.ToString(2,'') ) );
@@ -604,7 +603,7 @@ begin
 end;
 
 function lua_ui_get_keybinding(L: Plua_State): Integer; cdecl;
-var iState   : TLuaGameState;
+var iState   : TLuaGameStack;
 begin
   iState.Init(L);
   iState.Push( UI.GetKeybinding( iState.ToInteger(1) ) );
@@ -623,9 +622,9 @@ const lua_ui_lib : array[0..7] of luaL_Reg = (
 );
 
 // Register API
-class procedure TBerserkUI.RegisterLuaAPI( aLuaSystem : TLuaSystem );
+class procedure TBerserkUI.RegisterLuaAPI( aLua : TLua );
 begin
-  aLuaSystem.Register( 'ui', lua_ui_lib );
+  aLua.Register( 'ui', lua_ui_lib );
 end;
 
 

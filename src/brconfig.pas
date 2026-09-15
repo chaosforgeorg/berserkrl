@@ -21,7 +21,7 @@
 {$INCLUDE brinclude.inc}
 unit brconfig;
 interface
-uses Classes, SysUtils, vluasystem, vluaconfig, vbindings, vioevent;
+uses classes, sysutils, vlua, vluaconfig, vbindings, vioevent;
 
 type TGameConfig = class(TLuaConfig)
   constructor Create( const FileName : Ansistring );
@@ -33,7 +33,7 @@ end;
 
 implementation
 
-uses brui, brdata, viotypes, vluatable, vlualibrary;
+uses viotypes, vluatable, vlualibrary, brui, brdata;
 
 { TGameConfig }
 

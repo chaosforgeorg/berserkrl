@@ -28,9 +28,7 @@ unit brlevel;
 
 interface
 
-uses SysUtils,
-     vluamapnode, vnode, vmath, vutil, vvision, vrltools,
-     brdata, brbeing, vluasystem;
+uses sysutils, vluamapnode, vnode, vmath, vutil, vvision, vrltools, vlua, brdata, brbeing;
 
 type
   // Data record on a single Map Cell on the map.
@@ -108,7 +106,7 @@ type
     // keep the player, remove it from the Beings array beforehand.
     destructor Destroy; override;
     // Register API
-    class procedure RegisterLuaAPI( aLuaSystem : TLuaSystem );
+    class procedure RegisterLuaAPI( aLua : TLua );
 
   private
     // Stores TerrainB values.
@@ -148,7 +146,7 @@ var
 
 implementation
 
-uses vluagamestate, vluatools, brmain, brlua, brui, brplayer;
+uses vluagamestack, vluatools, brmain, brlua, brui, brplayer;
 
 { TLevel }
 
@@ -494,7 +492,7 @@ begin
 end;
 
 function lua_level_get_player(L: Plua_State): Integer; cdecl;
-var State : TLuaGameState;
+var State : TLuaGameStack;
     Level : TLevel;
 begin
   State.Init(L);
@@ -505,7 +503,7 @@ end;
 
 
 function lua_level_summon(L: Plua_State): Integer; cdecl;
-var State : TLuaGameState;
+var State : TLuaGameStack;
     Being : TBeing;
     Level : TLevel;
 begin
@@ -518,7 +516,7 @@ begin
 end;
 
 function lua_level_explosion(L: Plua_State): Integer; cdecl;
-var State : TLuaGameState;
+var State : TLuaGameStack;
     Level : TLevel;
 begin
   State.Init(L);
@@ -544,10 +542,10 @@ const lua_level_lib : array[0..3] of luaL_Reg = (
 );
 
 // Register API
-class procedure TLevel.RegisterLuaAPI( aLuaSystem : TLuaSystem );
+class procedure TLevel.RegisterLuaAPI( aLua : TLua );
 begin
-  TLuaMapNode.RegisterLuaAPI( aLuaSystem, 'level' );
-  aLuaSystem.Register( 'level', lua_level_lib );
+  TLuaMapNode.RegisterLuaAPI( aLua, 'level' );
+  aLua.Register( 'level', lua_level_lib );
 end;
 
 

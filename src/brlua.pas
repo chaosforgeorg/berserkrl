@@ -25,13 +25,13 @@
 {$INCLUDE brinclude.inc}
 unit brlua;
 interface
-uses Classes, SysUtils, vrltools, vluasystem, vluastate, brplayer, brlevel, brdata;
+uses classes, sysutils, vrltools, vlua, vluastack, brplayer, brlevel, brdata;
 
 type
 
 { TBerserkLua }
 
-TBerserkLua = class(TLuaSystem)
+TBerserkLua = class(TLua)
 private
   procedure LoadCells( var aTerrainData : TTerrainDataArray );
   procedure OnError( const aErrorString : AnsiString );
@@ -41,28 +41,27 @@ public
 end;
 
 implementation
-uses vnode, vluatools, vluaentitynode, vluadungen, vdebug, vsound,
-     brui, brbeing;
+uses vnode, vluatools, vluaentitynode, vluadungen, vdebug, vsound, brui, brbeing;
 
 procedure TBerserkLua.Load( const aDataPath : AnsiString; var aTerrainData : TTerrainDataArray );
 var LuaInfo       : TLuaClassInfo;
 begin
   ErrorFunc := @OnError;
-  RegisterTableAuxFunctions( FState );
-  RegisterMathAuxFunctions( FState );
-  RegisterStringListClass( FState );
-  RegisterWeightTableClass( FState );
+  RegisterTableAuxFunctions( FRaw );
+  RegisterMathAuxFunctions( FRaw );
+  RegisterStringListClass( FRaw );
+  RegisterWeightTableClass( FRaw );
 
-  RegisterCoordClass( FState );
-  RegisterAreaClass( FState );
-  RegisterAreaFull( FState, NewArea( NewCoord2D( 1, 1 ), NewCoord2D( MAP_MAXX, MAP_MAXY ) ) );
+  RegisterCoordClass( FRaw );
+  RegisterAreaClass( FRaw );
+  RegisterAreaFull( FRaw, NewArea( NewCoord2D( 1, 1 ), NewCoord2D( MAP_MAXX, MAP_MAXY ) ) );
 
-  RegisterPointClass( FState );
-  RegisterRectClass( FState );
+  RegisterPointClass( FRaw );
+  RegisterRectClass( FRaw );
 
-  RegisterDungenClass( FState, 'generator' );
+  RegisterDungenClass( FRaw, 'generator' );
   if Assigned( Sound ) then 
-    TSound.RegisterLuaAPI( FState )
+    TSound.RegisterLuaAPI( FRaw )
   else
     SetValue('audio',false);
 

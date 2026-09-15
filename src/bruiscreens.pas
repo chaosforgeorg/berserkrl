@@ -23,7 +23,7 @@
 {$INCLUDE brinclude.inc}
 unit bruiscreens;
 interface
-uses vioevent, viotypes, vtigstyle, brpersistence, vluasystem;
+uses vioevent, viotypes, vtigstyle, vlua, brpersistence;
 
 type TScreenLayer = class( TIOLayer )
   constructor Create;
@@ -48,12 +48,12 @@ end;
 type TMainMenuResult = ( MMR_QUIT, MMR_NEW_GAME, MMR_CONTINUE );
 
 type TMainMenuLayer = class( TLogoMenuLayer )
-  constructor Create( aLuaSystem : TLuaSystem; aPersistence : TPersistence; const aSavePath : AnsiString;
+  constructor Create( aLua : TLua; aPersistence : TPersistence; const aSavePath : AnsiString;
     var aResult : TMainMenuResult );
 protected
   procedure DrawMenu; override;
 private
-  FLua : TLuaSystem; // borrowed from Runtime
+  FLua : TLua; // borrowed from Runtime
   FPersistence : TPersistence;
   FSavePath : AnsiString;
   FHasSave, FNewGame : Boolean;
@@ -61,11 +61,11 @@ private
 end;
 
 type THighscoreMenuLayer = class( TLogoMenuLayer )
-  constructor Create( aLuaSystem : TLuaSystem; aPersistence : TPersistence );
+  constructor Create( aLua : TLua; aPersistence : TPersistence );
 protected
   procedure DrawMenu; override;
 private
-  FLua : TLuaSystem; // borrowed from Runtime
+  FLua : TLua; // borrowed from Runtime
   FPersistence : TPersistence;
 end;
 
@@ -199,14 +199,14 @@ type TMessagesLayer = class( TScrollingLayer )
 end;
 
 type THOFLayer = class( TScrollingLayer )
-  constructor Create( aLuaSystem : TLuaSystem; aPersistence : TPersistence; aMode : Byte; aHighlight : Boolean = False );
+  constructor Create( aLua : TLua; aPersistence : TPersistence; aMode : Byte; aHighlight : Boolean = False );
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
 protected
   FCurrent : Integer;
 end;
 
 type THelpLayer = class( TScrollingLayer )
-  constructor Create( aLuaSystem : TLuaSystem );
+  constructor Create( aLua : TLua );
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
   destructor Destroy; override;
 protected
@@ -216,8 +216,7 @@ end;
 
 implementation
 
-uses sysutils, vutil, vtig, vtigio, vluatable, vxmldata,
-     brdata, brui, brplayer, brmain;
+uses sysutils, vutil, vtig, vtigio, vluatable, vxmldata, brdata, brui, brplayer, brmain;
 
 constructor TScreenLayer.Create;
 begin
@@ -276,11 +275,11 @@ begin
   VTIG_BringToTop( FID );
 end;
 
-constructor TMainMenuLayer.Create( aLuaSystem : TLuaSystem; aPersistence : TPersistence;
+constructor TMainMenuLayer.Create( aLua : TLua; aPersistence : TPersistence;
   const aSavePath : AnsiString; var aResult : TMainMenuResult );
 begin
   inherited Create( 'main_menu' );
-  FLua := aLuaSystem;
+  FLua := aLua;
   FPersistence := aPersistence;
   FSavePath := aSavePath;
   FHasSave := FileExists( FSavePath );
@@ -314,10 +313,10 @@ begin
   VTIG_End;
 end;
 
-constructor THighscoreMenuLayer.Create( aLuaSystem : TLuaSystem; aPersistence : TPersistence );
+constructor THighscoreMenuLayer.Create( aLua : TLua; aPersistence : TPersistence );
 begin
   inherited Create( 'highscore_menu' );
-  FLua := aLuaSystem;
+  FLua := aLua;
   FPersistence := aPersistence;
 end;
 
@@ -522,7 +521,7 @@ begin
   FScrollDown := True;
 end;
 
-constructor THOFLayer.Create( aLuaSystem : TLuaSystem; aPersistence : TPersistence; aMode : Byte; aHighlight : Boolean );
+constructor THOFLayer.Create( aLua : TLua; aPersistence : TPersistence; aMode : Byte; aHighlight : Boolean );
 var i, iR  : DWord;
     iEntry : TScoreEntry;
     iMode  : Ansistring;
@@ -537,7 +536,7 @@ begin
   if aHighlight then FCurrent := Integer( aPersistence.GetCurrent );
   i := 0;
   iMode := IntToStr( aMode );
-  iMaxB := aLuaSystem.Get(['beings','__counter']);
+  iMaxB := aLua.Get(['beings','__counter']);
   repeat
     Inc( i );
     iEntry := aPersistence.Get( i );
@@ -550,7 +549,7 @@ begin
       iR    := StrToInt( iEntry.GetAttribute('result') );
       iLine := Padded('{!'+iName+'}',17)+' '+Padded('survived {!'+iT+'} turns', 25) + ' ' + Padded('{!'+iK+'} kills',15)+' ';
       if ( iR > 1 ) and ( iR <= iMaxB )
-        then iLine += 'killed by {!'+aLuaSystem.Get(['beings',iR,'name'])+'}'
+        then iLine += 'killed by {!'+aLua.Get(['beings',iR,'name'])+'}'
         else iLine += 'commited suicide';
       if i = FCurrent then iLine := '{y'+iLine+'}';
       FContent.Push( iLine );
@@ -595,7 +594,7 @@ const KeyData : array[0..5] of TKeyInfo = (
   ( Entry : 'Game menu';        Command : COMMAND_QUIT; ),
   ( Entry : 'Help';             Command : COMMAND_HELP; ) );
 
-constructor THelpLayer.Create( aLuaSystem : TLuaSystem );
+constructor THelpLayer.Create( aLua : TLua );
 var i, iSid : Integer;
 begin
   inherited Create( nil );
@@ -607,7 +606,7 @@ begin
     begin
       iSid := Player.FSkillSlots[ i ];
       if ( iSid > 0 ) and ( Player.FSkills[ i ] > 0 ) then
-      with aLuaSystem.GetTable( ['skills', iSid] ) do
+      with aLua.GetTable( ['skills', iSid] ) do
       try
         if IsFunction('OnUse')    then FKeys.Push( Padded( GetString('name_use'), 17 ) +' {!' + UI.GetKeybinding( COMMAND_SKILL1-1+i ) + '}' );
         if IsFunction('OnAltUse') then FKeys.Push( Padded( GetString('name_altuse'), 17 ) +' {!' + UI.GetKeybinding( COMMAND_SKILLALT1-1+i ) + '}' );

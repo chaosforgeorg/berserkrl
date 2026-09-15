@@ -26,7 +26,8 @@
 unit brmain;
 interface
 
-uses SysUtils, vapp, vrlapp, viorl, vluasystem, vuid, vnode, vsound,
+uses sysutils,
+     vapp, vrlapp, viorl, vlua, vuid, vnode, vsound,
      brlua, brconfiguration, brdata, brlevel, brplayer, brpersistence;
 
 type TBerserkSessionResult = ( BSR_RUNNING, BSR_CANCELLED, BSR_SAVED,
@@ -43,7 +44,7 @@ type TBerserkSessionResult = ( BSR_RUNNING, BSR_CANCELLED, BSR_SAVED,
        procedure LoadAudio;
      protected
        function CreateIO : TIORL; override;
-       function CreateLua : TLuaSystem; override;
+       function CreateLua : TLua; override;
        procedure PrepareGameData; override;
        procedure InitializeGameData; override;
        function RunGame : TVRunResult; override;
@@ -89,7 +90,8 @@ var Berserk : TBerserkSession = nil;
 
 implementation
 
-uses zstream, vmath, vrltools, vrandom, vioevent, vsdlsound, vfmodsound, vutil, vdebug,
+uses zstream,
+     vmath, vrltools, vrandom, vioevent, vsdlsound, vfmodsound, vutil, vdebug,
      brui, brgui, brtextui, bruiscreens;
 
 function TBerserkRuntime.CreateIO : TIORL;
@@ -102,7 +104,7 @@ begin
     Result := TBerserkTextUI.Create( iConfiguration );
 end;
 
-function TBerserkRuntime.CreateLua : TLuaSystem;
+function TBerserkRuntime.CreateLua : TLua;
 begin
   Result := TBerserkLua.Create;
 end;
