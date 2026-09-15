@@ -155,7 +155,7 @@ uses vluasystem, vluagamestate, vluatools, brmain, brlua, brui, brplayer;
 
 constructor TLevel.Create;
 begin
-  inherited Create('default', MAP_MAXX, MAP_MAXY, 15 );
+  inherited Create( 'default', MAP_MAXX, MAP_MAXY, 15, Berserk.Context );
   Clear;
   FSpawnLevel := 1;
   FMode := mode_Massacre;

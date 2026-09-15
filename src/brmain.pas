@@ -26,7 +26,7 @@
 unit brmain;
 interface
 
-uses SysUtils, vapp, vrlapp, viorl, vluasystem, vuid, vsound,
+uses SysUtils, vapp, vrlapp, viorl, vluasystem, vuid, vnode, vsound,
      brlua, brconfiguration, brdata, brlevel, brplayer, brpersistence;
 
 type TBerserkSessionResult = ( BSR_RUNNING, BSR_CANCELLED, BSR_SAVED,
@@ -61,6 +61,7 @@ type TBerserkSessionResult = ( BSR_RUNNING, BSR_CANCELLED, BSR_SAVED,
        FPlayer      : TPlayer;
        FLevel       : TLevel;
        FUIDStore    : TUIDStore;
+       FContext     : TNodeContext;
        FSaveWritten : Boolean;
        FOutcome     : TBerserkSessionResult;
        FCreating    : Boolean;
@@ -78,6 +79,7 @@ type TBerserkSessionResult = ( BSR_RUNNING, BSR_CANCELLED, BSR_SAVED,
        procedure Finish( aOutcome : TBerserkSessionResult );
        property Finished : Boolean read GetFinished;
        property Creating : Boolean read FCreating;
+       property Context : TNodeContext read FContext;
        property UIDs : TUIDStore read FUIDStore;
        property Runtime : TBerserkRuntime read FRuntime;
      end;
@@ -228,11 +230,13 @@ constructor TBerserkSession.Create( aRuntime : TBerserkRuntime );
 begin
   inherited Create;
   FRuntime := aRuntime;
+  FContext := TNodeContext.Create( aRuntime.Lua, nil );
   // Entity construction uses the active Session RNG through this alias.
   // The destructor clears it if any subsequent acquisition fails.
   Berserk := Self;
   FRuntime.GameRNG.Randomize;
   FUIDStore := TUIDStore.Create;
+  FContext.BindUIDs( FUIDStore );
   vuid.UIDs := FUIDStore;
   FLevel := TLevel.Create;
   Level := FLevel;
@@ -273,6 +277,7 @@ begin
   FreeAndNil( FLevel );
   vuid.UIDs := nil;
   FreeAndNil( FUIDStore );
+  FreeAndNil( FContext );
   Berserk := nil;
   inherited Destroy;
 end;
@@ -305,8 +310,10 @@ begin
   try
     ReleasePlayer;
     FLevel.Clear;
+    FContext.BindUIDs( nil );
     FreeAndNil( FUIDStore );
     FUIDStore := TUIDStore.CreateFromStream( iSaveFile );
+    FContext.BindUIDs( FUIDStore );
     vuid.UIDs := FUIDStore;
     // The arena is not serialized; keep its identity in the replacement store.
     FUIDStore.Register( FLevel, FLevel.UID );

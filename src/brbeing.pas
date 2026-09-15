@@ -258,7 +258,7 @@ uses variants, vluasystem, vsound, vluaext, vvision, vlualibrary, brlevel,brmain
 
 constructor TBeing.Create( const mid : AnsiString; pos : TCoord2D; lvl : Byte = 0 );
 begin
-  inherited Create(mid);
+  inherited Create( mid, Berserk.Context );
   FEntityID := ENTITY_BEING;
   Init;
   FPosition := Pos;
@@ -856,7 +856,7 @@ end;
 
 constructor TBeing.CreateFromStream ( Stream : TStream ) ;
 begin
-  inherited CreateFromStream ( Stream ) ;
+  inherited CreateFromStream( Stream, Berserk.Context );
 
   Init;
 
