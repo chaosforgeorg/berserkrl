@@ -273,7 +273,7 @@ begin
   FTextures := TTextureManager.Create( False );
   FTextures.LoadTextureFolder(aPaths.DataPath+'graphics');
   FTextures.Upload;
-  FConsole := TGLConsoleRenderer.Create( aPaths.DataPath+'ter_font8x14.png', 32, 256-32, 32, 80, 25, DISPLAY_LINE_SPACING, [VIO_CON_CURSOR] );
+  FConsole := TGLConsoleRenderer.Create( FIODriver, aPaths.DataPath+'ter_font8x14.png', 32, 256-32, 32, 80, 25, DISPLAY_LINE_SPACING, [VIO_CON_CURSOR] );
   FConsole.HideCursor;
 
   FSpriteEngine := TSpriteEngine.Create( GLVec2i( 24, 32 ) );
