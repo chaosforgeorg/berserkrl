@@ -399,6 +399,7 @@ begin
     if Assigned( Sound ) then Sound.PlayMusic( 'passive' );
     repeat
       Level.Tick;
+      FContext.FlushDestroyed;
     until Finished or UI.QuitRequested or Level.Flags[ LF_CLEARED ];
     if Assigned( Sound ) then Sound.PlayMusic( 'menu' );
     UI.Screen := Menu;

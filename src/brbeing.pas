@@ -366,7 +366,7 @@ begin
     Level.Bleed( FPosition, 2 );
     Level.Cell[ FPosition ] := FContext.Lua.Defines['bloody_corpse'];
   end;
-  Free;
+  Discard;
 end;
 
 procedure TBeing.Action;
@@ -517,7 +517,8 @@ begin
   while FSpeedCount > SPEEDLIMIT do
   begin
     Action;
-    if Berserk.Finished or UI.QuitRequested then Exit;
+    // Action may kill this being, e.g. a self-destructing OnAction hook.
+    if Dead or Berserk.Finished or UI.QuitRequested then Exit;
   end;
   if (FPain > 0) or (FFreeze > 0) or (FEN < FENMAX) then
   begin

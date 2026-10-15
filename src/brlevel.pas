@@ -97,9 +97,6 @@ type
       Strength : byte; DrawDelay : Word = 50 );
     // Runs a hook on the given cell (if present)
     function RunCellHook( const aWhere : TCoord2D; aHook : Byte; const aParams : array of Const ) : Variant;
-    // Overriden remove - makes sure that removed monsters will clean up
-    // their pointer in the map
-    procedure Remove( aNode : TNode ); override;
     // Ease of iteration -- Enumerator support
     function GetEnumerator : TLevelEnumerator;
     // Disposes of all alocated structures, and the level itself. If you want to
@@ -122,9 +119,6 @@ type
     function getMoveCost( Coord : TCoord2D ) : Byte;
     // numeric to string ID conversion
     function CellToID( const aCell : Byte ) : AnsiString; override;
-  private
-    // Holds the next iterated node, so if removed does not access it
-    FIterate   : TNode;
   public
     // Property for Cell terrain information access.
     property Terrain[Index : TCoord2D] : TTerrainData read getTerrain;
@@ -250,22 +244,19 @@ begin
         TerrainB := 1;
         Rotation := 0;
       end;
-  FIterate   := nil;
   FFlags     := [];
   FTickCount := 0;
 end;
 
 procedure TLevel.Tick;
-var iScan : TBeing;
+var iBeing : TBeing;
 begin
-  iScan := Child as TBeing;
-  if iScan <> nil then
-  repeat
-    FIterate := iScan.Next;
-    iScan.Tick;
+  // The enumerator skips beings removed during the pass.
+  for iBeing in Self do
+  begin
+    iBeing.Tick;
     if Berserk.Finished or UI.QuitRequested then Exit;
-    iScan := FIterate as TBeing;
-  until (iScan = nil) or (iScan = Child);
+  end;
 
   Inc( FTickCount );
   FContext.Lua.ProtectedCall( ['generator','tick'],[] );
@@ -471,13 +462,6 @@ begin
       ConcatConstArray( [LuaCoord( aWhere )], aParams )
     );
   Exit( False );
-end;
-
-procedure TLevel.Remove ( aNode : TNode ) ;
-begin
-  if FIterate = aNode then FIterate := FIterate.Next;
-  if FIterate = aNode then FIterate := nil;
-  inherited Remove ( aNode ) ;
 end;
 
 function TLevel.GetEnumerator : TLevelEnumerator;

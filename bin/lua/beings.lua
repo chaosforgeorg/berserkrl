@@ -43,9 +43,10 @@ function BeingSkills.Consume(self)
 				self:play_sound("consume")
 				if self.visible then ui.msg('The '..self.name..' consumes the '..being.name..'!') end
 				self.hp = math.min( self.hp_max, self.hp + being.hp )
-				being:die()
+				-- A defiled victim explodes on death and may kill self
 				self.energy = self.energy - 30
 				self.speed_count = self.speed_count - 1500
+				being:die()
 				return true
 			end
 		end
@@ -154,9 +155,10 @@ end
 function BeingSkills.RangedEnergy(self, vis, dist)
 	if vis and dist > 1 and dist < 7 and self.energy > 8 then
 		self:play_sound("fire")
-		self:send_missile( self.tposition, MTENERGY )
+		-- A defiled victim explodes on death and may kill self
 		self.energy      = self.energy - 8
 		self.speed_count = self.speed_count - 2000
+		self:send_missile( self.tposition, MTENERGY )
 		return true
 	end
 	return false
@@ -165,9 +167,10 @@ end
 function BeingSkills.RangedIce(self, vis, dist)
 	if vis and dist > 1 and dist < 6 and self.energy > 8 then
 		self:play_sound("fire")
-		self:send_missile( self.tposition, MTICE )
+		-- A defiled victim explodes on death and may kill self
 		self.energy      = self.energy - 8
 		self.speed_count = self.speed_count - 2000
+		self:send_missile( self.tposition, MTICE )
 		return true
 	end
 	return false
@@ -535,12 +538,13 @@ register_being "blizzard"
 		
 		if dist == 1 then
 			local target = self.target
+			-- A defiled target explodes on death and may kill self
+			self.speed_count = self.speed_count - 2000
 			if self.energy > 5 then
 				if target.id == "yourself" then ui.msg('The blizzard freezes you!') end
-				target:apply_damage( 7, DAMAGE_FREEZE )
 				self.energy = self.energy - 5
+				target:apply_damage( 7, DAMAGE_FREEZE )
 			end
-			self.speed_count = self.speed_count - 2000
 			return true
 		end
 		return false
