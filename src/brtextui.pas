@@ -27,7 +27,7 @@ unit brtextui;
 
 interface
 
-uses SysUtils, brconfiguration, viotypes, vutil, vmath, vrltools, brui, vtextmap;
+uses SysUtils, brconfiguration, vio, viotypes, vutil, vmath, vrltools, brui, vtextmap;
 
 type
 

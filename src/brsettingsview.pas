@@ -2,7 +2,7 @@
 unit brsettingsview;
 interface
 
-uses viotypes, vioevent, vbindings, vconfiguration, brconfiguration;
+uses vio, viotypes, vioevent, vbindings, vconfiguration, brconfiguration;
 
 type TBerserkSettingsApply = procedure of object;
      TBerserkSettingsState = ( BSS_GENERAL, BSS_DISPLAY, BSS_GAME, BSS_AUDIO, BSS_INPUT, BSS_UI,

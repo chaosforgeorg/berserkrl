@@ -45,7 +45,7 @@ type TBerserkSessionResult = ( BSR_RUNNING, BSR_CANCELLED, BSR_SAVED,
      protected
        function CreateIO : TIORL; override;
        function CreateLua : TLua; override;
-       procedure PrepareGameData; override;
+       function PrepareGameData : Boolean; override;
        procedure InitializeGameData; override;
        function RunGame : TVRunResult; override;
        procedure ShutdownGameData; override;
@@ -109,9 +109,10 @@ begin
   Result := TBerserkLua.Create;
 end;
 
-procedure TBerserkRuntime.PrepareGameData;
+function TBerserkRuntime.PrepareGameData : Boolean;
 var iConfiguration : TBerserkConfiguration;
 begin
+  Result := True;
   iConfiguration := TBerserkConfiguration( Configuration );
   if iConfiguration.AudioDriver <> 'NONE' then
   begin

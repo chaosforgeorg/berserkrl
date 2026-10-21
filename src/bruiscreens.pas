@@ -23,7 +23,7 @@
 {$INCLUDE brinclude.inc}
 unit bruiscreens;
 interface
-uses vioevent, viotypes, vtigstyle, vlua, brpersistence;
+uses vioevent, vio, viotypes, vtigstyle, vlua, brpersistence;
 
 type TScreenLayer = class( TIOLayer )
   constructor Create;
