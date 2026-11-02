@@ -191,7 +191,7 @@ protected
 end;
 
 type TMortemLayer = class( TScrollingLayer )
-  constructor Create;
+  constructor Create( const aFileName : AnsiString );
 end;
 
 type TMessagesLayer = class( TScrollingLayer )
@@ -504,9 +504,9 @@ begin
   inherited Destroy;
 end;
 
-constructor TMortemLayer.Create;
+constructor TMortemLayer.Create( const aFileName : AnsiString );
 begin
-  inherited Create( TextFileToIOStringArray( WritePath + 'mortem.txt' ) );
+  inherited Create( TextFileToIOStringArray( aFileName ) );
   FHeader := ' {!Berserk!} Post Mortem (mortem.txt)';
 end;
 
@@ -628,7 +628,7 @@ begin
       if VTIG_Selectable( HelpData[i].Name ) then
       begin
         VTIG_ResetScroll( 'scrolling_view' );
-        FContent := TextFileToIOStringArray( DataPath + 'help' + PathDelim + HelpData[i].Filename );
+        FContent := TextFileToIOStringArray( UI.HelpPath + HelpData[i].Filename );
         FHeader  := ' {!Berserk!} Help : {!' + HelpData[i].Name +'}';
       end;
     if VTIG_Selectable( '  Quit help' ) then

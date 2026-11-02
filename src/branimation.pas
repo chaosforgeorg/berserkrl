@@ -23,7 +23,7 @@ unit branimation;
 interface
 
 uses Classes, SysUtils,
-     vutil, vrltools, vgenerics, vgltypes, vanimation,
+     vutil, vrltools, vgenerics, vgltypes, vanimation, vsound,
      brdata, brbeing;
 
 type
@@ -117,9 +117,10 @@ end;
 { TSoundAnimation }
 
 TSoundAnimation = class( TAnimation )
-  constructor Create( aDelay : DWord; aPosition : TCoord2D; const aSoundID : AnsiString );
+  constructor Create( aAudio : TSound; aDelay : DWord; aPosition : TCoord2D; const aSoundID : AnsiString );
   procedure OnStart; override;
 private
+  FAudio    : TSound;
   FPosition : TCoord2D;
   FSoundID  : AnsiString;
 end;
@@ -128,21 +129,22 @@ end;
 
 implementation
 
-uses vmath, math, vcolor, vsound, vdebug, vuid, brplayer, brgui, brmain;
+uses vmath, math, vcolor, vdebug, vuid, brplayer, brgui, brmain;
 
 { TSoundAnimation }
 
-constructor TSoundAnimation.Create(aDelay: DWord; aPosition: TCoord2D;  const aSoundID: AnsiString);
+constructor TSoundAnimation.Create(aAudio: TSound; aDelay: DWord; aPosition: TCoord2D;  const aSoundID: AnsiString);
 begin
   inherited Create( 1, aDelay, 0 );
+  FAudio    := aAudio;
   FPosition := aPosition;
   FSoundID  := aSoundID;
 end;
 
 procedure TSoundAnimation.OnStart;
 begin
-  if Assigned( Sound ) and Sound.SampleExists( FSoundID ) then
-    Sound.PlaySample( FSoundID, FPosition );
+  if ( FAudio <> nil ) and FAudio.SampleExists( FSoundID ) then
+    FAudio.PlaySample( FSoundID, FPosition );
 end;
 
 { TGLTileAnimation }

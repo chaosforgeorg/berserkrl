@@ -32,41 +32,11 @@ uses vutil, vio, viorl, vrltools, viotypes, vioevent, vioconsole, vbindings, vso
      brdata, brconfiguration;
 
 const
-    // Option that makes the name always "random"
-    Option_AlwaysRandomName : Boolean = False;
-    // Option that sets the name always to given string
-    Option_AlwaysName       : AnsiString = '';
-    // Option that turns on message coloring
-    Option_MessageColoring  : Boolean = False;
-    // Option for the kill count showing
-    Option_KillCount        : Boolean = False;
-    // Option of the message buffer size
-    Option_MessageBuffer    : DWord = 100;
-    // Option of the number of last messages in mortem.
-    Option_MortemMessages   : DWord = 10;
-
-    COMMAND_SKILLS     = [ COMMAND_SKILL1,COMMAND_SKILL2,
+    COMMAND_SKILLS    = [ COMMAND_SKILL1,COMMAND_SKILL2,
                            COMMAND_SKILL3,COMMAND_SKILL4,
                            COMMAND_SKILL5,COMMAND_SKILL6,
                            COMMAND_SKILL7,COMMAND_SKILL8,
                            COMMAND_SKILL9,COMMAND_SKILL0 ];
-    SKILL_SLOTS        = 10;
-
-    // Set of move commands
-    COMMANDS_MOVE        = [COMMAND_WALKNORTH,COMMAND_WALKSOUTH,
-                            COMMAND_WALKEAST, COMMAND_WALKWEST,
-                            COMMAND_WALKNE,   COMMAND_WALKSE,
-                            COMMAND_WALKNW,   COMMAND_WALKSW];
-                            
-// Color constants
-const Black        = 0;    DarkGray     = 8;
-      Blue         = 1;    LightBlue    = 9;
-      Green        = 2;    LightGreen   = 10;
-      Cyan         = 3;    LightCyan    = 11;
-      Red          = 4;    LightRed     = 12;
-      Magenta      = 5;    LightMagenta = 13;
-      Brown        = 6;    Yellow       = 14;
-      LightGray    = 7;    White        = 15;
 
 // Picture
 type TPicture = Word;
@@ -78,11 +48,11 @@ type
 
   { TBerserkUI }
 
-  TBerserkUI = class(TIORL)
+  TBerserkUI = class(TIORL, IBerserkPresentation)
     // Holds the current screen info
     Screen  : (Game,Menu);
     // Initialization of all data.
-    constructor Create( aConfiguration : TBerserkConfiguration ); reintroduce;
+    constructor Create( aConfiguration : TBerserkConfiguration; const aDataPath : AnsiString ); reintroduce;
     // Runs a layer
     procedure RunLayer( aLayer : TIOLayer ); override;
     function OnEvent( const aEvent : TIOEvent ) : Boolean; override;
@@ -98,6 +68,9 @@ type
     procedure MsgCoord( Coord : TCoord2D );
     // Waits for a gameplay command in the active Session.
     function GetCommand(Valid : TCommandSet = []) : byte;
+    // Lets the player choose a target. Returns true when in Fire mode the
+    // target is accepted.
+    function ChooseTarget( aTargetMode : Byte; aFireCmd : Byte ) : Boolean;
     // Interface function for choosing direction. Returns the direction, or 0 if escaped.
     function ChooseDirection : TDirection;
     // Waits for enter key.
@@ -117,7 +90,7 @@ type
     procedure Focus( Where : TCoord2D );
     procedure CenterCamera( const aWhere : TCoord2D ); virtual;
     // Renders an explosion on the screen.
-    procedure AddExplosion( aWhere : TCoord2D; aColor : byte; aRange : byte; aStep : byte; aDrawDelay, aSequence : Word ); virtual; abstract;
+    procedure AddExplosion( aWhere : TCoord2D; aColor : byte; aRange : byte; aDrawDelay, aSequence : Word ); virtual; abstract;
     // Animates a move if in GFX
     procedure AddMove( aWho : TUID; const aFrom, aTo : TCoord2D ); virtual;
     // Animates an attack if in GFX
@@ -133,19 +106,27 @@ type
     // Draws target X
     procedure Target( Where : TCoord2D; color : Byte); virtual; abstract;
     // Renders a breath weapon attack
-    procedure Breath( aWhere : TCoord2D; aDirection : TDirection; aColor : byte; aRange : byte; aStep : byte; aDrawDelay : Word ); virtual; abstract;
+    procedure Breath( aWhere : TCoord2D; aDirection : TDirection; aColor : byte; aRange : byte; aDrawDelay : Word ); virtual; abstract;
     // Resolve sound ID
     function ResolveSoundID( const aID, aSound : AnsiString ) : AnsiString;
+    // Plays the sound bound to the given being and event
+    procedure PlayBeingSound( const aID, aSound : AnsiString; const aWhere : TCoord2D );
+    procedure PlayMusic( const aMusicID : AnsiString );
     // Register API
-    class procedure RegisterLuaAPI( aLua : TLua );
+    procedure RegisterLuaAPI( aLua : TLua );
   protected
     FConfiguration : TBerserkConfiguration;
     FAudio         : TSound;
+    FLua           : TLua;
+    FHelpPath      : AnsiString;
     FQuitRequested : Boolean;
     FStatusVisible : Boolean;
   public
     // Non-owning reference to Runtime's audio service.
     property Audio         : TSound  read FAudio write FAudio;
+    // Non-owning reference to Runtime's Lua generation.
+    property Lua           : TLua    read FLua write FLua;
+    property HelpPath      : AnsiString read FHelpPath;
     property QuitRequested : Boolean read FQuitRequested;
     property StatusVisible : Boolean read FStatusVisible write FStatusVisible;
   end;
@@ -157,12 +138,14 @@ const UI : TBerserkUI = nil;
 implementation
 
 uses sysutils, dateutils, variants, math,
-     vtigstyle, vtig, vluagamestack,
+     vtigstyle, vtig, vluagamestack, vlualibrary,
      brlevel, brplayer, brmain, bruiscreens, brsettingsview;
+
+const MESSAGE_BUFFER = 100;
 
 { TBerserkUI }
 
-constructor TBerserkUI.Create( aConfiguration : TBerserkConfiguration );
+constructor TBerserkUI.Create( aConfiguration : TBerserkConfiguration; const aDataPath : AnsiString );
 var iConsole : TIOConsoleRenderer;
 begin
   // Initialize takes the renderer on success; retain it locally until then.
@@ -176,6 +159,7 @@ begin
     iConsole.Free;
   end;
   FConfiguration := aConfiguration;
+  FHelpPath := aDataPath + 'help' + PathDelim;
   Configure( aConfiguration.LuaConfig );
   VTIGDefaultStyle.Color[ VTIG_INPUT_TEXT_COLOR ]          := White;
   VTIGDefaultStyle.Color[ VTIG_INPUT_BACKGROUND_COLOR ]    := Black;
@@ -188,14 +172,14 @@ begin
   VTIGDefaultStyle.Padding[ VTIG_WINDOW_PADDING ]     := Point( 2,1 );
   VTIGDefaultStyle.Padding[ VTIG_SELECTABLE_PADDING ] := Point( 0,0 );
 
-  FMessages := TMessages.Create( 8, 28, nil, Option_MessageBuffer );
+  FMessages := TMessages.Create( 8, 28, nil, MESSAGE_BUFFER );
   FStatusVisible := False;
 
   FIODriver.SetTitle('Berserk!','Berserk!');
 
   Reconfigure;
 
-  if Option_MessageColoring then
+  if Config.TableExists( 'Messages' ) then
     Config.EntryFeed( 'Messages', @FMessages.AddHighlightCallback );
 
   Screen := Menu;
@@ -209,10 +193,6 @@ procedure TBerserkUI.Reconfigure;
 var iCommand : Byte;
     iKey : TIOKeyCode;
 begin
-  HighASCII := FConfiguration.GetBoolean( 'high_ascii' ) and not FConfiguration.LowASCIIOverride;
-  Option_AlwaysRandomName := FConfiguration.GetBoolean( 'always_random_name' );
-  Option_AlwaysName := FConfiguration.GetString( 'always_name' );
-  if FConfiguration.HasNameOverride then Option_AlwaysName := FConfiguration.NameOverride;
   if FAudio <> nil then
   begin
     if FAudio.SoundEnabled and not FConfiguration.GetBoolean( 'sound_enabled' ) then
@@ -370,7 +350,7 @@ begin
             else VTIG_FreeLabel( FMessages.Content[ iMsgStart + iCount - Integer(FMessages.Content.Size) ], Point(SX+1,16+iCount), DarkGray );
     end;
 
-    if Option_KillCount then
+    if FConfiguration.GetBoolean( 'kill_count' ) then
       VTIG_FreeLabel( Format('[{r%d}]',[Player.GetKills]), Point(SX+20,24), DarkGray );
   end;
 end;
@@ -433,11 +413,23 @@ end;
 
 function TBerserkUI.ResolveSoundID(const aID, aSound: AnsiString): AnsiString;
 begin
-  if Config = nil then Exit('');
-  if aSound = '' then Exit( Config.Configure( 'sounds.'+aID, '' ) );
-  Result := Config.Configure( 'sounds.'+aID+'.'+aSound, '-' );
-  if Result = '-' then
-    Result := Config.Configure( 'sounds.'+aSound, '' );
+  if FLua = nil then Exit('');
+  if aSound = '' then Exit( FLua.Get( ['sounds',aID], '' ) );
+  if FLua.Defined( ['sounds',aID,aSound] ) then Exit( FLua.Get( ['sounds',aID,aSound] ) );
+  Exit( FLua.Get( ['sounds',aSound], '' ) );
+end;
+
+procedure TBerserkUI.PlayBeingSound( const aID, aSound : AnsiString; const aWhere : TCoord2D );
+var iSound : AnsiString;
+begin
+  if FAudio = nil then Exit;
+  iSound := ResolveSoundID( aID, aSound );
+  if iSound <> '' then FAudio.PlaySample( iSound, aWhere );
+end;
+
+procedure TBerserkUI.PlayMusic( const aMusicID : AnsiString );
+begin
+  if FAudio <> nil then FAudio.PlayMusic( aMusicID );
 end;
 
 procedure TBerserkUI.MsgCoord ( Coord : TCoord2D ) ;
@@ -458,7 +450,7 @@ var iEvent : TIOEvent;
     iValue : Variant;
 begin
   if FQuitRequested then Exit( COMMAND_SYSQUIT );
-  if Assigned( Sound ) then Sound.Listener := Player.Position;
+  if FAudio <> nil then FAudio.Listener := Player.Position;
   FStatusVisible := True;
   repeat
     if not WaitForKeyEvent( iEvent ) then Exit( 0 );
@@ -477,6 +469,75 @@ begin
     if ( iAction <= 0 ) or ( iAction > High( Byte ) ) then Continue;
     if ( Valid = [] ) or ( Byte( iAction ) in Valid ) then Exit( Byte( iAction ) );
   until False;
+end;
+
+function TBerserkUI.ChooseTarget( aTargetMode : Byte; aFireCmd : Byte ) : Boolean;
+var iDir     : TDirection;
+    iKey     : Byte;
+    iTargets : TAutoTarget;
+    iTarget  : TCoord2D;
+    iOrigin  : TCoord2D;
+    iRadius  : Byte;
+    iX, iY   : Integer;
+    iAISet   : TAITypeSet;
+begin
+  Msg('--------------------');
+  iOrigin  := Player.Position;
+  iRadius  := Player.LightRadius;
+  iTargets := TAutoTarget.Create( iOrigin );
+
+  if Player.isBerserk then iAISet := [AI_MONSTER,AI_CIVILIAN,AI_ALLY]
+                      else iAISet := [AI_MONSTER];
+
+  for iX := Max(1,iOrigin.x-iRadius-1) to Min(MAP_MAXX,iOrigin.x+iRadius+1) do
+    for iY := Max(1,iOrigin.y-iRadius-1) to Min(MAP_MAXY,iOrigin.y+iRadius+1) do
+    begin
+      iTarget := NewCoord2D( iX,iY );
+      if Level.Being[ iTarget ] <> nil then
+        if Level.Being[ iTarget ].FAI in iAISet then
+         if Player.isInLOS( iTarget ) then
+           iTargets.AddTarget( iTarget );
+    end;
+
+  if aTargetMode in [TM_FIRE,TM_THROW] then
+    if Player.FTarget <> nil then
+      iTargets.PriorityTarget( Player.FTarget.Position );
+
+  iTarget := iTargets.Current;
+
+  repeat
+    if aTargetMode = TM_FIRE then
+      Target(iTarget,RED);
+    if aTargetMode = TM_THROW then
+    begin
+      if Distance(iOrigin,iTarget) > BOMBDISTANCE
+        then Target(iTarget,DarkGray)
+        else Target(iTarget,Red);
+    end;
+    Focus(iTarget);
+    MsgCoord(iTarget);
+
+    if aTargetMode in [TM_FIRE,TM_THROW] then
+      iKey := GetCommand(COMMANDS_MOVE+[COMMAND_ESCAPE,COMMAND_RUNNING, aFireCmd ])
+    else
+      iKey := GetCommand(COMMANDS_MOVE+[COMMAND_ESCAPE,COMMAND_RUNNING]);
+    if FQuitRequested or ( iKey = COMMAND_ESCAPE ) then begin iTarget := ZeroCoord2D; Break; end;
+    if iKey = COMMAND_RUNNING then iTarget := iTargets.Next;
+    if iKey in COMMANDS_MOVE then
+    begin
+      iDir := CommandDirection(iKey);
+      if Level.isProperCoord(iTarget + iDir) then
+        iTarget += iDir;
+    end;
+  until iKey in [aFireCmd];
+  Target(iTarget,BLACK);
+  Player.FTargetCoord := iTarget;
+
+  FreeAndNil(iTargets);
+
+  if iTarget.x = 0 then Exit(False);
+  if Level.Being[ iTarget ] <> nil then Player.FTarget := Level.Being[ iTarget ];
+  Exit(True);
 end;
 
 function TBerserkUI.ChooseDirection : TDirection;
@@ -553,18 +614,23 @@ begin
   GetCommand([COMMAND_OK]);
 end;
 
+function lua_ui( L : PLua_State ) : TBerserkUI;
+begin
+  Exit( TBerserkUI( lua_touserdata( L, lua_upvalueindex( 1 ) ) ) );
+end;
+
 function lua_ui_msg(L: Plua_State): Integer; cdecl;
 var State : TLuaGameStack;
 begin
   State.Init(L);
   if State.StackSize = 0 then Exit(0);
-  UI.Msg(State.ToString(1));
+  lua_ui( L ).Msg(State.ToString(1));
   Result := 0;
 end;
 
 function lua_ui_msg_kill(L: Plua_State): Integer; cdecl;
 begin
-  UI.MsgKill;
+  lua_ui( L ).MsgKill;
   Result := 0;
 end;
 
@@ -572,7 +638,7 @@ function lua_ui_blink(L: Plua_State): Integer; cdecl;
 var State : TLuaGameStack;
 begin
   State.Init(L);
-  UI.Blink( State.ToInteger( 1 ), State.ToInteger( 2, 50 ), State.ToInteger( 3, 0 ) );
+  lua_ui( L ).Blink( State.ToInteger( 1 ), State.ToInteger( 2, 50 ), State.ToInteger( 3, 0 ) );
   Result := 0;
 end;
 
@@ -581,7 +647,7 @@ var State : TLuaGameStack;
     Dir   : TDirection;
 begin
   State.Init(L);
-  Dir := UI.ChooseDirection;
+  Dir := lua_ui( L ).ChooseDirection;
   if Dir.code = 0
     then State.PushNil
     else State.PushCoord( Dir.ToCoord );
@@ -590,7 +656,7 @@ end;
 
 function lua_ui_enter(L: Plua_State): Integer; cdecl;
 begin
-  UI.PressEnter;
+  lua_ui( L ).PressEnter;
   Result := 0;
 end;
 
@@ -598,7 +664,7 @@ function lua_ui_resolve_sound_id(L: Plua_State): Integer; cdecl;
 var iState   : TLuaGameStack;
 begin
   iState.Init(L);
-  iState.Push( UI.ResolveSoundID( iState.ToString(1), iState.ToString(2,'') ) );
+  iState.Push( lua_ui( L ).ResolveSoundID( iState.ToString(1), iState.ToString(2,'') ) );
   Result := 1;
 end;
 
@@ -606,7 +672,7 @@ function lua_ui_get_keybinding(L: Plua_State): Integer; cdecl;
 var iState   : TLuaGameStack;
 begin
   iState.Init(L);
-  iState.Push( UI.GetKeybinding( iState.ToInteger(1) ) );
+  iState.Push( lua_ui( L ).GetKeybinding( iState.ToInteger(1) ) );
   Result := 1;
 end;
 
@@ -622,9 +688,10 @@ const lua_ui_lib : array[0..7] of luaL_Reg = (
 );
 
 // Register API
-class procedure TBerserkUI.RegisterLuaAPI( aLua : TLua );
+procedure TBerserkUI.RegisterLuaAPI( aLua : TLua );
 begin
-  aLua.Register( 'ui', lua_ui_lib );
+  lua_pushlightuserdata( aLua.Raw, Self );
+  aLua.Register( 'ui', lua_ui_lib, 1 );
 end;
 
 

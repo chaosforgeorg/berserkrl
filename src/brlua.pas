@@ -25,7 +25,7 @@
 {$INCLUDE brinclude.inc}
 unit brlua;
 interface
-uses classes, sysutils, vrltools, vlua, vluastack, brplayer, brlevel, brdata;
+uses classes, sysutils, vrltools, vlua, vluastack, brplayer, brlevel, brdata, brui;
 
 type
 
@@ -33,20 +33,30 @@ type
 
 TBerserkLua = class(TLua)
 private
-  procedure LoadCells( var aTerrainData : TTerrainDataArray );
-  procedure OnError( const aErrorString : AnsiString );
+  FUI      : TBerserkUI; // borrowed from Runtime
+  FTerrain : TTerrainDataArray;
+  procedure LoadCells;
 public
-  procedure Load( const aDataPath : AnsiString; var aTerrainData : TTerrainDataArray );
+  constructor Create( aUI : TBerserkUI ); reintroduce;
+  procedure OnError( const Message : AnsiString ); override;
+  procedure Load( const aDataPath : AnsiString );
   procedure RegisterPlayer( aPlayer : TPlayer; aLevel : TLevel );
+  // Terrain definitions of this Lua generation.
+  property Terrain : TTerrainDataArray read FTerrain;
 end;
 
 implementation
-uses vnode, vluatools, vluaentitynode, vluadungen, vdebug, vsound, brui, brbeing;
+uses vnode, vluatools, vluaentitynode, vluadungen, vdebug, vsound, brbeing;
 
-procedure TBerserkLua.Load( const aDataPath : AnsiString; var aTerrainData : TTerrainDataArray );
+constructor TBerserkLua.Create( aUI : TBerserkUI );
+begin
+  inherited Create;
+  FUI := aUI;
+end;
+
+procedure TBerserkLua.Load( const aDataPath : AnsiString );
 var LuaInfo       : TLuaClassInfo;
 begin
-  ErrorFunc := @OnError;
   RegisterTableAuxFunctions( FRaw );
   RegisterMathAuxFunctions( FRaw );
   RegisterStringListClass( FRaw );
@@ -60,12 +70,12 @@ begin
   RegisterRectClass( FRaw );
 
   RegisterDungenClass( FRaw, 'generator' );
-  if Assigned( Sound ) then 
+  if FUI.Audio <> nil then
     TSound.RegisterLuaAPI( FRaw )
   else
     SetValue('audio',false);
 
-  TBerserkUI.RegisterLuaAPI( Self );
+  FUI.RegisterLuaAPI( Self );
   TLevel.RegisterLuaAPI( Self );
   TBeing.RegisterLuaAPI( Self );
   TLuaEntityNode.RegisterLuaAPI( Self, 'being' );
@@ -92,10 +102,10 @@ begin
       raise Exception.Create( e.Message );
   end;
 
-  LoadCells( aTerrainData );
+  LoadCells;
 end;
 
-procedure TBerserkLua.LoadCells( var aTerrainData : TTerrainDataArray );
+procedure TBerserkLua.LoadCells;
 var iAmount, iCount, iHook : DWord;
   function Resolve( const CellID : AnsiString ) : Word;
   begin
@@ -104,11 +114,11 @@ var iAmount, iCount, iHook : DWord;
   end;
 begin
   iAmount := Get(['cells','__counter']);
-  SetLength( aTerrainData, iAmount+1 );
+  SetLength( FTerrain, iAmount+1 );
   for iCount := 1 to iAmount do
   with GetTable(['cells',iCount]) do
   try
-    with aTerrainData[ iCount ] do
+    with FTerrain[ iCount ] do
     begin
       ID        := GetString('id');
       Name      := GetString('name');
@@ -141,15 +151,10 @@ begin
   RegisterKillsClass( Raw, aPlayer.FKills );
 end;
 
-procedure TBerserkLua.OnError( const aErrorString : AnsiString );
+procedure TBerserkLua.OnError( const Message : AnsiString );
 begin
-  Log('LuaError: '+aErrorString);
-  if (UI <> nil)  then
-  begin
-    UI.Msg( 'LuaError: '+ aErrorString );
-  end
-  else
-    raise ELuaException.Create('LuaError: '+aErrorString);
+  Log('LuaError: '+Message);
+  FUI.Msg( 'LuaError: '+ Message );
 end;
 
 end.

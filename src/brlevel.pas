@@ -28,7 +28,7 @@ unit brlevel;
 
 interface
 
-uses sysutils, vluamapnode, vnode, vmath, vutil, vvision, vrltools, vlua, brdata, brbeing;
+uses sysutils, vluamapnode, vnode, vmath, vutil, vvision, vrandom, vrltools, vlua, brdata, brbeing, brplayer;
 
 type
   // Data record on a single Map Cell on the map.
@@ -66,7 +66,8 @@ type
     // Creates the TLevel object. A TLevel should be created once -- to enter
     // another Level use Clear and fill the map anew. Remember to remove the
     // Player from the Beings list tough!
-    constructor Create;
+    constructor Create( aContext : TNodeContext; aGameRNG : TRNG; aPresentation : IBerserkPresentation;
+      const aTerrain : TTerrainDataArray );
     // Generates the level using vdungen.
     procedure Generate( nArena : byte; nMode : Byte; nSpawnLevel : Word );
     // Clears the map and being array and Destroys all Beings. To preserve the
@@ -106,6 +107,12 @@ type
     class procedure RegisterLuaAPI( aLua : TLua );
 
   private
+    // Terrain definitions, borrowed from the Lua generation.
+    FTerrain : TTerrainDataArray;
+    // The Session's player; nil while the Session has none attached.
+    FPlayer : TPlayer;
+    // What this level and its entities present through.
+    FPresentation : IBerserkPresentation;
     // Stores TerrainB values.
     procedure StoreTerrain;
     // Function returning being at given coord.
@@ -113,13 +120,17 @@ type
     // Function returning the T at given coord.
     function getBeing( const Coord : TCoord2D ) : TBeing;
   public
-    // Alias for TerraData[Map[x,y].Terrain].Flags
+    // Alias for FTerrain[Map[x,y].Terrain].Flags
     function getFlags( Coord : TCoord2D ) : TFlags;
-    // Alias for TerraData[Map[x,y].Terrain].MoveCost
+    // Alias for FTerrain[Map[x,y].Terrain].MoveCost
     function getMoveCost( Coord : TCoord2D ) : Byte;
     // numeric to string ID conversion
     function CellToID( const aCell : Byte ) : AnsiString; override;
   public
+    // Terrain definitions by cell ID.
+    property TerrainData : TTerrainDataArray read FTerrain;
+    property Player : TPlayer read FPlayer write FPlayer;
+    property Presentation : IBerserkPresentation read FPresentation;
     // Property for Cell terrain information access.
     property Terrain[Index : TCoord2D] : TTerrainData read getTerrain;
     // Property for Being access.
@@ -140,14 +151,17 @@ var
 
 implementation
 
-uses vluagamestack, vluatools, brmain, brlua, brui, brplayer;
+uses vluagamestack, vluatools, brmain, brui;
 
 { TLevel }
 
 
-constructor TLevel.Create;
+constructor TLevel.Create( aContext : TNodeContext; aGameRNG : TRNG; aPresentation : IBerserkPresentation;
+  const aTerrain : TTerrainDataArray );
 begin
-  inherited Create( 'default', MAP_MAXX, MAP_MAXY, 15, Berserk.Context, Berserk.Runtime.GameRNG );
+  inherited Create( 'default', MAP_MAXX, MAP_MAXY, 15, aContext, aGameRNG );
+  FTerrain := aTerrain;
+  FPresentation := aPresentation;
   Clear;
   FSpawnLevel := 1;
   FMode := mode_Massacre;
@@ -173,20 +187,20 @@ begin
   FMode := nMode;
 
   if FMode = mode_Endless then
-    FArena := Berserk.Runtime.GameRNG.RLongInt( 4 ) + 1;
+    FArena := GameRNG.RLongInt( 4 ) + 1;
 
   FContext.Lua.ProtectedCall(['generator','run'],[]);
 
   StoreTerrain;
 
-  Add( Player );
+  Add( FPlayer );
   repeat
-    PlayerPosition.Create( Berserk.Runtime.GameRNG.RLongInt( 20 ) + 15,
-      Berserk.Runtime.GameRNG.RLongInt( 10 ) + 5 );
-  until Player.TryMove( PlayerPosition ) = Move_Ok;
-  Player.Displace( PlayerPosition );
+    PlayerPosition.Create( GameRNG.RLongInt( 20 ) + 15,
+      GameRNG.RLongInt( 10 ) + 5 );
+  until FPlayer.TryMove( PlayerPosition ) = Move_Ok;
+  FPlayer.Displace( PlayerPosition );
   for c in FArea do
-    HitPoints[c] := TerraData[ getCell(c) ].DR;
+    HitPoints[c] := FTerrain[ getCell(c) ].DR;
   FContext.Lua.ProtectedCall(['generator','start'],[]);
 
   for c in FArea do
@@ -210,7 +224,7 @@ end;
 
 function TLevel.getTerrain( Coord : TCoord2D ) : TTerrainData;
 begin
-  Exit( TerraData[GetCell(Coord)] );
+  Exit( FTerrain[GetCell(Coord)] );
 end;
 
 function TLevel.getBeing( const Coord : TCoord2D ) : TBeing;
@@ -220,17 +234,17 @@ end;
 
 function TLevel.getFlags( Coord : TCoord2D ) : TFlags;
 begin
-  Exit( TerraData[GetCell(Coord)].Flags );
+  Exit( FTerrain[GetCell(Coord)].Flags );
 end;
 
 function TLevel.getMoveCost( Coord : TCoord2D ) : Byte;
 begin
-  Exit( TerraData[GetCell(Coord)].MoveCost );
+  Exit( FTerrain[GetCell(Coord)].MoveCost );
 end;
 
 function TLevel.CellToID ( const aCell : Byte ) : AnsiString;
 begin
-  Exit( TerraData[ aCell ].ID );
+  Exit( FTerrain[ aCell ].ID );
 end;
 
 procedure TLevel.Clear;
@@ -271,15 +285,15 @@ var
 begin
   with FMap[Coord.x, Coord.y] do
   begin
-    if TerraData[GetCell(Coord)].BloodID = 0 then Exit;
-    PutCell( Coord, TerraData[GetCell(Coord)].BloodID );
-    if TF_NOMOVE in TerraData[GetCell(Coord)].Flags then
+    if FTerrain[GetCell(Coord)].BloodID = 0 then Exit;
+    PutCell( Coord, FTerrain[GetCell(Coord)].BloodID );
+    if TF_NOMOVE in FTerrain[GetCell(Coord)].Flags then
       Exit;
     if Amount > 1 then
       for Count := 1 to Amount do
       begin
-        Shift.x := Berserk.Runtime.GameRNG.RLongInt( 3 ) - 1;
-        Shift.y := Berserk.Runtime.GameRNG.RLongInt( 3 ) - 1;
+        Shift.x := GameRNG.RLongInt( 3 ) - 1;
+        Shift.y := GameRNG.RLongInt( 3 ) - 1;
         if isproperCoord( Coord + Shift ) then
           Bleed( Coord + Shift, Amount - 1 );
       end;
@@ -309,15 +323,17 @@ begin
   begin
     if TF_NOMOVE in getFlags( Coord ) then
       Exit( nil );
-    for c in NewArea( Coord, 1 ) do
+    for c in NewArea( Coord, 1 ).Clamped( FArea ) do
       if Being[c] = nil then
         Break;
     if Being[c] <> nil then
       Exit( nil );
     Coord := c;
   end;
-  iBeing := TBeing.Create( aid, Coord, demonlevel );
+  iBeing := TBeing.Create( FContext, aid, Coord, demonlevel );
   Add( iBeing );
+  iBeing.Displace( Coord );
+  iBeing.PlaySound( 'appear' );
   Exit( iBeing );
 end;
 
@@ -325,13 +341,13 @@ procedure TLevel.DamageTile( const aCoord : TCoord2D; aDamage : Word );
 var iTerra : Byte;
 begin
   iTerra := GetCell(aCoord);
-  if TerraData[ iTerra ].DR = 0 then Exit;
+  if FTerrain[ iTerra ].DR = 0 then Exit;
   HitPoints[ aCoord ] := Max( 0, HitPoints[ aCoord ] - aDamage );
   if HitPoints[ aCoord ] = 0 then
     if not RunCellHook( aCoord, TileHook_OnDestroy, [] ) then
     begin
-      PutCell( aCoord, TerraData[ iTerra ].DestroyID );
-      FMap[ aCoord.x, aCoord.y ].TerrainB := TerraData[ iTerra ].DestroyID;
+      PutCell( aCoord, FTerrain[ iTerra ].DestroyID );
+      FMap[ aCoord.x, aCoord.y ].TerrainB := FTerrain[ iTerra ].DestroyID;
     end;
 end;
 
@@ -353,16 +369,16 @@ begin
       with iNode as TBeing do
         FAffected := False;
 
-  UI.AddExplosion( Where, Color, Range, cn, DrawDelay, aSequence );
+  FPresentation.AddExplosion( Where, Color, Range, DrawDelay, aSequence );
   for cn := 1 to Range do
   begin
     if Strength <> 0 then
       for Coord in NewArea( Where, Range ).Clamped( FArea ) do
         if Distance( Coord, Where ) < cn then
         begin
-          if not Level.isEyeContact( Coord, Where ) then
+          if not isEyeContact( Coord, Where ) then
             Continue;
-          Damage := Berserk.Runtime.GameRNG.Dice( Strength, 6 ) div
+          Damage := GameRNG.Dice( Strength, 6 ) div
             Max( 1, Distance( Coord, Where ) div 2 );
           if Being[Coord] <> nil then
             with Being[Coord] do
@@ -394,7 +410,7 @@ begin
     with iNode as TBeing do
       FAffected := False;
 
-  UI.Breath( Where, Direction, Color, Range, cn, DrawDelay );
+  FPresentation.Breath( Where, Direction, Color, Range, DrawDelay );
   for cn := 1 to Range + 4 do
   begin
     for Coord in NewArea( Where, Range ).Clamped( FArea ) do
@@ -432,7 +448,7 @@ begin
       if d > Range then
         Continue;
 
-      Damage := Round( Berserk.Runtime.GameRNG.Dice( Strength, 6 ) /
+      Damage := Round( GameRNG.Dice( Strength, 6 ) /
         Max( 1, d div 3 ) );
 
       if Being[Coord] <> nil then
@@ -450,13 +466,13 @@ begin
       DamageTile( Coord, Damage );
     end;
   end;
-  UI.Draw;
+  FPresentation.Draw;
 end;
 
 function TLevel.RunCellHook(const aWhere: TCoord2D; aHook: Byte;
   const aParams: array of const): Variant;
 begin
-  if aHook in TerraData[GetCell(aWhere)].Hooks then
+  if aHook in FTerrain[GetCell(aWhere)].Hooks then
     RunCellHook := FContext.Lua.ProtectedCall(
       [ 'cells', GetCell(aWhere), TileHooks[ aHook ] ],
       ConcatConstArray( [LuaCoord( aWhere )], aParams )
@@ -481,7 +497,7 @@ var State : TLuaGameStack;
 begin
   State.Init(L);
   Level := State.ToObject(1) as TLevel;
-  State.Push( Player );
+  State.Push( Level.FPlayer );
   Result := 1;
 end;
 

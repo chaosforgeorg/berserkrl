@@ -35,7 +35,7 @@ type
 
   TBerserkTextUI = class( TBerserkUI, ITextMap )
     // Initialization of all data.
-    constructor Create( aConfiguration : TBerserkConfiguration ); reintroduce;
+    constructor Create( aConfiguration : TBerserkConfiguration; const aDataPath : AnsiString ); reintroduce;
     // Cleanup
     destructor Destroy; override;
     // Sends missile
@@ -43,9 +43,9 @@ type
     // Draws target X
     procedure Target( Where : TCoord2D; color : Byte ); override;
     // Renders an explosion on the screen.
-    procedure AddExplosion( aWhere : TCoord2D; aColor : byte; aRange : byte; aStep : byte; aDrawDelay, aSequence : Word ); override;
+    procedure AddExplosion( aWhere : TCoord2D; aColor : byte; aRange : byte; aDrawDelay, aSequence : Word ); override;
     // Renders a breath weapon attack
-    procedure Breath( aWhere : TCoord2D; aDirection : TDirection; aColor : byte; aRange : byte; aStep : byte; aDrawDelay : Word ); override;
+    procedure Breath( aWhere : TCoord2D; aDirection : TDirection; aColor : byte; aRange : byte; aDrawDelay : Word ); override;
     // Graphical effect of a screen flash, of the given color, and Duration in
     // miliseconds.
     procedure Blink( aColor : Byte; aDuration : Word; aSequence : Word ); override;
@@ -68,7 +68,7 @@ type
 
 implementation
 
-uses vsound, vuid, vvision, vioconsole, vtig,
+uses vuid, vvision, vioconsole, vtig,
 {$IFDEF UNIX}
      vcursesio, vcursesconsole,
 {$ELSE}
@@ -78,7 +78,7 @@ uses vsound, vuid, vvision, vioconsole, vtig,
 
 { TBerserkTextUI }
 
-constructor TBerserkTextUI.Create( aConfiguration : TBerserkConfiguration );
+constructor TBerserkTextUI.Create( aConfiguration : TBerserkConfiguration; const aDataPath : AnsiString );
 begin
 {$IFDEF UNIX}
   FIODriver := TCursesIODriver.Create( 80, 25 );
@@ -87,7 +87,7 @@ begin
   FIODriver := TTextIODriver.Create( 80, 25 );
   FConsole := TTextConsoleRenderer.Create( 80, 25, [VIO_CON_BGCOLOR, VIO_CON_CURSOR] );
 {$ENDIF}
-  inherited Create( aConfiguration );
+  inherited Create( aConfiguration, aDataPath );
   FConsole.Clear;
   FTMap := TTextMap.Create( FConsole, Rectangle( 1, 1, 50, 25 ), Self );
   FMapEnabled := False;
@@ -130,12 +130,12 @@ begin
     AddMarkAnimation( aTarget, '*', Red, 100, aSequence + iDuration );
 end;
 
-procedure TBerserkTextUI.AddExplosion( aWhere : TCoord2D; aColor : byte; aRange : byte; aStep : byte; aDrawDelay, aSequence : Word );
+procedure TBerserkTextUI.AddExplosion( aWhere : TCoord2D; aColor : byte; aRange : byte; aDrawDelay, aSequence : Word );
 begin
   Explosion( aWhere, aColor, aRange, aDrawDelay, aSequence );
 end;
 
-procedure TBerserkTextUI.Breath( aWhere : TCoord2D; aDirection : TDirection; aColor : byte; aRange : byte; aStep : byte; aDrawDelay : Word );
+procedure TBerserkTextUI.Breath( aWhere : TCoord2D; aDirection : TDirection; aColor : byte; aRange : byte; aDrawDelay : Word );
 var iExpl    : TTextExplosionArray;
 var iCoord   : TCoord2D;
     iRel     : TCoord2D;
@@ -194,7 +194,7 @@ end;
 procedure TBerserkTextUI.Blink( aColor : Byte; aDuration : Word; aSequence : Word );
 var aBox : TIOGylph;
 begin
-  if HighASCII then
+  if FConfiguration.HighASCII then
     aBox := IOGylph( #219, aColor )
   else
     aBox := IOGylph( '#', aColor );
@@ -205,8 +205,8 @@ procedure TBerserkTextUI.AddAttack(aWho: TUID; aHit: Boolean; const aFrom,  aTo:
 var iBeing : TBeing;
 begin
   iBeing := Berserk.UIDs.Get( aWho ) as TBeing;
-  if Assigned( Sound ) then
-    FTMap.AddAnimation( TSoundAnimation.Create( 0, iBeing.Position, ResolveSoundID( iBeing.id, Iif( aHit, 'hit', 'miss' ) ) ) );
+  if FAudio <> nil then
+    FTMap.AddAnimation( TSoundAnimation.Create( FAudio, 0, iBeing.Position, ResolveSoundID( iBeing.id, Iif( aHit, 'hit', 'miss' ) ) ) );
 end;
 
 type

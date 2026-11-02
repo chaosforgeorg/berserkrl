@@ -27,7 +27,7 @@
 {$INCLUDE brinclude.inc}
 unit brplayer;
 interface
-uses sysutils, classes, vrltools, vlua, brbeing, brdata, brui;
+uses sysutils, classes, vnode, vrltools, vlua, brbeing, brdata;
 
 type
 
@@ -84,15 +84,15 @@ TPlayer = class(TBeing)
 
   // Creates a new player. It automaticaly sets the id and nid of the player
   // reference to the Player.
-  constructor Create( pos : TCoord2D );
+  constructor Create( aContext : TNodeContext; pos : TCoord2D );
   // Initialize temporary stats
   procedure Init;
   // Handles character creation. Should be called after Create.
   procedure CreateCharacter( aQuick : Boolean );
   // Resets the player for a new day, and runs advancement.
   procedure Advance;
-  // Writes a post mortem and shows it on the screen.
-  procedure WriteMortem;
+  // Writes a post mortem to the given file.
+  procedure WriteMortem( const aFileName, aVersion : AnsiString );
   // Overriden Die procedure. Contrary to TBeing.Die, the players Die procedure
   // DOES NOT free the player object!
   procedure Die; override;
@@ -100,9 +100,6 @@ TPlayer = class(TBeing)
   procedure Action; override;
   // Returns True.
   function IsPlayer : Boolean; override;
-  // Interface function for choosing target. Returns true when in Fire mode
-  // target is accepted.
-  function ChooseTarget( aTargetMode : Byte; aFireCmd : Byte ) : boolean;
   // Returns damage dice based on Strength + Berserk!
   function getDamageDice : Byte; override;
   // Ampplies damage to the player.
@@ -130,7 +127,7 @@ TPlayer = class(TBeing)
   // Return kill total -- TODO : remove and use a common TKillTable API!
   function GetKills : DWord;
   // Stream constructor
-  constructor CreateFromStream( Stream : TStream ); override;
+  constructor CreateFromStream( Stream : TStream; aContext : TNodeContext ); override;
   // Write to stream
   procedure WriteToStream( Stream : TStream ); override;
   class procedure RegisterLuaAPI( aLua : TLua );
@@ -152,14 +149,14 @@ var Player : TPlayer = nil;
 
 
 implementation
-uses math, vsound, vutil, vluastack, vluatable, brmain, brlevel, bruiscreens;
+uses math, vutil, vluastack, vluatable, brconfiguration, brmain, brlevel, brui, bruiscreens;
 
 { TPlayer }
 
-constructor TPlayer.Create( pos : TCoord2D );
+constructor TPlayer.Create( aContext : TNodeContext; pos : TCoord2D );
 var i : DWord;
 begin
-  inherited Create('yourself', pos);
+  inherited Create( aContext, 'yourself', pos );
   Init;
   FTurnCount := 0;
   for i := Low( FSkillSlots ) to High( FSkillSlots ) do FSkillSlots[i] := 0;
@@ -206,9 +203,12 @@ begin
   end
   else
   begin
-    FName := Option_AlwaysName;
-    if (FName = '') and (not Option_AlwaysRandomName) then
-      UI.RunLayer( TGameNameLayer.Create );
+    with TBerserkConfiguration( Berserk.Runtime.Configuration ) do
+    begin
+      Self.FName := FixedPlayerName;
+      if (Self.FName = '') and (not GetBoolean( 'always_random_name' )) then
+        UI.RunLayer( TGameNameLayer.Create );
+    end;
     if Berserk.Finished or UI.QuitRequested then Exit;
     UI.Console.HideCursor;
     if FName = '' then
@@ -284,17 +284,19 @@ begin
   FFreeze      := 0;
 end;
 
-procedure TPlayer.WriteMortem;
+procedure TPlayer.WriteMortem( const aFileName, aVersion : AnsiString );
 var Mortem  : Text;
     iAmount : DWord;
     iFound  : Boolean;
     Count   : byte;
     Count2  : byte;
+    iLevel  : TLevel;
 begin
-  Assign(Mortem, WritePath + 'mortem.txt' );
+  iLevel := TLevel( Parent );
+  Assign(Mortem, aFileName );
   Rewrite(Mortem);
   FFlags := []; // reset berserk and running
-  Writeln(Mortem,Padded('-- Berserk! ('+Version+') Post Mortem ',70,'-'));
+  Writeln(Mortem,Padded('-- Berserk! ('+aVersion+') Post Mortem ',70,'-'));
   Writeln(Mortem,'');
   Writeln(Mortem,'  Character name  : '+FName);
   Writeln(Mortem,'  Game type       : '+ModeToString(FMode));
@@ -313,8 +315,8 @@ begin
   begin
     Write(Mortem,'  ');
     for Count := 1 to MAP_MAXX do
-        if Level.Being[ NewCoord2D(Count,Count2) ] <> nil then Write(Mortem,Level.Being[ NewCoord2D(Count,Count2) ].Picture)
-                                                          else Write(Mortem,Chr(Level.Terrain[ NewCoord2D(Count,Count2) ].Picture mod 256));
+        if iLevel.Being[ NewCoord2D(Count,Count2) ] <> nil then Write(Mortem,iLevel.Being[ NewCoord2D(Count,Count2) ].Picture)
+                                                           else Write(Mortem,Chr(iLevel.Terrain[ NewCoord2D(Count,Count2) ].Picture mod 256));
 
     Writeln(Mortem,'');
   end;
@@ -357,7 +359,7 @@ begin
   Writeln(Mortem,'');
   Writeln(Mortem,Padded('-- Messages ',70,'-'));
   Writeln(Mortem,'');
-  UI.MsgDump(Mortem,10);
+  iLevel.Presentation.MsgDump(Mortem,10);
   Writeln(Mortem,'');
   Writeln(Mortem,Padded('-- Achievements ',70,'-'));
   Writeln(Mortem,'');
@@ -365,18 +367,18 @@ begin
   Writeln(Mortem,'  Longest killing sequence : ',FKills.BestSequence,' kills in ',FKills.BestSequenceLength,' turns.');
   Writeln(Mortem,'  Max kills without damage : ',FKills.BestNoDamageSequence);
   Writeln(Mortem,'  Survived for             : ',FTurnCount,' turns');
-  Writeln(Mortem,'  Died on                  : ',ArenaToString(Level.FArena));
+  Writeln(Mortem,'  Died on                  : ',ArenaToString(iLevel.FArena));
   Write  (Mortem,'  Reason of death          : ');
   if FLastEnemy = 'player' then Writeln(Mortem,'suicide')
     else if (FLastEnemy <> '') then Writeln(Mortem,'killed by a ',FContext.Lua.Get(['beings',FLastEnemy,'name']))
     else Writeln(Mortem,'unknown');
   Writeln(Mortem,'');
   Close(Mortem);
-  UI.RunLayer( TMortemLayer.Create );
 end;
 
 procedure TPlayer.Die;
-var iLast : DWord;
+var iLast     : DWord;
+    iFileName : AnsiString;
 begin
   FKills.Update(FTurnCount);
   FKills.Update(FTurnCount);
@@ -389,30 +391,34 @@ begin
   UI.Screen := Menu;
   iLast := FContext.Lua.Get(['beings',FLastEnemy,'nid']);
   Berserk.Runtime.Persistence.Add(FKills.Count, FName, FMode,  FKlass, FKills.Count, FTurnCount, FNight, iLast );
-  WriteMortem;
+  iFileName := Berserk.Runtime.Paths.WritePath + 'mortem.txt';
+  WriteMortem( iFileName, TBerserkConfiguration( Berserk.Runtime.Configuration ).Version );
+  UI.RunLayer( TMortemLayer.Create( iFileName ) );
 end;
 
 function TPlayer.UseSkill( aSkillID : DWord; aCommand : Byte; aAlt : Boolean ) : Boolean;
+var iPresentation : IBerserkPresentation;
 begin
+  iPresentation := TLevel( Parent ).Presentation;
   if aSkillID = 0 then
   begin
-    UI.Msg('You don''t have a skill or item in this slot!');
+    iPresentation.Msg('You don''t have a skill or item in this slot!');
     Exit( False );
   end;
   if FSkills[aSkillID] = 0 then
   begin
-    UI.Msg('You don''t have the '+FContext.Lua.Get(['skills',aSkillID,'name'])+' skill!');
+    iPresentation.Msg('You don''t have the '+FContext.Lua.Get(['skills',aSkillID,'name'])+' skill!');
     Exit( False );
   end;
   if aAlt then
   begin
     if FContext.Lua.Defined(['skills',aSkillID,'OnAltUse']) then
-      Exit( FContext.Lua.ProtectedCall(['skills',aSkillID,'OnAltUse'],[Player,FSkills[aSkillID], aCommand ] ) );
-    UI.Msg( 'What?' );
+      Exit( FContext.Lua.ProtectedCall(['skills',aSkillID,'OnAltUse'],[Self,FSkills[aSkillID], aCommand ] ) );
+    iPresentation.Msg( 'What?' );
     Exit( False );
   end
   else
-    Exit( FContext.Lua.ProtectedCall(['skills',aSkillID,'OnUse'],[Player,FSkills[aSkillID], aCommand ] ) );
+    Exit( FContext.Lua.ProtectedCall(['skills',aSkillID,'OnUse'],[Self,FSkills[aSkillID], aCommand ] ) );
 end;
 
 procedure TPlayer.Action;
@@ -503,7 +509,7 @@ repeat
     COMMAND_LOOK : begin
         UI.Msg('Look mode, <{^Esc}> to exit.');
         UI.Msg('You see:');
-        ChooseTarget( TM_LOOK, COMMAND_LOOK );
+        UI.ChooseTarget( TM_LOOK, COMMAND_LOOK );
       end;
 
     COMMAND_RUNNING :
@@ -531,73 +537,6 @@ begin
   Exit(True);
 end;
 
-function TPlayer.ChooseTarget( aTargetMode : Byte; aFireCmd : Byte ) : boolean;
-var Dir     : TDirection;
-    Key     : Byte;
-    Targets : TAutoTarget;
-    Target  : TCoord2D;
-    scx,scy : Integer;
-    AISet   : TAITypeSet;
-begin
-  UI.Msg('--------------------');
-  Targets := TAutoTarget.Create( FPosition );
-  
-  if isBerserk then AISet := [AI_MONSTER,AI_CIVILIAN,AI_ALLY]
-               else AISet := [AI_MONSTER];
-               
-  for scx := Max(1,FPosition.x-LightRadius-1) to Min(MAP_MAXX,FPosition.x+LightRadius+1) do
-    for scy := Max(1,FPosition.y-LightRadius-1) to Min(MAP_MAXY,FPosition.y+LightRadius+1) do
-    begin
-      Target := NewCoord2D( scx,scy );
-      if Level.Being[ Target ] <> nil then
-        if Level.Being[ Target ].FAI in AISet then
-         if isInLOS( Target ) then
-           Targets.AddTarget( Target );
-    end;
-
-  if aTargetMode in [TM_FIRE,TM_THROW] then
-    if FTarget <> nil then
-      with FTarget do
-        Targets.PriorityTarget( FPosition );
-
-  Target := Targets.Current;
-  
-  repeat
-    if aTargetMode = TM_FIRE then
-      UI.Target(Target,RED);
-    if aTargetMode = TM_THROW then
-    begin
-      if Distance(FPosition,Target) > BOMBDISTANCE
-        then UI.Target(Target,DarkGray)
-        else UI.Target(Target,Red);
-    end;
-    UI.Focus(Target);
-    UI.MsgCoord(Target);
-
-    if aTargetMode  in [TM_FIRE,TM_THROW] then
-      Key := UI.GetCommand(COMMANDS_MOVE+[COMMAND_ESCAPE,COMMAND_RUNNING, aFireCmd ])
-    else
-      Key := UI.GetCommand(COMMANDS_MOVE+[COMMAND_ESCAPE,COMMAND_RUNNING]);
-    if UI.QuitRequested or ( Key = COMMAND_ESCAPE ) then begin Target := ZeroCoord2D; Break; end;
-    if Key = COMMAND_RUNNING  then Target := Targets.Next;
-    if (Key in COMMANDS_MOVE) then
-    begin
-      Dir := UI.CommandDirection(Key);
-      if Level.isProperCoord(Target + Dir) then
-        Target += Dir;
-    end;
-  until Key in [aFireCmd];
-  UI.Target(Target,BLACK);
-  FTargetCoord := Target;
-
-  FreeAndNil(Targets);
-
-  if FTargetCoord.x = 0 then Exit(False);
-  if Level.Being[ FTargetCoord ] <> nil then FTarget := Level.Being[ FTargetCoord ];
-  Exit(True);
-end;
-
-
 function TPlayer.getDamageDice : Byte;
 begin
   if isBerserk then Exit(2* inherited getDamageDice)
@@ -613,12 +552,14 @@ begin
 end;
 
 function TPlayer.enemiesAround : byte;
-var sx,sy : Byte;
+var sx,sy  : Byte;
+    iLevel : TLevel;
 begin
+  iLevel := TLevel( Parent );
   enemiesAround := 0;
   for sx := FPosition.x-1 to FPosition.x+1 do
     for sy := FPosition.y-1 to FPosition.y+1 do
-      if Level.Being[ NewCoord2D( sx,sy ) ] <> nil then Inc(enemiesAround);
+      if iLevel.Being[ NewCoord2D( sx,sy ) ] <> nil then Inc(enemiesAround);
   Dec( enemiesAround ); // Player
 end;
 
@@ -695,9 +636,9 @@ begin
   Exit( FKills.Count );
 end;
 
-constructor TPlayer.CreateFromStream ( Stream : TStream ) ;
+constructor TPlayer.CreateFromStream ( Stream : TStream; aContext : TNodeContext ) ;
 begin
-  inherited CreateFromStream ( Stream ) ;
+  inherited CreateFromStream ( Stream, aContext ) ;
   Init;
   FKills := TKillTable.CreateFromStream( Stream );
 
@@ -795,7 +736,7 @@ var State  : TLuaStack;
 begin
   State.Init(L);
   Player := State.ToObject(1) as TPlayer;
-  State.Push( Player.ChooseTarget( State.ToInteger( 2 ), State.ToInteger( 3 ) ) );
+  State.Push( TLevel( Player.Parent ).Presentation.ChooseTarget( State.ToInteger( 2 ), State.ToInteger( 3 ) ) );
   Result := 1;
 end;
 

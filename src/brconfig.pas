@@ -33,7 +33,7 @@ end;
 
 implementation
 
-uses viotypes, vluatable, vlualibrary, brui, brdata;
+uses viotypes, vluatable, vlualibrary;
 
 { TGameConfig }
 
@@ -43,13 +43,7 @@ begin
   inherited Create;
   for b := 0 to 15 do SetConstant( ColorNames[b], b );
 
-  
   LoadMain( FileName );
-
-  Option_MessageColoring  := Configure( 'MessageColoring', True );
-  Option_MessageBuffer    := Configure( 'MessageBuffer', 100 );
-  Option_KillCount        := Configure( 'KillCount', False );
-  Option_MortemMessages   := Configure( 'MortemMessages', 10 );
 end;
 
 procedure TGameConfig.LoadGodKeys( aContext : TBindingContext );

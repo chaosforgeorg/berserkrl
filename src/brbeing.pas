@@ -27,7 +27,7 @@
 {$INCLUDE brinclude.inc}
 unit brbeing;
 interface
-uses sysutils, classes, vutil, vnode, vmath, vluastack, vluaentitynode, vrltools, vlua, brdata, brui;
+uses sysutils, classes, vutil, vnode, vmath, vluastack, vluaentitynode, vrltools, vlua, brdata;
 
 
 const Hook_OnCreate = 1;
@@ -107,7 +107,7 @@ TBeing = class(TLuaEntityNode)
   // the TLevel.Beings index where the being was initialized. mid is the id value
   // of the creature, and index to the BeingData array. posX and posY are the
   // coordinates of the being on the map. This coordinate MUST be free of beings.
-  constructor Create( const mid : AnsiString; pos : TCoord2D; lvl : Byte = 0 );
+  constructor Create( aContext : TNodeContext; const mid : AnsiString; pos : TCoord2D; lvl : Byte = 0 );
 
   // Initializes the temporary statistics
   procedure Init;
@@ -192,7 +192,7 @@ TBeing = class(TLuaEntityNode)
   function GetProperty( L : PLua_State; const aPropertyName : AnsiString ) : Integer; override;
 
   // Stream constructor, reads UID, and ID from stream, should be overriden.
-  constructor CreateFromStream( Stream : TStream ); override;
+  constructor CreateFromStream( Stream : TStream; aContext : TNodeContext ); override;
   // Write Node to stream (UID and ID) should be overriden.
   procedure WriteToStream( Stream : TStream ); override;
 
@@ -251,14 +251,14 @@ TBeing = class(TLuaEntityNode)
 end;
 
 implementation
-uses variants, vsound, vluaext, vvision, vlualibrary, brlevel, brmain, brplayer;
+uses variants, vluaext, vvision, vlualibrary, brlevel, brmain, brplayer, brui;
 
 
 { TBeing }
 
-constructor TBeing.Create( const mid : AnsiString; pos : TCoord2D; lvl : Byte = 0 );
+constructor TBeing.Create( aContext : TNodeContext; const mid : AnsiString; pos : TCoord2D; lvl : Byte = 0 );
 begin
-  inherited Create( mid, Berserk.Context );
+  inherited Create( mid, aContext );
   FEntityID := ENTITY_BEING;
   Init;
   FPosition := Pos;
@@ -268,15 +268,14 @@ begin
   FName := '';
 
   ApplyTemplate(mid,lvl);
-  Displace( FPosition );
-  PlaySound('appear');
 end;
 
 procedure TBeing.Init;
 var i : DWord;
 begin
   FAffected    := False;
-  FSpeedCount   := 4000 + Berserk.Runtime.GameRNG.RLongInt( 500 );
+  // Beings are constructed with no level.
+  FSpeedCount   := 4000 + FContext.Lua.Context.RNG.RLongInt( 500 );
   FWillCount    := 0;
   FAttackCount  := 0;
   FTargetCoord  := ZeroCoord2D;
@@ -321,12 +320,14 @@ end;
 function TBeing.ClosestTarget(AISet: TAITypeSet; Radius : Byte) : TBeing;
 var iRange, i : Word;
     iTarget   : TCoord2D;
+    iLevel    : TLevel;
 begin
+  iLevel := TLevel( Parent );
   iRange := 1000;
   Result := nil;
-  for iTarget in NewArea( FPosition, Radius+1 ).Clamped( Level.Area ) do
-    if Level.Being[ iTarget ] <> nil then
-       if Level.Being[ iTarget ].FAI in AISet then
+  for iTarget in NewArea( FPosition, Radius+1 ).Clamped( iLevel.Area ) do
+    if iLevel.Being[ iTarget ] <> nil then
+       if iLevel.Being[ iTarget ].FAI in AISet then
          if isInLOS( iTarget ) then
          begin
            i := Distance( iTarget, FPosition );
@@ -334,7 +335,7 @@ begin
            begin
              FTargetCoord := iTarget;
              iRange := i;
-             Result := Level.Being[ iTarget ];
+             Result := iLevel.Being[ iTarget ];
            end;
         end;
   if iRange = 1000 then
@@ -346,25 +347,28 @@ end;
 
 
 procedure TBeing.Die;
+var iLevel : TLevel;
 begin
-  if Player.FTarget = Self then Player.FTarget := nil;
+  if Dead then Exit;
+  iLevel := TLevel( Parent );
+  if iLevel.Player.FTarget = Self then iLevel.Player.FTarget := nil;
   
   if FHP <= 0 then
   begin
-    Player.FKills.Add(FID);
-    if isVisible then UI.Msg('The '+getName+' dies!');
+    iLevel.Player.FKills.Add(FID);
+    if isVisible then iLevel.Presentation.Msg('The '+getName+' dies!');
     PlaySound('die');
   end else FHP := 0;
 
   RunHook( Hook_OnDie, [] );
   
   if (BF_DEFILED in FFlags) and (FEN = FENMAX) then
-    Level.Explosion(FPosition,Green,2,3,50,DAMAGE_SPORE,0);
+    iLevel.Explosion(FPosition,Green,2,3,50,DAMAGE_SPORE,0);
 
-  if (not (TF_NOCORPSE in Level.getFlags( FPosition ))) and (not (BF_NOCORPSE in FFlags)) then
+  if (not (TF_NOCORPSE in iLevel.getFlags( FPosition ))) and (not (BF_NOCORPSE in FFlags)) then
   begin
-    Level.Bleed( FPosition, 2 );
-    Level.Cell[ FPosition ] := FContext.Lua.Defines['bloody_corpse'];
+    iLevel.Bleed( FPosition, 2 );
+    iLevel.Cell[ FPosition ] := FContext.Lua.Defines['bloody_corpse'];
   end;
   Discard;
 end;
@@ -379,7 +383,9 @@ var mx, my     : Integer;
     WCoord     : TCoord2D;
     Direction  : TDirection;
     Being      : TBeing;
+    iLevel     : TLevel;
 begin
+  iLevel := TLevel( Parent );
   FAttackCount := 0;
 
   case FAI of
@@ -387,7 +393,7 @@ begin
       begin
         Being := ClosestTarget( [AI_MONSTER], 4 );
         if Being = nil then
-          FTargetCoord := Level.Area.Center
+          FTargetCoord := iLevel.Area.Center
         else
           FTargetCoord := FPosition + NewDirection( FTargetCoord, FPosition );
       end;
@@ -396,7 +402,7 @@ begin
         Being := ClosestTarget([AI_MONSTER],6);
         if Being = nil then
         begin
-          FTargetCoord := Player.Position;
+          FTargetCoord := iLevel.Player.Position;
           if Distance( FTargetCoord, FPosition ) < 3 then FTargetCoord := FPosition;
         end;
       end;
@@ -405,17 +411,21 @@ begin
         Being := ClosestTarget([AI_Civilian,AI_Ally,AI_Player],2);
         if Being = nil then
         begin
-          Being := Player;
-          FTargetCoord := Player.Position;
+          Being := iLevel.Player;
+          FTargetCoord := iLevel.Player.Position;
         end;
       end;
   end;
 
   TargetDist  := Distance( FPosition, FTargetCoord );
-  TargetVis   := Level.isEyeContact( FPosition, FTargetCoord );
+  TargetVis   := iLevel.isEyeContact( FPosition, FTargetCoord );
 
   if Hook_OnAction in FHooks then
+  begin
     if RunHook( Hook_OnAction, [TargetVis,TargetDist] ) then Exit;
+    // The hook may have killed this being, whose level is then gone.
+    if Dead then Exit;
+  end;
 
 
   if BF_DEFILED in FFlags then
@@ -424,11 +434,8 @@ begin
       1..4  : FGylph.Color := Green;
       5..10 : FGylph.Color := LightGreen;
     end;
-    if GraphicsMode then
-    begin
-      FVisual.Overlay[1] := 1.0 * (12-FEN) / 12;
-      FVisual.Overlay[3] := 1.0 * (12-FEN) / 12;
-    end;
+    FVisual.Overlay[1] := 1.0 * (12-FEN) / 12;
+    FVisual.Overlay[3] := 1.0 * (12-FEN) / 12;
   end;
 
    // Impale attack
@@ -439,10 +446,10 @@ begin
       if tryMove( MoveCoord ) = Move_Ok then
       begin
         FEN -= 20;
-        if isVisible then UI.Msg('The '+getName+' charges!');
-        UI.AddMove( UID, FPosition, MoveCoord );
+        if isVisible then iLevel.Presentation.Msg('The '+getName+' charges!');
+        iLevel.Presentation.AddMove( UID, FPosition, MoveCoord );
         Displace( MoveCoord );
-        Attack(Level.Being[FTargetCoord],[AF_IMPALE]);
+        Attack(iLevel.Being[FTargetCoord],[AF_IMPALE]);
         FSpeedCount -= 1500;
         Exit;
       end;
@@ -463,11 +470,11 @@ begin
   MoveResult := TryMove( MoveCoord );
   
   if MoveResult = Move_Block then WCoord := MoveCoord;
-  if (MoveResult <> Move_Ok) and (not ( (MoveResult = Move_Being) and ( Level.Being[MoveCoord] = Being) ) ) then
+  if (MoveResult <> Move_Ok) and (not ( (MoveResult = Move_Being) and ( iLevel.Being[MoveCoord] = Being) ) ) then
   begin
     if mx = 0 then
     begin
-      MoveCoord.x := FPosition.x + ( Berserk.Runtime.GameRNG.RLongInt( 2 ) * 2 - 1 );
+      MoveCoord.x := FPosition.x + ( iLevel.GameRNG.RLongInt( 2 ) * 2 - 1 );
       MoveCoord.y := FPosition.y+my;
       MoveResult := TryMove( MoveCoord );
     end
@@ -479,12 +486,12 @@ begin
     end;
   end;
   if (MoveResult = Move_Block) and (WCoord.X = 0) then WCoord := MoveCoord;
-  if (MoveResult <> Move_Ok) and (not ( (MoveResult = Move_Being) and ( Level.Being[MoveCoord] = Being) ) ) then
+  if (MoveResult <> Move_Ok) and (not ( (MoveResult = Move_Being) and ( iLevel.Being[MoveCoord] = Being) ) ) then
   begin
     if my = 0 then
     begin
       MoveCoord.x := FPosition.x+mx;
-      MoveCoord.y := FPosition.y + ( Berserk.Runtime.GameRNG.RLongInt( 2 ) * 2 - 1 );
+      MoveCoord.y := FPosition.y + ( iLevel.GameRNG.RLongInt( 2 ) * 2 - 1 );
       MoveResult := TryMove( MoveCoord );
     end
     else
@@ -497,22 +504,24 @@ begin
   if (MoveResult = Move_Block) and (WCoord.X = 0) then WCoord := MoveCoord;
   if MoveResult = Move_Ok then
   begin
-    UI.AddMove( UID, FPosition, MoveCoord );
+    iLevel.Presentation.AddMove( UID, FPosition, MoveCoord );
     Displace( MoveCoord )
   end
   else
     if FAI <> AI_Civilian then
     begin
-      if (MoveResult = Move_Being) and ( Level.Being[MoveCoord] = Being) then Attack(Being)
+      if (MoveResult = Move_Being) and ( iLevel.Being[MoveCoord] = Being) then Attack(Being)
       else if (WCoord.X <> 0) and (FAI = AI_MONSTER) then Attack(WCoord);
     end;
   FSpeedCount -= 1000; //TEMPORARY
 end;
 
 procedure TBeing.Tick;
+var iLevel : TLevel;
 begin
+  iLevel := TLevel( Parent );
   if FFreeze > FSpeed-10 then FFreeze := FSpeed - 10;
-  if UI.VisualRNG.RLongInt(1000) = 0 then PlaySound('passive');
+  if iLevel.Presentation.VisualRNG.RLongInt(1000) = 0 then PlaySound('passive');
   FSpeedCount += FSpeed - FFreeze;
   while FSpeedCount > SPEEDLIMIT do
   begin
@@ -539,13 +548,16 @@ var ToHit   : Integer;
     ToWound : Integer;
     Defense : Integer;
     Damage  : Integer;
+    iLevel  : TLevel;
 begin
   if aTarget = nil then Exit;
-  UpdateFacing(aTarget.FPosition.X);
-  if aTarget.isPlayer then Player.FLastEnemy := FID;
-  ToHit := RollDice;
+  iLevel := TLevel( Parent );
 
-  if (TF_WATER in Level.getFlags(FPosition)) and (not (BF_WATER in FFlags)) then Inc(ToHit,3);
+  UpdateFacing(aTarget.FPosition.X);
+  if aTarget.isPlayer then TPlayer( aTarget ).FLastEnemy := FID;
+  ToHit := RollDice( iLevel.GameRNG );
+
+  if (TF_WATER in iLevel.getFlags(FPosition)) and (not (BF_WATER in FFlags)) then Inc(ToHit,3);
   
   if BF_BERSERK in FFlags then Dec(ToHit,3);
 
@@ -554,9 +566,9 @@ begin
 
   if ToHit > DX+3-FPain then
   begin
-    if IsPlayer then UI.Msg('You miss the '+aTarget.getName+'.')
-                else if aTarget.isPlayer then UI.Msg('The '+getName+' misses you.');
-    UI.AddAttack( UID, False, FPosition, aTarget.Position );
+    if IsPlayer then iLevel.Presentation.Msg('You miss the '+aTarget.getName+'.')
+                else if aTarget.isPlayer then iLevel.Presentation.Msg('The '+getName+' misses you.');
+    iLevel.Presentation.AddAttack( UID, False, FPosition, aTarget.Position );
     Exit;
   end;
   
@@ -565,21 +577,21 @@ begin
 
   if Defense = 0 then Defense := aTarget.getDodge;
   
-  if aTarget.isPlayer then Defense += Player.FDefBonus;
+  if aTarget.isPlayer then Defense += TPlayer( aTarget ).FDefBonus;
 
-  ToWound := RollDice;
+  ToWound := RollDice( iLevel.GameRNG );
 
   if ToWound <= Defense-(aTarget.FPain div 2 + aTarget.FFreeze div 5)-aTarget.FAttackCount then
   begin
-    if IsPlayer then UI.Msg('The '+aTarget.getName+' evades your blow.')
-                else if aTarget.isPlayer then UI.Msg('You evade.');
-    UI.AddAttack( UID, False, FPosition, aTarget.Position );
+    if IsPlayer then iLevel.Presentation.Msg('The '+aTarget.getName+' evades your blow.')
+                else if aTarget.isPlayer then iLevel.Presentation.Msg('You evade.');
+    iLevel.Presentation.AddAttack( UID, False, FPosition, aTarget.Position );
     Exit;
   end;
   
 //  msg.add('Dice('+IntToStr(getDamageDice)+',6)'+'+'+IntToStr(getDamageMod+2));
 
-  Damage := Berserk.Runtime.GameRNG.Dice( getDamageDice, 6 ) + getDamageMod + 2; // The +1 represents the weapon
+  Damage := iLevel.GameRNG.Dice( getDamageDice, 6 ) + getDamageMod + 2; // The +1 represents the weapon
   if isPlayer then Damage += 3;                   // The +3 represents the Dragonslayer
   
   if AF_SWEEP  in AFlags then Damage -= 2;
@@ -588,15 +600,15 @@ begin
   if ToHit < 0 then Damage *= 2; // Critical Hit
 
   if ToHit < 0 then
-    if aTarget.IsPlayer then UI.Msg('The '+getName+' critically hits you! '+GodStr('D:'+IntToStr(Damage)))
-                        else if isPlayer then UI.Msg('You critically hit the '+aTarget.getName+'! '+GodStr('D:'+IntToStr(Damage)))
-                                         else UI.Msg(getName+' critically hits the '+aTarget.getName+'. '+GodStr('D:'+IntToStr(Damage)))
+    if aTarget.IsPlayer then iLevel.Presentation.Msg('The '+getName+' critically hits you! '+GodStr('D:'+IntToStr(Damage)))
+                        else if isPlayer then iLevel.Presentation.Msg('You critically hit the '+aTarget.getName+'! '+GodStr('D:'+IntToStr(Damage)))
+                                         else iLevel.Presentation.Msg(getName+' critically hits the '+aTarget.getName+'. '+GodStr('D:'+IntToStr(Damage)))
   else
-  if aTarget.IsPlayer then UI.Msg('The '+getName+' hits you! '+GodStr('D:'+IntToStr(Damage)))
-                      else if isPlayer then UI.Msg('You hit the '+aTarget.getName+'! '+GodStr('D:'+IntToStr(Damage)))
-                                       else if isVisible then UI.Msg('The '+getName+' hits the '+aTarget.getName+'. '+GodStr('D:'+IntToStr(Damage)));
+  if aTarget.IsPlayer then iLevel.Presentation.Msg('The '+getName+' hits you! '+GodStr('D:'+IntToStr(Damage)))
+                      else if isPlayer then iLevel.Presentation.Msg('You hit the '+aTarget.getName+'! '+GodStr('D:'+IntToStr(Damage)))
+                                       else if isVisible then iLevel.Presentation.Msg('The '+getName+' hits the '+aTarget.getName+'. '+GodStr('D:'+IntToStr(Damage)));
 
-  UI.AddAttack( UID, True, FPosition, aTarget.Position );
+  iLevel.Presentation.AddAttack( UID, True, FPosition, aTarget.Position );
 
   if not (AF_NOKNOCKBACK in AFlags) then
     if AF_DKNOCKBACK in AFlags
@@ -606,18 +618,22 @@ begin
 end;
 
 procedure TBeing.Attack( aCoord : TCoord2D; AFlags : TFlags = [] );
+var iLevel : TLevel;
 begin
+  iLevel := TLevel( Parent );
   UpdateFacing( aCoord.x );
-  if not Level.isProperCoord( aCoord ) then Exit;
-  Level.DamageTile( aCoord, Berserk.Runtime.GameRNG.Dice( getDamageDice, 6 ) + getDamageMod );
-  if Level.Being[ aCoord ] = nil then Exit;
-  Attack(Level.Being[ aCoord ], AFlags );
+  if not iLevel.isProperCoord( aCoord ) then Exit;
+  iLevel.DamageTile( aCoord, iLevel.GameRNG.Dice( getDamageDice, 6 ) + getDamageMod );
+  if iLevel.Being[ aCoord ] = nil then Exit;
+  Attack(iLevel.Being[ aCoord ], AFlags );
 end;
 
 procedure TBeing.Knockback( Direction : TDirection; Damage : Integer);
 var Str   : Word;
     Coord : TCoord2D;
+    iLevel : TLevel;
 begin
+  iLevel := TLevel( Parent );
   if Damage < 3 then Exit;
   Str := Max(Round(Int((Damage / KNOCKBACKVALUE) / (FWeight / 10))),0);
   
@@ -629,7 +645,7 @@ begin
     Coord += Direction;
     Dec(Str);
   end;
-  UI.AddMove( UID, FPosition, Coord );
+  iLevel.Presentation.AddMove( UID, FPosition, Coord );
   Displace( Coord );
   UpdateFacing( (Coord + Direction.Reversed).X );
 end;
@@ -646,9 +662,13 @@ var Dist : byte;
     Scan      : Byte;
     DrawDelay : Word;
     Tgt  : TBeing;
+    iLevel : TLevel;
 begin
+  if Dead then Exit;
+  // Damage can kill this being too, so the level is captured here.
+  iLevel := TLevel( Parent );
   UpdateFacing(FTargetCoord.X);
-  Player.FLastEnemy := FID;
+  iLevel.Player.FLastEnemy := FID;
   Dist := Distance(FPosition,Target);
   DrawDelay := 10;
   case mtype of
@@ -663,41 +683,41 @@ begin
 
   if Dist > 4 then
   begin
-    Roll := RollDice;
+    Roll := RollDice( iLevel.GameRNG );
     if Roll > DX-((Dist-5) div 3) then
       if Dist < 9 then
-        Target.RandomShift( Berserk.Runtime.GameRNG, 1 )
+        Target.RandomShift( iLevel.GameRNG, 1 )
       else
-        Target.RandomShift( Berserk.Runtime.GameRNG, 2 );
+        Target.RandomShift( iLevel.GameRNG, 2 );
   end;
 
   Ray.Init(Level,FPosition,Target);
   repeat
     Ray.Next;
-    if not Level.isProperCoord(Ray.Current) then Exit;
+    if not iLevel.isProperCoord(Ray.Current) then Exit;
 
     Scan := TryMove(Ray.Current);
     if Scan in [Move_Block, Move_Invalid] then // Missile hits non-passable feature
     begin
-      UI.SendMissile(FPosition,Ray.Current,mtype,aSequence);
+      iLevel.Presentation.SendMissile(FPosition,Ray.Current,mtype,aSequence);
       Break;
     end;
     if Scan = Move_Being then // Missile hits Being
     begin
-      Tgt := Level.Being[Ray.Current];
-      if (not (BF_RUNNING in Tgt.FFlags)) or (Berserk.Runtime.GameRNG.RLongInt( 10 ) < 5) then
-      if (Ray.Current = FTargetCoord) or (Berserk.Runtime.GameRNG.Dice( 1, 10 ) > 6) then
+      Tgt := iLevel.Being[Ray.Current];
+      if (not (BF_RUNNING in Tgt.FFlags)) or (iLevel.GameRNG.RLongInt( 10 ) < 5) then
+      if (Ray.Current = FTargetCoord) or (iLevel.GameRNG.Dice( 1, 10 ) > 6) then
       begin
-        UI.SendMissile(FPosition,Ray.Current,mtype,aSequence);
-        if isPlayer then begin if isVisible then UI.Msg('You hit the '+Tgt.getName+'!') end
-                    else if (Ray.Current = Player.Position) then UI.Msg('You''re hit!');
+        iLevel.Presentation.SendMissile(FPosition,Ray.Current,mtype,aSequence);
+        if isPlayer then begin if isVisible then iLevel.Presentation.Msg('You hit the '+Tgt.getName+'!') end
+                    else if (Ray.Current = iLevel.Player.Position) then iLevel.Presentation.Msg('You''re hit!');
         case mtype of
-          MTBOLT   : Tgt.ApplyDamage(Berserk.Runtime.GameRNG.Dice( 2, 4 ),DAMAGE_PIERCE);
-          MTKNIFE  : Tgt.ApplyDamage(Berserk.Runtime.GameRNG.Dice( getDamageDice, 6 )+getDamageMod+1,DAMAGE_PIERCE);
-          MTENERGY : Tgt.ApplyDamage(Berserk.Runtime.GameRNG.Dice( 1, 6 ),DAMAGE_ENERGY);
-          MTICE    : Tgt.ApplyDamage(Berserk.Runtime.GameRNG.Dice( 2, 5 )+2,DAMAGE_FREEZE);
+          MTBOLT   : Tgt.ApplyDamage(iLevel.GameRNG.Dice( 2, 4 ),DAMAGE_PIERCE);
+          MTKNIFE  : Tgt.ApplyDamage(iLevel.GameRNG.Dice( getDamageDice, 6 )+getDamageMod+1,DAMAGE_PIERCE);
+          MTENERGY : Tgt.ApplyDamage(iLevel.GameRNG.Dice( 1, 6 ),DAMAGE_ENERGY);
+          MTICE    : Tgt.ApplyDamage(iLevel.GameRNG.Dice( 2, 5 )+2,DAMAGE_FREEZE);
           MTSPORE  : if Tgt.isPlayer then
-                       Tgt.ApplyDamage(Berserk.Runtime.GameRNG.Dice( 3, 6 ),DAMAGE_SPORE)
+                       Tgt.ApplyDamage(iLevel.GameRNG.Dice( 3, 6 ),DAMAGE_SPORE)
                      else
                        if not (BF_SPORERES in Tgt.FFlags) then
                        begin
@@ -713,13 +733,13 @@ begin
     if (mtype in [MTBOMB,MTSPORE]) then
       if Ray.Done then
       begin
-        UI.SendMissile(FPosition,Ray.Current,mtype,aSequence);
+        iLevel.Presentation.SendMissile(FPosition,Ray.Current,mtype,aSequence);
         Break;
       end;
   until False;
-  if mtype = MTBOMB then Level.Explosion(Ray.Current,Red,4,6,50,DAMAGE_FIRE,aSequence + 25 * (Ray.Current - FPosition).LargerLength );
-  if (mtype = MTSPORE) and (Level.Being[Ray.Current] = nil) then
-    Level.Summon('spore',Ray.Current);
+  if mtype = MTBOMB then iLevel.Explosion(Ray.Current,Red,4,6,50,DAMAGE_FIRE,aSequence + 25 * (Ray.Current - FPosition).LargerLength );
+  if (mtype = MTSPORE) and (iLevel.Being[Ray.Current] = nil) then
+    iLevel.Summon('spore',Ray.Current);
 end;
 
 
@@ -740,10 +760,8 @@ begin
 end;
 
 procedure TBeing.PlaySound(const aSoundID: AnsiString);
-var iSound : AnsiString;
 begin
-  iSound := UI.ResolveSoundID( FID, aSoundID );
-  if Assigned( Sound ) and ( iSound <> '' ) then Sound.PlaySample( iSound, FPosition );
+  TLevel( Parent ).Presentation.PlayBeingSound( FID, aSoundID, FPosition );
 end;
 
 procedure TBeing.ApplyDamage(Amount : Word; DType : Byte);
@@ -760,35 +778,34 @@ begin
   begin
     FFreeze += Amount;
     Amount := Amount div 2;
-    if GraphicsMode then
+    if FFreeze = 0 then FVisual.Overlay := NOCOLOROVERLAY else
     begin
-      if FFreeze = 0 then FVisual.Overlay := NOCOLOROVERLAY else
-      begin
-        FVisual.Overlay[1] := 0.01*(100-FFreeze);
-        FVisual.Overlay[2] := 0.01*(100-FFreeze);
-      end;
+      FVisual.Overlay[1] := 0.01*(100-FFreeze);
+      FVisual.Overlay[2] := 0.01*(100-FFreeze);
     end;
   end;
   FHP -= Amount;
   if DType = DAMAGE_FIRE   then FFreeze := Max(0,FFreeze-2*Amount);
   FPain += Amount div 2;
   if not (BF_SKELETAL in FFlags) then
-    Level.Bleed(FPosition);
+    TLevel( Parent ).Bleed(FPosition);
   if FHP <= 0 then Die else PlaySound('pain');
 end;
 
 function TBeing.TryMove( NewCoord : TCoord2D ) : Byte;
+var iLevel : TLevel;
 begin
+  iLevel := TLevel( Parent );
   TryMove := Move_Ok;
-  if not Level.isProperCoord( NewCoord ) then Exit( Move_Invalid );
-  if Level.being[ NewCoord ] <> nil then Exit( Move_Being );
-  if not Level.Area.Shrinked.Contains( NewCoord ) then Exit( Move_Block );
-  if TF_NOMOVE in Level.getFlags( NewCoord ) then TryMove := Move_Block;
+  if not iLevel.isProperCoord( NewCoord ) then Exit( Move_Invalid );
+  if iLevel.being[ NewCoord ] <> nil then Exit( Move_Being );
+  if not iLevel.Area.Shrinked.Contains( NewCoord ) then Exit( Move_Block );
+  if TF_NOMOVE in iLevel.getFlags( NewCoord ) then TryMove := Move_Block;
 end;
 
 procedure TBeing.Displace( const NewCoord : TCoord2D );
 begin
-  if Level.Being[ NewCoord ] <> nil then Exit;
+  if ( Parent <> nil ) and ( TLevel( Parent ).Being[ NewCoord ] <> nil ) then Exit;
   UpdateFacing( NewCoord.X );
   inherited Displace( NewCoord );
 end;
@@ -800,7 +817,7 @@ end;
 
 function TBeing.isInLOS( Coord : TCoord2D ): Boolean;
 begin
-  if isPlayer then Exit(Level.Vision.isVisible(Coord)) else Exit(Level.isEyeContact(FPosition,Coord));
+  if isPlayer then Exit(TLevel( Parent ).Vision.isVisible(Coord)) else Exit(TLevel( Parent ).isEyeContact(FPosition,Coord));
 end;
 
 function TBeing.getDodge : Byte;
@@ -850,14 +867,18 @@ function TBeing.GetProperty( L : PLua_State; const aPropertyName: AnsiString
 var iState : TLuaStack;
 begin
   iState.Init(L);
-  if aPropertyName = 'target'    then begin iState.Push( Level.Being[FTargetCoord] ); Exit( 1 ); end;
+  if aPropertyName = 'target' then
+  begin
+    if Parent <> nil then iState.Push( TLevel( Parent ).Being[FTargetCoord] ) else iState.PushNil;
+    Exit( 1 );
+  end;
   if aPropertyName = 'tposition' then begin iState.PushCoord( FTargetCoord ); Exit( 1 ); end;
   Result:=inherited GetProperty(L, aPropertyName);
 end;
 
-constructor TBeing.CreateFromStream ( Stream : TStream ) ;
+constructor TBeing.CreateFromStream ( Stream : TStream; aContext : TNodeContext ) ;
 begin
-  inherited CreateFromStream( Stream, Berserk.Context );
+  inherited CreateFromStream( Stream, aContext );
 
   Init;
 
@@ -955,7 +976,7 @@ var State : TLuaStack;
 begin
   State.Init(L);
   Being := State.ToObject(1) as TBeing;
-  Level.Breath( Being.Position,
+  TLevel( Being.Parent ).Breath( Being.Position,
     NewDirection( State.ToCoord( 2 ) ),
     State.ToInteger( 3 ),
     State.ToInteger( 4 ),

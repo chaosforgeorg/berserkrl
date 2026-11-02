@@ -26,17 +26,7 @@
 {$INCLUDE brinclude.inc}
 unit brdata;
 interface
-uses vutil;
-
-const 
-
-      // Borrowed launch paths for help and mortem consumers, resolved by Application.
-      // This is the directory path to the read only data folder ("" by default, 
-      // needs slash at end)
-      DataPath          : AnsiString = '';
-      // This is the directory path for writing (save, log, crash) ("" by default, 
-      // needs slash at end)
-      WritePath         : AnsiString = '';
+uses vutil, vrandom, vrltools;
 
 const COMMAND_QUIT       = 1;
       COMMAND_WALKNORTH  = 2;
@@ -81,20 +71,20 @@ const COMMAND_QUIT       = 1;
       COMMAND_SKILLALT9  = COMMAND_SKILLALTSHIFT + COMMAND_SKILL9;
       COMMAND_SKILLALT0  = COMMAND_SKILLALTSHIFT + COMMAND_SKILL0;
 
+      // Set of move commands
+      COMMANDS_MOVE      = [COMMAND_WALKNORTH,COMMAND_WALKSOUTH,
+                            COMMAND_WALKEAST, COMMAND_WALKWEST,
+                            COMMAND_WALKNE,   COMMAND_WALKSE,
+                            COMMAND_WALKNW,   COMMAND_WALKSW];
+
+      SKILL_SLOTS        = 10;
+
 {$INCLUDE ../bin/lua/const.lua}
 
 var
-    // Holds the version of the game -- read from the first line of 'version.txt'
-    Version      : string  = '';
     // Set to true if GodMode enabled -- activated by launching the game with
     // the -god parameter.
     GodMode      : Boolean = False;
-    // Quickstart for starting immidately on the field for debug purposes.
-    QuickStart   : Boolean = False;
-    // Whether we are in Graphics mode or not
-    GraphicsMode : Boolean = True;
-    // Whether we use High ASCII or not
-    HighASCII    : Boolean = True;
 
 
 const // Number of entries in the hall of fame. If changed then score.dat needs
@@ -182,9 +172,6 @@ type TSkills = array[1..MAXSKILLS] of Byte;
 // not supposed to be used, but is there to prevent and identify errors.
 type TTerrainDataArray = array of TTerrainData;
 
-// Borrowed view of the Runtime generation's terrain definitions.
-var TerraData : TTerrainDataArray;
-
 // Visual representation data (sprite, ascii, color, overlay, etc)
 type TVisual = record
   // Graphical mode only : The sprite ID for the being.
@@ -200,9 +187,23 @@ end;
 const MAX_AMMO = 10;
 type TPlayerAmmo = array[1..MAX_AMMO] of Byte;
 
+// What the level and its entities present. Implemented by TBerserkUI.
+type IBerserkPresentation = interface( IRLPresentation )
+  procedure AddMove( aWho : TUID; const aFrom, aTo : TCoord2D );
+  procedure AddAttack( aWho : TUID; aHit : Boolean; const aFrom, aTo : TCoord2D );
+  procedure AddExplosion( aWhere : TCoord2D; aColor : Byte; aRange : Byte; aDrawDelay, aSequence : Word );
+  procedure Breath( aWhere : TCoord2D; aDirection : TDirection; aColor : Byte; aRange : Byte; aDrawDelay : Word );
+  procedure SendMissile( const aSource, aTarget : TCoord2D; aType : Byte; aSequence : DWord );
+  procedure PlayBeingSound( const aID, aSound : AnsiString; const aWhere : TCoord2D );
+  // The prompt behind player:choose_target. Returns true when the target is accepted.
+  function ChooseTarget( aTargetMode : Byte; aFireCmd : Byte ) : Boolean;
+  procedure MsgDump( var aTextFile : Text; aLastCount : Integer );
+  procedure Draw;
+end;
+
 // Rolls three 6-sided dice. If 3 or 4 is rolled, then the value is -100,
 // if 17,18 is rolled then the value is 100.
-function RollDice : Integer;
+function RollDice( aRNG : TRNG ) : Integer;
 // Function for debug strings. Returns string if GodMode, '' otherwise.
 function GodStr(Str : String) : string;
 // Returns the name of the battlefield of given ID
@@ -213,7 +214,6 @@ function ModeToString( Mode : Byte ) : Ansistring;
 
 implementation
 
-uses SysUtils, brui, brmain;
 
 function ArenaToString(ArenaID : byte) : string;
 begin
@@ -227,9 +227,9 @@ begin
 end;
 
 
-function RollDice : Integer;
+function RollDice( aRNG : TRNG ) : Integer;
 begin
-  RollDice := Berserk.Runtime.GameRNG.Dice( 3, 6 );
+  RollDice := aRNG.Dice( 3, 6 );
   if (RollDice = 3)  or (RollDice = 4)  then Exit(-100);
   if (RollDice = 17) or (RollDice = 18) then Exit(100);
 end;

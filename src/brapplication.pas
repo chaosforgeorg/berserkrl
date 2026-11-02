@@ -18,7 +18,23 @@ end;
 
 implementation
 
-uses vos, vutil, brconfig, brconfiguration, brmain, brdata, brui;
+uses Classes, vos, brconfig, brconfiguration, brmain, brdata;
+
+// The version is the first line of the file.
+function ReadVersionFile( const aFileName : AnsiString ) : AnsiString;
+var iLines : TStringList;
+begin
+  if not FileExists( aFileName ) then
+    raise Exception.Create( 'Version file ' + aFileName + ' not found!' );
+  Result := '';
+  iLines := TStringList.Create;
+  try
+    iLines.LoadFromFile( aFileName );
+    if iLines.Count > 0 then Result := iLines[0];
+  finally
+    iLines.Free;
+  end;
+end;
 
 procedure TBerserkApplication.DefineOptions;
 begin
@@ -54,7 +70,6 @@ end;
 procedure TBerserkApplication.BeforeConfiguration( var aPaths : TGamePaths );
 begin
   GodMode := HasOption( 'god' );
-  QuickStart := HasOption( 'quick' );
 end;
 
 function TBerserkApplication.CreateConfiguration( var aPaths : TGamePaths ) : TObject;
@@ -82,11 +97,9 @@ var iConfiguration : TBerserkConfiguration;
 begin
   if FPaths.ScorePath = '' then FPaths.ScorePath := FPaths.WritePath;
   FPaths.SettingsPath := FPaths.WritePath + 'settings.lua';
-  
-  DataPath  := FPaths.DataPath;
-  WritePath := FPaths.WritePath;
 
   iConfiguration := TBerserkConfiguration( Configuration );
+  iConfiguration.QuickStart         := HasOption( 'quick' );
   iConfiguration.LowASCIIOverride   := HasOption( 'lowascii' );
   iConfiguration.FullScreenOverride := HasOption( 'fullscreen' );
   iConfiguration.HasNameOverride    := HasOption( 'name' );
@@ -106,11 +119,10 @@ begin
   // Diagnostics are ready before version/resource reads or Runtime creation.
   iConfiguration := TBerserkConfiguration( aConfiguration );
   iConfiguration.ReadSettings( aPaths.SettingsPath );
-  GraphicsMode := iConfiguration.GetBoolean( 'graphics_mode' );
-  if HasOption( 'console' )  then GraphicsMode := False;
-  if HasOption( 'graphics' ) then GraphicsMode := True;
-  iConfiguration.GraphicsMode := GraphicsMode;
-  Version := ReadVersion( aPaths.DataPath + 'version.txt' );
+  iConfiguration.GraphicsMode := iConfiguration.GetBoolean( 'graphics_mode' );
+  if HasOption( 'console' )  then iConfiguration.GraphicsMode := False;
+  if HasOption( 'graphics' ) then iConfiguration.GraphicsMode := True;
+  iConfiguration.Version := ReadVersionFile( aPaths.DataPath + 'version.txt' );
   Result := TBerserkRuntime.Create( aPaths, aConfiguration );
 end;
 

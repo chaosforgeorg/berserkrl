@@ -19,6 +19,9 @@ type TBerserkConfiguration = class( TConfigurationManager )
   procedure RestoreValues( aValues : TConfigurationValueMap );
   function ReadSettings( const aFileName : AnsiString ) : Boolean;
   function WriteSettings : Boolean;
+  function HighASCII : Boolean;
+  // The name to use without asking; empty when the player chooses.
+  function FixedPlayerName : AnsiString;
 private
   FLuaConfig       : TGameConfig;
   FSettingsPath    : AnsiString;
@@ -33,7 +36,9 @@ public
   LowASCIIOverride   : Boolean;
   HasNameOverride    : Boolean;
   NameOverride       : AnsiString;
-  property LuaConfig       : TGameConfig read FLuaConfig;
+  QuickStart         : Boolean;
+  Version            : AnsiString;
+  property LuaConfig      : TGameConfig read FLuaConfig;
   property SettingsPath    : AnsiString read FSettingsPath;
   property GameKeyBindings : TBindingCatalog read FGameKeyBindings;
   property UIKeyBindings   : TBindingCatalog read FUIKeyBindings;
@@ -72,6 +77,9 @@ begin
     .SetNames( [ 'Automatic', 'x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7', 'x8' ] )
     .SetName( 'Sprite multiplier' )
     .SetDescription( 'Map tiles and effects. Automatic uses x1 at 720p, x2 at 1080p, x3 at QHD; independent of the font.' );
+  iGroup.AddToggle( 'kill_count', False )
+    .SetName( 'Kill counter' )
+    .SetDescription( 'Show the number of kills in the status panel.' );
 
   iGroup := AddGroup( GAME_CONFIGURATION_GROUP_GAMEPLAY );
   iGroup.AddToggle( 'always_random_name', False )
@@ -187,6 +195,17 @@ end;
 function TBerserkConfiguration.WriteSettings : Boolean;
 begin
   Result := inherited Write( FSettingsPath );
+end;
+
+function TBerserkConfiguration.HighASCII : Boolean;
+begin
+  Result := GetBoolean( 'high_ascii' ) and not LowASCIIOverride;
+end;
+
+function TBerserkConfiguration.FixedPlayerName : AnsiString;
+begin
+  if HasNameOverride then Exit( NameOverride );
+  Result := GetString( 'always_name' );
 end;
 
 end.

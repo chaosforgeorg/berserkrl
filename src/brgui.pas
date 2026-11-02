@@ -50,9 +50,9 @@ TBerserkGUI = class(TBerserkUI)
     // Draws target X
     procedure Target( Coord : TCoord2D; color : Byte); override;
     // Renders an explosion on the screen.
-    procedure AddExplosion( aWhere : TCoord2D; aColor : byte; aRange : byte; aStep : byte; aDrawDelay, aSequence : Word ); override;
+    procedure AddExplosion( aWhere : TCoord2D; aColor : byte; aRange : byte; aDrawDelay, aSequence : Word ); override;
     // Renders a breath weapon attack
-    procedure Breath( aWhere : TCoord2D; aDirection : TDirection; aColor : byte; aRange : byte; aStep : byte; aDrawDelay : Word ); override;
+    procedure Breath( aWhere : TCoord2D; aDirection : TDirection; aColor : byte; aRange : byte; aDrawDelay : Word ); override;
     // Graphical effect of a screen flash, of the given color, and Duration in
     // miliseconds.
     procedure Blink( aColor : Byte; aDuration : Word; aSequence : Word ); override;
@@ -159,7 +159,7 @@ end;
 procedure TBerserkGUI.DrawSprites;
   function  RandomSide( aTerra : Word; aCoord : TCoord2D ) : boolean;
   begin
-    if TF_NOMIRROR in TerraData[aTerra].Flags then Exit( False );
+    if TF_NOMIRROR in Level.TerrainData[aTerra].Flags then Exit( False );
     Exit(((aCoord.x+5)*(aCoord.x+3)*aCoord.y mod 193*197) mod 2 = 0);
   end;
 
@@ -206,21 +206,21 @@ begin
       iRotation := Rotation;
     end;
 
-    if TerraData[iTerrain].SpriteB <> 0 then
+    if Level.TerrainData[iTerrain].SpriteB <> 0 then
     begin
-      if SF_TALLBASE in TerraData[iTerrain].Flags
-        then DrawSprite( TerraData[iTerrain].SpriteB, ToAbsPos( iCoord, iDepth ), iSTall,   iColor4, RandomSide( iTerrain, iCoord ) )
-        else DrawSprite( TerraData[iTerrain].SpriteB, ToAbsPos( iCoord, 0 ),      iSSquare, iColor4, RandomSide( iTerrain, iCoord ) );
+      if SF_TALLBASE in Level.TerrainData[iTerrain].Flags
+        then DrawSprite( Level.TerrainData[iTerrain].SpriteB, ToAbsPos( iCoord, iDepth ), iSTall,   iColor4, RandomSide( iTerrain, iCoord ) )
+        else DrawSprite( Level.TerrainData[iTerrain].SpriteB, ToAbsPos( iCoord, 0 ),      iSSquare, iColor4, RandomSide( iTerrain, iCoord ) );
     end
     else
     begin
-      if TerraData[iTerrainB].SpriteB <> 0
-        then DrawSprite( TerraData[iTerrainB].SpriteB, ToAbsPos( iCoord, 0 ), iSSquare, iColor4, RandomSide( iTerrainB, iCoord ) )
+      if Level.TerrainData[iTerrainB].SpriteB <> 0
+        then DrawSprite( Level.TerrainData[iTerrainB].SpriteB, ToAbsPos( iCoord, 0 ), iSSquare, iColor4, RandomSide( iTerrainB, iCoord ) )
         else DrawSprite( Level.sprite_base,            ToAbsPos( iCoord, 0 ), iSSquare, iColor4, RandomSide( 1,         iCoord ) );
     end;
 
-    if TerraData[iTerrain].Sprite <> 0 then
-      DrawSprite( TerraData[iTerrain].Sprite, ToAbsPos( iCoord, iDepth ), iSTall, iColor4, RandomSide( iTerrain, iCoord ) );
+    if Level.TerrainData[iTerrain].Sprite <> 0 then
+      DrawSprite( Level.TerrainData[iTerrain].Sprite, ToAbsPos( iCoord, iDepth ), iSTall, iColor4, RandomSide( iTerrain, iCoord ) );
     if iRotation > 0 then
       DrawSprite( Level.sprite_base + iRotation, ToAbsPos( iCoord, 1 ), iSSquare, iColor4, False);
     with Level do
@@ -283,7 +283,7 @@ begin
   FPreQuads := TGLQuadList.Create;
   FPostQuads := TGLQuadList.Create;
 
-  inherited Create( aConfiguration );
+  inherited Create( aConfiguration, aPaths.DataPath );
   GUI := Self;
 
   FTarget.Create( 0,0 );
@@ -537,7 +537,7 @@ begin
   FTarget := Coord;
 end;
 
-procedure TBerserkGUI.AddExplosion( aWhere : TCoord2D; aColor : byte; aRange : byte; aStep : byte; aDrawDelay, aSequence : Word );
+procedure TBerserkGUI.AddExplosion( aWhere : TCoord2D; aColor : byte; aRange : byte; aDrawDelay, aSequence : Word );
 var iGLColor : TGLVec4f;
 begin
   iGLColor.Init(1.0,1.0,1.0,1.0);
@@ -552,7 +552,7 @@ begin
 end;
 
 procedure TBerserkGUI.Breath( aWhere : TCoord2D; aDirection : TDirection; aColor : byte;
-  aRange : byte; aStep : byte; aDrawDelay : Word );
+  aRange : byte; aDrawDelay : Word );
 var iRel        : TCoord2D;
     iCoord      : TCoord2D;
     iDist       : Word;
@@ -627,7 +627,7 @@ begin
     iDelay := FAnimations.AddAnimation( TGLAttackAnimation.Create( 80, 0, iBeing, aFrom, aTo ) );
     if aHit then
       FAnimations.AddAnimation( TGLMarkAnimation.Create( 200, iDelay + 50, 44, ToAbsPos( aTo, GMODE_EFFECT_Z ), GLVec2i(24,32), GLVec4f(1,1,1,1), VisualRNG.RLongInt(2) = 1 ) );
-    FAnimations.AddAnimation( TSoundAnimation.Create( iDelay div 2, iBeing.Position, ResolveSoundID( iBeing.id, Iif( aHit, 'hit', 'miss' ) ) ) );
+    FAnimations.AddAnimation( TSoundAnimation.Create( FAudio, iDelay div 2, iBeing.Position, ResolveSoundID( iBeing.id, Iif( aHit, 'hit', 'miss' ) ) ) );
   end;
 end;
 

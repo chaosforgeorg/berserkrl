@@ -38,7 +38,6 @@ type TBerserkSessionResult = ( BSR_RUNNING, BSR_CANCELLED, BSR_SAVED,
      TBerserkRuntime = class( TRLRuntime )
      private
        FSession     : TBerserkSession;
-       FTerrainData : TTerrainDataArray;
        FSound       : TSound;
        FPersistence : TPersistence;
        procedure LoadAudio;
@@ -101,12 +100,12 @@ begin
   if iConfiguration.GraphicsMode then
     Result := TBerserkGUI.Create( iConfiguration, Paths )
   else
-    Result := TBerserkTextUI.Create( iConfiguration );
+    Result := TBerserkTextUI.Create( iConfiguration, Paths.DataPath );
 end;
 
 function TBerserkRuntime.CreateLua : TLua;
 begin
-  Result := TBerserkLua.Create;
+  Result := TBerserkLua.Create( TBerserkUI( IO ) );
 end;
 
 function TBerserkRuntime.PrepareGameData : Boolean;
@@ -121,9 +120,8 @@ begin
     else
       FSound := TSDLSound.Create( IO.VisualRNG );
     Sound := FSound;
-    FSound.SurroundEnabled := iConfiguration.LuaConfig.Configure( 'audio.surround_enabled', False );
-    FSound.PosMinVolume    := iConfiguration.LuaConfig.Configure( 'audio.pos_min_volume', 30 );
-    FSound.PosFadeDist     := iConfiguration.LuaConfig.Configure( 'audio.pos_fade_distance', 25 );
+    FSound.PosMinVolume := 30;
+    FSound.PosFadeDist  := 24;
     UI.Audio := FSound;
     UI.Reconfigure;
     LoadAudio;
@@ -133,8 +131,8 @@ end;
 
 procedure TBerserkRuntime.InitializeGameData;
 begin
-  TBerserkLua( FLua ).Load( Paths.DataPath, FTerrainData );
-  TerraData := FTerrainData;
+  UI.Lua := FLua;
+  TBerserkLua( FLua ).Load( Paths.DataPath );
   FPersistence := TPersistence.Create( Paths.ScorePath );
   if GodMode then RegisterDebugConsole( VKEY_BQUOTE );
 end;
@@ -145,9 +143,8 @@ var iChoice : TMainMenuResult;
     iOutcome : TBerserkSessionResult;
     iSavePath : AnsiString;
 begin
-  iQuick := QuickStart;
+  iQuick := TBerserkConfiguration( Configuration ).QuickStart;
   iLaunch := iQuick;
-  QuickStart := False;
   iSavePath := Paths.WritePath + 'berserk.sav';
   UI.ResetSession;
   UI.RunLayer( TIntroLayer.Create );
@@ -203,9 +200,8 @@ begin
   begin
     IO.Clear;
     TBerserkUI( IO ).Audio := nil;
+    TBerserkUI( IO ).Lua := nil;
   end;
-  TerraData := nil;
-  FTerrainData := nil;
   Sound := nil;
   FreeAndNil( FSound );
   FreeAndNil( FPersistence );
@@ -241,9 +237,9 @@ begin
   FUIDStore := TUIDStore.Create;
   FContext.BindUIDs( FUIDStore );
   FContext.Lua.Context.BindUIDs( FUIDStore );
-  FLevel := TLevel.Create;
+  FLevel := TLevel.Create( FContext, aRuntime.GameRNG, TBerserkUI( aRuntime.IO ), TBerserkLua( aRuntime.Lua ).Terrain );
   Level := FLevel;
-  FPlayer := TPlayer.Create( NewCoord2D( 1, 1 ) );
+  FPlayer := TPlayer.Create( FContext, NewCoord2D( 1, 1 ) );
   Arena := 1;
   FPlayer.FNight := 0;
   AttachPlayer;
@@ -252,6 +248,7 @@ end;
 procedure TBerserkSession.AttachPlayer;
 begin
   Player := FPlayer;
+  FLevel.Player := FPlayer;
   TBerserkLua( FRuntime.Lua ).RegisterPlayer( FPlayer, FLevel );
   FRuntime.IO.SetLevel( FLevel );
   FRuntime.IO.SetPlayer( FPlayer );
@@ -262,6 +259,7 @@ begin
   if FRuntime.IO <> nil then FRuntime.IO.SetPlayer( nil );
   if FPlayer <> nil then FPlayer.Detach;
   Player := nil;
+  if FLevel <> nil then FLevel.Player := nil;
   FreeAndNil( FPlayer );
 end;
 
@@ -321,7 +319,7 @@ begin
     FContext.Lua.Context.BindUIDs( FUIDStore );
     // The arena is not serialized; keep its identity in the replacement store.
     FUIDStore.Register( FLevel, FLevel.UID );
-    FPlayer := TPlayer.CreateFromStream( iSaveFile );
+    FPlayer := TPlayer.CreateFromStream( iSaveFile, FContext );
     AttachPlayer;
   finally
     iSaveFile.Free;
@@ -397,12 +395,12 @@ begin
     end;
     UI.Screen := Game;
     UI.CenterCamera( Player.Position );
-    if Assigned( Sound ) then Sound.PlayMusic( 'passive' );
+    UI.PlayMusic( 'passive' );
     repeat
       Level.Tick;
       FContext.FlushDestroyed;
     until Finished or UI.QuitRequested or Level.Flags[ LF_CLEARED ];
-    if Assigned( Sound ) then Sound.PlayMusic( 'menu' );
+    UI.PlayMusic( 'menu' );
     UI.Screen := Menu;
   end;
   UI.Screen := Menu;

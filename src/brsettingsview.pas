@@ -62,7 +62,7 @@ const CStates : array[ TBerserkSettingsState ] of record
         State : TBerserkSettingsState;
         Name, Description : AnsiString;
       end = (
-        ( State: BSS_DISPLAY;  Name: 'Display'; Description: 'Backend, desktop fullscreen, window size and separate font/sprite scales.' ),
+        ( State: BSS_DISPLAY;  Name: 'Display'; Description: 'Backend, desktop fullscreen, window size, separate font/sprite scales and kill counter.' ),
         ( State: BSS_GAME;     Name: 'Gameplay'; Description: 'Name choices for the next character.' ),
         ( State: BSS_AUDIO;    Name: 'Audio'; Description: 'Sound and music enable/volume.' ),
         ( State: BSS_INPUT;    Name: 'Input'; Description: 'Configure keyboard input.' ),
@@ -179,7 +179,7 @@ var iGroup : TConfigurationGroup;
   begin
     Result := iEditable;
     if FState <> BSS_DISPLAY then Exit;
-    if ( aEntry.ID = 'graphics_mode' ) or ( aEntry.ID = 'high_ascii' ) then Exit;
+    if ( aEntry.ID = 'graphics_mode' ) or ( aEntry.ID = 'high_ascii' ) or ( aEntry.ID = 'kill_count' ) then Exit;
     Result := FConfiguration.GraphicsMode;
     if aEntry.ID = 'fullscreen' then Result := Result and not FConfiguration.FullScreenOverride;
     if aEntry.ID = 'window_multiplier' then
