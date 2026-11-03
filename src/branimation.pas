@@ -24,19 +24,20 @@ interface
 
 uses Classes, SysUtils,
      vutil, vrltools, vgenerics, vgltypes, vanimation, vsound,
-     brdata, brbeing;
+     brdata, brbeing, brgui;
 
 type
 
 { TGLTileAnimation }
 
 TGLTileAnimation = class( TAnimation )
-  constructor Create( aDuration : DWord; aDelay : DWord; aUID : TUID; aTile : Word; const aSize : TGLVec2i; const aColor : TGLVec4f; aFlip : Boolean );
+  constructor Create( aGUI : TBerserkGUI; aDuration : DWord; aDelay : DWord; aUID : TUID; aTile : Word; const aSize : TGLVec2i; const aColor : TGLVec4f; aFlip : Boolean );
   procedure OnStart; override;
   destructor Destroy; override;
 protected
   procedure DrawTile( const aPos : TGLVec3i );
 protected
+  FGUI   : TBerserkGUI; // borrowed; owns the animation
   FTile  : Word;
   FSize  : TGLVec2i;
   FColor : TGLRawQColor;
@@ -47,7 +48,7 @@ end;
 { TGLMoveAnimation }
 
 TGLMoveAnimation = class( TGLTileAnimation )
-  constructor Create( aDuration : DWord; aDelay : DWord; aBeing : TBeing; const aFrom, aTo : TCoord2D );
+  constructor Create( aGUI : TBerserkGUI; aDuration : DWord; aDelay : DWord; aBeing : TBeing; const aFrom, aTo : TCoord2D );
   procedure OnDraw; override;
 private
   FStart : TGLVec3i;
@@ -57,7 +58,7 @@ end;
 { TGLAttackAnimation }
 
 TGLAttackAnimation = class( TGLTileAnimation )
-  constructor Create( aDuration : DWord; aDelay : DWord; aBeing : TBeing; const aFrom, aTo : TCoord2D );
+  constructor Create( aGUI : TBerserkGUI; aDuration : DWord; aDelay : DWord; aBeing : TBeing; const aFrom, aTo : TCoord2D );
   procedure OnDraw; override;
 private
   FStart : TGLVec3i;
@@ -67,7 +68,7 @@ end;
 { TGLMarkAnimation }
 
 TGLMarkAnimation = class( TGLTileAnimation )
-  constructor Create( aDuration : DWord; aDelay : DWord; aTile : Word; const aPosition : TGLVec3i; const aSize : TGLVec2i; const aColor : TGLVec4f; aFlip : Boolean );
+  constructor Create( aGUI : TBerserkGUI; aDuration : DWord; aDelay : DWord; aTile : Word; const aPosition : TGLVec3i; const aSize : TGLVec2i; const aColor : TGLVec4f; aFlip : Boolean );
   procedure OnDraw; override;
 private
   FPosition : TGLVec3i;
@@ -76,9 +77,10 @@ end;
 { TGLScreenMoveAnimation }
 
 TGLScreenMoveAnimation = class( TAnimation )
-  constructor Create( aDuration : DWord; aDelay : DWord; aUID : TUID; const aFrom, aTo : TCoord2D );
+  constructor Create( aGUI : TBerserkGUI; aDuration : DWord; aDelay : DWord; aUID : TUID; const aFrom, aTo : TCoord2D );
   procedure OnUpdate( aTime : DWord ); override;
 private
+  FGUI   : TBerserkGUI; // borrowed; owns the animation
   FStart : TCoord2D;
   FStop  : TCoord2D;
 end;
@@ -86,7 +88,7 @@ end;
 { TGLMissileAnimation }
 
 TGLMissileAnimation = class( TGLTileAnimation )
-  constructor Create( aDuration : DWord; aDelay : DWord; aTile : Word; aUID : TUID; const aFrom, aTo : TCoord2D; const aSize : TGLVec2i; const aColor : TGLVec4f; aRotated : Boolean; aZoom : Single );
+  constructor Create( aGUI : TBerserkGUI; aDuration : DWord; aDelay : DWord; aTile : Word; aUID : TUID; const aFrom, aTo : TCoord2D; const aSize : TGLVec2i; const aColor : TGLVec4f; aRotated : Boolean; aZoom : Single );
   procedure OnDraw; override;
 private
   FStart   : TGLVec3i;
@@ -99,7 +101,7 @@ end;
 { TGLExplAnimation }
 
 TGLExplAnimation = class( TGLTileAnimation )
-  constructor Create( aDuration : DWord; aDelay : DWord; const aPosition : TCoord2D; const aSize : TGLVec2i; const aColor : TGLVec4f );
+  constructor Create( aGUI : TBerserkGUI; aDuration : DWord; aDelay : DWord; const aPosition : TCoord2D; const aSize : TGLVec2i; const aColor : TGLVec4f );
   procedure OnDraw; override;
 private
   FPosition : TGLVec3i;
@@ -108,9 +110,10 @@ end;
 { TGLBlinkAnimation }
 
 TGLBlinkAnimation = class( TAnimation )
-  constructor Create( aDuration : DWord; aDelay : DWord; const aColor : TGLVec4f );
+  constructor Create( aGUI : TBerserkGUI; aDuration : DWord; aDelay : DWord; const aColor : TGLVec4f );
   procedure OnDraw; override;
 private
+  FGUI   : TBerserkGUI; // borrowed; owns the animation
   FColor : TGLVec4f;
 end;
 
@@ -129,7 +132,7 @@ end;
 
 implementation
 
-uses vmath, math, vcolor, vdebug, vuid, brplayer, brgui, brmain;
+uses vmath, math, vcolor, vdebug, vuid, brplayer;
 
 { TSoundAnimation }
 
@@ -149,13 +152,14 @@ end;
 
 { TGLTileAnimation }
 
-constructor TGLTileAnimation.Create(aDuration: DWord; aDelay: DWord;
+constructor TGLTileAnimation.Create( aGUI : TBerserkGUI; aDuration: DWord; aDelay: DWord;
   aUID: TUID; aTile: Word; const aSize: TGLVec2i; const aColor: TGLVec4f;
   aFlip: Boolean);
 var iColor : TGLVec3b;
     i : Integer;
 begin
   inherited Create( aDuration, aDelay, aUID );
+  FGUI   := aGUI;
   FTile  := aTile;
   FSize  := aSize;
   for i := 0 to 2 do
@@ -169,7 +173,7 @@ var iBeing : TBeing;
 begin
   if FUID <> 0 then
   begin
-    iBeing := Berserk.UIDs.Get( FUID ) as TBeing;
+    iBeing := FGUI.BeingByUID( FUID );
     if iBeing <> nil then
       Inc( iBeing.FVisual.AnimCount );
   end;
@@ -180,7 +184,7 @@ var iBeing : TBeing;
 begin
   if FUID <> 0 then
   begin
-    iBeing := Berserk.UIDs.Get( FUID ) as TBeing;
+    iBeing := FGUI.BeingByUID( FUID );
     if iBeing <> nil then
       Dec( iBeing.FVisual.AnimCount );
     FUID := 0;
@@ -190,77 +194,78 @@ end;
 
 procedure TGLTileAnimation.DrawTile( const aPos: TGLVec3i );
 begin
-  GUI.DrawSprite( FTile, aPos, FSize, FColor, FFlip );
+  FGUI.DrawSprite( FTile, aPos, FSize, FColor, FFlip );
 end;
 
 { TGLMoveAnimation }
 
-constructor TGLMoveAnimation.Create(aDuration: DWord; aDelay: DWord; aBeing : TBeing; const aFrom, aTo : TCoord2D );
+constructor TGLMoveAnimation.Create( aGUI : TBerserkGUI; aDuration: DWord; aDelay: DWord; aBeing : TBeing; const aFrom, aTo : TCoord2D );
 var iColor : TGLVec4f;
     iZ     : Integer;
 begin
-  if not Player.isBerserk
+  if not aGUI.Player.isBerserk
     then iColor.Init( 1.0*aBeing.FVisual.Overlay[1], 1.0*aBeing.FVisual.Overlay[2], 1.0*aBeing.FVisual.Overlay[3], 1.0 )
     else iColor.Init( 1.0, 0.3, 0.3, 1.0 );
 
-  inherited Create( aDuration, aDelay, aBeing.UID, aBeing.FVisual.Sprite,
+  inherited Create( aGUI, aDuration, aDelay, aBeing.UID, aBeing.FVisual.Sprite,
     GLVec2i( IIf( aBeing.Flags[ SF_BIG ], 32, 24 ), 32 ), iColor, not aBeing.FVisual.Mirror
   );
 
   iZ     := Max( aFrom.Y * GMODE_STEP_Z + 1, aTo.Y * GMODE_STEP_Z + 1 );
-  FStart := GUI.ToAbsPos( aFrom, iZ );
-  FStop  := GUI.ToAbsPos( aTo, iZ );
+  FStart := FGUI.ToAbsPos( aFrom, iZ );
+  FStop  := FGUI.ToAbsPos( aTo, iZ );
 end;
 
 procedure TGLMoveAnimation.OnDraw;
 begin
-  GUI.DrawSprite( FTile, Lerp( FStart, FStop, Min( FTime / FDuration, 1.0 ) ), FSize, FColor, FFlip, 1.1 );
+  FGUI.DrawSprite( FTile, Lerp( FStart, FStop, Min( FTime / FDuration, 1.0 ) ), FSize, FColor, FFlip, 1.1 );
 end;
 
 { TGLAttackAnimation }
 
-constructor TGLAttackAnimation.Create(aDuration: DWord; aDelay: DWord; aBeing: TBeing; const aFrom, aTo: TCoord2D);
+constructor TGLAttackAnimation.Create( aGUI : TBerserkGUI; aDuration: DWord; aDelay: DWord; aBeing: TBeing; const aFrom, aTo: TCoord2D);
 var iColor : TGLVec4f;
     iZ     : Integer;
 begin
-  if not Player.isBerserk
+  if not aGUI.Player.isBerserk
     then iColor.Init( 1.0*aBeing.FVisual.Overlay[1], 1.0*aBeing.FVisual.Overlay[2], 1.0*aBeing.FVisual.Overlay[3], 1.0 )
     else iColor.Init( 1.0, 0.3, 0.3, 1.0 );
 
-  inherited Create( aDuration, aDelay, aBeing.UID, aBeing.FVisual.Sprite,
+  inherited Create( aGUI, aDuration, aDelay, aBeing.UID, aBeing.FVisual.Sprite,
     GLVec2i( IIf( aBeing.Flags[ SF_BIG ], 32, 24 ), 32 ), iColor, not aBeing.FVisual.Mirror
   );
 
   iZ     := Max( aFrom.Y * GMODE_STEP_Z + 1, aTo.Y * GMODE_STEP_Z + 1 );
-  FStart := GUI.ToAbsPos( aFrom, iZ );
-  FStop  := GUI.ToAbsPos( aTo, iZ );
+  FStart := FGUI.ToAbsPos( aFrom, iZ );
+  FStop  := FGUI.ToAbsPos( aTo, iZ );
 end;
 
 procedure TGLAttackAnimation.OnDraw;
 var iValue : Single;
 begin
   iValue := 0.5 - Abs( Min( FTime / FDuration, 1.0 ) - 0.5 );
-  GUI.DrawSprite( FTile, Lerp( FStart, FStop, iValue ), FSize, FColor, FFlip, 1.2 );
+  FGUI.DrawSprite( FTile, Lerp( FStart, FStop, iValue ), FSize, FColor, FFlip, 1.2 );
 end;
 
 { TGLMarkAnimation }
 
-constructor TGLMarkAnimation.Create(aDuration: DWord; aDelay: DWord; aTile: Word; const aPosition : TGLVec3i; const aSize: TGLVec2i; const aColor: TGLVec4f; aFlip: Boolean);
+constructor TGLMarkAnimation.Create( aGUI : TBerserkGUI; aDuration: DWord; aDelay: DWord; aTile: Word; const aPosition : TGLVec3i; const aSize: TGLVec2i; const aColor: TGLVec4f; aFlip: Boolean);
 begin
-  inherited Create( aDuration, aDelay, 0, aTile, aSize, aColor, aFlip );
+  inherited Create( aGUI, aDuration, aDelay, 0, aTile, aSize, aColor, aFlip );
   FPosition := aPosition;
 end;
 
 procedure TGLMarkAnimation.OnDraw;
 begin
-  GUI.DrawSprite( FTile, FPosition, FSize, FColor, FFlip, 1.3 );
+  FGUI.DrawSprite( FTile, FPosition, FSize, FColor, FFlip, 1.3 );
 end;
 
 { TGLScreenMoveAnimation }
 
-constructor TGLScreenMoveAnimation.Create( aDuration: DWord; aDelay: DWord; aUID : TUID; const aFrom, aTo: TCoord2D );
+constructor TGLScreenMoveAnimation.Create( aGUI : TBerserkGUI; aDuration: DWord; aDelay: DWord; aUID : TUID; const aFrom, aTo: TCoord2D );
 begin
   inherited Create( aDuration, aDelay, aUID );
+  FGUI  := aGUI;
   FStart := aFrom;
   FStop := aTo;
 end;
@@ -269,19 +274,19 @@ procedure TGLScreenMoveAnimation.OnUpdate(aTime: DWord);
 begin
   inherited OnUpdate(aTime);
   if (FStart <> FStop) and (FTime > 0) then
-    GUI.SpriteEngine.Position := Lerp( GUI.CameraFor( FStart ), GUI.CameraFor( FStop ), Min( FTime / FDuration, 1.0 ) );
+    FGUI.SpriteEngine.Position := Lerp( FGUI.CameraFor( FStart ), FGUI.CameraFor( FStop ), Min( FTime / FDuration, 1.0 ) );
 end;
 
 { TGLMissileAnimation }
 
-constructor TGLMissileAnimation.Create(aDuration: DWord; aDelay: DWord;
+constructor TGLMissileAnimation.Create( aGUI : TBerserkGUI; aDuration: DWord; aDelay: DWord;
   aTile: Word; aUID : TUID; const aFrom, aTo: TCoord2D; const aSize: TGLVec2i;
   const aColor: TGLVec4f; aRotated : Boolean; aZoom: Single);
 begin
-  inherited Create( aDuration, aDelay, aUID, aTile, aSize, aColor, False );
-  FStart   := GUI.ToAbsPos( aFrom, GMODE_EFFECT_Z );
-  FStop    := GUI.ToAbsPos( aTo, GMODE_EFFECT_Z ) + GLVec3i(
-    GUI.VisualRNG.RLongInt(21) - 10, GUI.VisualRNG.RLongInt(21) - 10, 0 );
+  inherited Create( aGUI, aDuration, aDelay, aUID, aTile, aSize, aColor, False );
+  FStart   := FGUI.ToAbsPos( aFrom, GMODE_EFFECT_Z );
+  FStop    := FGUI.ToAbsPos( aTo, GMODE_EFFECT_Z ) + GLVec3i(
+    FGUI.VisualRNG.RLongInt(21) - 10, FGUI.VisualRNG.RLongInt(21) - 10, 0 );
   FZoom    := aZoom;
   FRotated := aRotated;
   FHeading := -ArcTan2( FStop.X - FStart.X, FStop.Y - FStart.Y ) + PI/2;
@@ -302,25 +307,25 @@ begin
   iPos := Lerp( FStart, FStop, Min( FTime / FDuration, 1.0 ) );
   if FRotated then
   begin
-    iTile := TGLVec2f.CreateModDiv( FTile - 1, GUI.Sprites.RowSize );
-    iTex.Init( iTile * GUI.Sprites.TexUnit, ( iTile + GLVec2f( 1, 24/32 ) ) * GUI.Sprites.TexUnit );
+    iTile := TGLVec2f.CreateModDiv( FTile - 1, FGUI.Sprites.RowSize );
+    iTex.Init( iTile * FGUI.Sprites.TexUnit, ( iTile + GLVec2f( 1, 24/32 ) ) * FGUI.Sprites.TexUnit );
     iPos := iPos + GLVec3i( 12, 16, 0 );
     iSize.Init( Round( FSize.X * FZoom ) div 2, Round( FSize.Y * FZoom ) div 2 );
     iCoord := TGLRawQCoord.Create(
       Rotated( -iSize.X, -iSize.Y ), Rotated( -iSize.X, iSize.Y ),
       Rotated( iSize.X, iSize.Y ), Rotated( iSize.X, -iSize.Y ) );
-    GUI.Sprites.Push( @iCoord, @iTex, @FColor, ColorZero, ColorZero, ColorZero, GMODE_EFFECT_Z );
+    FGUI.Sprites.Push( @iCoord, @iTex, @FColor, ColorZero, ColorZero, ColorZero, GMODE_EFFECT_Z );
   end
-  else GUI.DrawSprite( FTile, iPos, FSize, FColor, FFlip, FZoom );
+  else FGUI.DrawSprite( FTile, iPos, FSize, FColor, FFlip, FZoom );
 end;
 
 { TGLExplAnimation }
 
-constructor TGLExplAnimation.Create(aDuration: DWord; aDelay: DWord;
+constructor TGLExplAnimation.Create( aGUI : TBerserkGUI; aDuration: DWord; aDelay: DWord;
     const aPosition: TCoord2D; const aSize: TGLVec2i; const aColor: TGLVec4f);
 begin
-  inherited Create( aDuration, aDelay, 0, 0, aSize, aColor, False );
-  FPosition := GUI.ToAbsPos( aPosition, GMODE_EFFECT_Z ) + GLVec3i( 12, 16 );
+  inherited Create( aGUI, aDuration, aDelay, 0, 0, aSize, aColor, False );
+  FPosition := FGUI.ToAbsPos( aPosition, GMODE_EFFECT_Z ) + GLVec3i( 12, 16 );
   FSize.X   := FSize.X div 2;
   FSize.Y   := FSize.Y div 2;
 end;
@@ -331,22 +336,23 @@ var iPos : TGLVec2i;
 begin
   iStep := Clamp( Floor( Min( FTime / FDuration, 1.0 ) * 6 ) + 1, 1, 6 );
   iPos.Init( FPosition.X, FPosition.Y );
-  GUI.Sprites.PushPart( 81 + 2*iStep, iPos - FSize, iPos + FSize, @FColor,
+  FGUI.Sprites.PushPart( 81 + 2*iStep, iPos - FSize, iPos + FSize, @FColor,
     ColorZero, ColorZero, ColorZero, GMODE_EFFECT_Z, GLVec2f(), GLVec2f( 48/24, 48/32 ) );
 end;
 
 { TGLBlinkAnimation }
 
-constructor TGLBlinkAnimation.Create( aDuration : DWord; aDelay : DWord; const aColor : TGLVec4f );
+constructor TGLBlinkAnimation.Create( aGUI : TBerserkGUI; aDuration : DWord; aDelay : DWord; const aColor : TGLVec4f );
 begin
   inherited Create( aDuration, aDelay, 0 );
+  FGUI   := aGUI;
   FColor := aColor;
   FBlocking := False;
 end;
 
 procedure TGLBlinkAnimation.OnDraw;
 begin
-  GUI.RenderBlink( FColor );
+  FGUI.RenderBlink( FColor );
 end;
 
 end.

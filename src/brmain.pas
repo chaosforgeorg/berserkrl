@@ -28,7 +28,7 @@ interface
 
 uses sysutils,
      vapp, vrlapp, viorl, vlua, vuid, vnode, vsound,
-     brlua, brconfiguration, brdata, brlevel, brplayer, brpersistence;
+     brlua, brconfiguration, brdata, brlevel, brplayer, brpersistence, brui, bruiscreens;
 
 type TBerserkSessionResult = ( BSR_RUNNING, BSR_CANCELLED, BSR_SAVED,
        BSR_ABANDONED, BSR_DEAD, BSR_LOAD_FAILED, BSR_QUIT );
@@ -40,7 +40,9 @@ type TBerserkSessionResult = ( BSR_RUNNING, BSR_CANCELLED, BSR_SAVED,
        FSession     : TBerserkSession;
        FSound       : TSound;
        FPersistence : TPersistence;
+       function GetUI : TBerserkUI;
        procedure LoadAudio;
+       property UI : TBerserkUI read GetUI;
      protected
        function CreateIO : TIORL; override;
        function CreateLua : TLua; override;
@@ -51,8 +53,6 @@ type TBerserkSessionResult = ( BSR_RUNNING, BSR_CANCELLED, BSR_SAVED,
      public
        destructor Destroy; override;
        procedure HandleGameException( aException : Exception ); override;
-       property Persistence : TPersistence read FPersistence;
-       property Session : TBerserkSession read FSession;
      end;
 
      TBerserkSession = class
@@ -64,34 +64,45 @@ type TBerserkSessionResult = ( BSR_RUNNING, BSR_CANCELLED, BSR_SAVED,
        FContext     : TNodeContext;
        FSaveWritten : Boolean;
        FOutcome     : TBerserkSessionResult;
-       FCreating    : Boolean;
+       FArena       : Byte;
        function GetFinished : Boolean;
+       function GetUI : TBerserkUI;
+       function NightActive : Boolean;
        procedure ReleasePlayer;
        procedure AttachPlayer;
-     public
-       Arena  : Byte;
-       constructor Create( aRuntime : TBerserkRuntime );
-       destructor Destroy; override;
+       procedure CreateCharacter( aQuick : Boolean );
+       procedure AdvancePlayer;
+       procedure PlayerTurn;
+       procedure ExecuteCommand( aCommand : Byte );
+       function WaitForCommand : Byte;
+       procedure PresentDeath;
+       procedure SaveAndExit;
+       procedure CancelCreation;
+       procedure AbandonRun;
+       procedure SetArena( aArena : Byte );
+       function RunCreationLayer( aLayer : TCreationLayer ) : Boolean;
        procedure Save;
        procedure Load;
        function CanCrashSave : Boolean;
-       function Run( aContinue, aQuick : Boolean ) : TBerserkSessionResult;
        procedure Finish( aOutcome : TBerserkSessionResult );
        property Finished : Boolean read GetFinished;
-       property Creating : Boolean read FCreating;
-       property Context : TNodeContext read FContext;
-       property UIDs : TUIDStore read FUIDStore;
-       property Runtime : TBerserkRuntime read FRuntime;
+       property UI : TBerserkUI read GetUI;
+     public
+       constructor Create( aRuntime : TBerserkRuntime );
+       destructor Destroy; override;
+       function Run( aContinue, aQuick : Boolean ) : TBerserkSessionResult;
      end;
-
-// Non-owning compatibility alias for active playthrough consumers.
-var Berserk : TBerserkSession = nil;
 
 implementation
 
 uses zstream,
-     vmath, vrltools, vrandom, vioevent, vsdlsound, vfmodsound, vutil, vdebug,
-     brui, brgui, brtextui, bruiscreens;
+     vmath, vrltools, vrandom, vioevent, vsdlsound, vfmodsound, vutil, vdebug, vluatools,
+     brgui, brtextui;
+
+function TBerserkRuntime.GetUI : TBerserkUI;
+begin
+  Exit( TBerserkUI( IO ) );
+end;
 
 function TBerserkRuntime.CreateIO : TIORL;
 var iConfiguration : TBerserkConfiguration;
@@ -156,7 +167,7 @@ begin
       if FileExists( iSavePath ) then iChoice := MMR_CONTINUE else iChoice := MMR_NEW_GAME;
     end
     else
-      UI.RunLayer( TMainMenuLayer.Create( FLua, FPersistence, iSavePath, iChoice ) );
+      UI.RunLayer( TMainMenuLayer.Create( FPersistence, iSavePath, @iChoice ) );
     iLaunch := False;
     if UI.QuitRequested then Break;
     case iChoice of
@@ -230,26 +241,23 @@ begin
   inherited Create;
   FRuntime := aRuntime;
   FContext := TNodeContext.Create( aRuntime.Lua, nil );
-  // Entity construction uses the active Session RNG through this alias.
-  // The destructor clears it if any subsequent acquisition fails.
-  Berserk := Self;
   FRuntime.GameRNG.Randomize;
   FUIDStore := TUIDStore.Create;
   FContext.BindUIDs( FUIDStore );
   FContext.Lua.Context.BindUIDs( FUIDStore );
   FLevel := TLevel.Create( FContext, aRuntime.GameRNG, TBerserkUI( aRuntime.IO ), TBerserkLua( aRuntime.Lua ).Terrain );
-  Level := FLevel;
   FPlayer := TPlayer.Create( FContext, NewCoord2D( 1, 1 ) );
-  Arena := 1;
+  FArena := 1;
   FPlayer.FNight := 0;
   AttachPlayer;
 end;
 
 procedure TBerserkSession.AttachPlayer;
 begin
-  Player := FPlayer;
   FLevel.Player := FPlayer;
-  TBerserkLua( FRuntime.Lua ).RegisterPlayer( FPlayer, FLevel );
+  FRuntime.Lua.SetValue( 'player', FPlayer );
+  FRuntime.Lua.SetValue( 'level', FLevel );
+  RegisterKillsClass( FRuntime.Lua.Raw, FPlayer.FKills );
   FRuntime.IO.SetLevel( FLevel );
   FRuntime.IO.SetPlayer( FPlayer );
 end;
@@ -258,7 +266,6 @@ procedure TBerserkSession.ReleasePlayer;
 begin
   if FRuntime.IO <> nil then FRuntime.IO.SetPlayer( nil );
   if FPlayer <> nil then FPlayer.Detach;
-  Player := nil;
   if FLevel <> nil then FLevel.Player := nil;
   FreeAndNil( FPlayer );
 end;
@@ -274,12 +281,10 @@ begin
     end;
     ReleasePlayer;
   end;
-  Level := nil;
   FreeAndNil( FLevel );
   FContext.Lua.Context.BindUIDs( nil );
   FreeAndNil( FUIDStore );
   FreeAndNil( FContext );
-  Berserk := nil;
   inherited Destroy;
 end;
 
@@ -332,7 +337,12 @@ function TBerserkSession.CanCrashSave : Boolean;
 begin
   Result := ( FPlayer <> nil ) and ( FPlayer.FMode <> mode_Massacre ) and
             ( FPlayer.FNight > 0 ) and
-            not FSaveWritten and not Finished;
+            not FSaveWritten and not Finished and not FPlayer.Died;
+end;
+
+function TBerserkSession.GetUI : TBerserkUI;
+begin
+  Exit( FRuntime.UI );
 end;
 
 function TBerserkSession.GetFinished : Boolean;
@@ -343,6 +353,170 @@ end;
 procedure TBerserkSession.Finish( aOutcome : TBerserkSessionResult );
 begin
   FOutcome := aOutcome;
+end;
+
+function TBerserkSession.NightActive : Boolean;
+begin
+  Result := ( not Finished ) and ( not UI.QuitRequested ) and ( not FPlayer.Died ) and
+            ( not FLevel.Flags[ LF_CLEARED ] );
+end;
+
+procedure TBerserkSession.CreateCharacter( aQuick : Boolean );
+var i, iSkills : Integer;
+    iConfiguration : TBerserkConfiguration;
+begin
+  iConfiguration := TBerserkConfiguration( FRuntime.Configuration );
+  if not RunCreationLayer( TGameModeLayer.Create( @CancelCreation ) ) then Exit;
+  // Choose klass
+  FContext.Lua.ProtectedCall( ['klasses',FPlayer.FKlass,'OnCreate'], [FPlayer, FPlayer.FMode]);
+
+  if FPlayer.FMode = mode_Massacre
+    then FPlayer.FPoints := 14
+    else FPlayer.FPoints := 8;
+
+  if aQuick then
+  begin
+    FPlayer.Name    := 'Epyon';
+    FArena           := ARENA_TOWN;
+    FPlayer.FPoints := 0;
+    FContext.Lua.ProtectedCall( ['klasses',FPlayer.FKlass,'OnQuick'], [FPlayer, FPlayer.FMode]);
+  end
+  else
+  begin
+    FPlayer.Name := iConfiguration.FixedPlayerName;
+    if (FPlayer.Name = '') and (not iConfiguration.GetBoolean( 'always_random_name' )) then
+      if not RunCreationLayer( TGameNameLayer.Create( @CancelCreation ) ) then Exit;
+    UI.Console.HideCursor;
+    if FPlayer.Name = '' then
+    case FRuntime.GameRNG.RLongInt(8) of
+      0..1 : FPlayer.Name := 'Guts';
+      2    : FPlayer.Name := 'Glowie';
+      3    : FPlayer.Name := 'Turgor';
+      4    : FPlayer.Name := 'Fingerzam';
+      5    : FPlayer.Name := 'Malek';
+      6    : FPlayer.Name := 'Jorge';
+      7    : FPlayer.Name := 'Thomas';
+    end;
+
+    if not RunCreationLayer( TGameStatsLayer.Create( @CancelCreation ) ) then Exit;
+
+    iSkills := 1;
+    if FPlayer.FMode = mode_Massacre then
+    begin
+      if not RunCreationLayer( TGameArenaLayer.Create( @CancelCreation, @SetArena ) ) then Exit;
+      iSkills := 3;
+    end;
+    for i := 1 to iSkills do
+      if not RunCreationLayer( TGameSkillsLayer.Create( @CancelCreation ) ) then Exit;
+  end;
+
+  FPlayer.FinishCreation;
+end;
+
+function TBerserkSession.RunCreationLayer( aLayer : TCreationLayer ) : Boolean;
+begin
+  UI.RunLayer( aLayer );
+  Result := not Finished and not UI.QuitRequested;
+end;
+
+procedure TBerserkSession.SaveAndExit;
+begin
+  Save;
+  Finish( BSR_SAVED );
+end;
+
+procedure TBerserkSession.CancelCreation;
+begin
+  Finish( BSR_CANCELLED );
+end;
+
+procedure TBerserkSession.AbandonRun;
+begin
+  Finish( BSR_ABANDONED );
+end;
+
+procedure TBerserkSession.SetArena( aArena : Byte );
+begin
+  FArena := aArena;
+end;
+
+procedure TBerserkSession.AdvancePlayer;
+begin
+  Inc( FPlayer.FPoints );
+  if not RunCreationLayer( TGameStatsLayer.Create ) then Exit;
+  if not RunCreationLayer( TGameSkillsLayer.Create ) then Exit;
+  FPlayer.ApplyAdvancement;
+end;
+
+function TBerserkSession.WaitForCommand : Byte;
+begin
+  repeat
+    Result := UI.GetCommand;
+    if Finished or UI.QuitRequested then Exit;
+    if Result in [COMMAND_ESCAPE, COMMAND_QUIT] then
+    begin
+      UI.RunLayer( TInGameMenuLayer.Create( @AbandonRun ) );
+      if Finished or UI.QuitRequested then Exit;
+    end;
+  until not ( Result in [COMMAND_ESCAPE, COMMAND_QUIT] );
+end;
+
+procedure TBerserkSession.ExecuteCommand( aCommand : Byte );
+begin
+  case aCommand of
+    COMMAND_WALKNORTH..COMMAND_WALKSW : FPlayer.ActionMove( UI.CommandDirection( aCommand ) );
+    COMMAND_WAIT    : FPlayer.ActionWait;
+    COMMAND_RUNNING : FPlayer.ActionToggleRun;
+    COMMAND_LOOK :
+      begin
+        UI.Msg('Look mode, <{^Esc}> to exit.');
+        UI.Msg('You see:');
+        UI.ChooseTarget( TM_LOOK, COMMAND_LOOK );
+      end;
+    COMMAND_HELP       : UI.RunLayer( THelpLayer.Create );
+    COMMAND_PLAYERINFO : UI.RunLayer( TGamePlayerLayer.Create );
+    COMMAND_MESSAGES   : UI.RunLayer( TMessagesLayer.Create );
+    COMMAND_SKILL1   ..COMMAND_SKILL0    : FPlayer.UseSkill( FPlayer.FSkillSlots[aCommand-COMMAND_SKILL1+1], aCommand );
+    COMMAND_SKILLALT1..COMMAND_SKILLALT0 : FPlayer.UseSkill( FPlayer.FSkillSlots[aCommand-COMMAND_SKILLALT1+1], aCommand, True );
+  end;
+end;
+
+procedure TBerserkSession.PlayerTurn;
+var iCommand : Byte;
+begin
+  FPlayer.BeginTurn;
+  repeat
+    FPlayer.BeginCommand;
+    if not NightActive then Exit;
+    if FPlayer.Slips then
+      FPlayer.ActionSlip
+    else
+    begin
+      iCommand := WaitForCommand;
+      if not NightActive then Exit;
+      UI.MsgUpdate;
+      ExecuteCommand( iCommand );
+    end;
+    if not NightActive then Exit;
+  until FPlayer.FSpeedCount <= SPEEDLIMIT;
+  FPlayer.EndTurn;
+end;
+
+procedure TBerserkSession.PresentDeath;
+var iLast     : DWord;
+    iFileName : AnsiString;
+begin
+  UI.Blink(Red,200,0);
+  UI.Msg('You die!...');
+  UI.Msg('Press <{^'+UI.GetKeybinding(COMMAND_OK)+'}>...');
+  UI.Draw;
+  UI.PressEnter;
+  UI.Screen := Menu;
+  iLast := FContext.Lua.Get(['beings',FPlayer.FLastEnemy,'nid'],0);
+  FRuntime.FPersistence.Add( FPlayer.GetKills, FPlayer.Name, FPlayer.FMode, FPlayer.FKlass, FPlayer.GetKills, FPlayer.FTurnCount, FPlayer.FNight, iLast );
+  iFileName := FRuntime.Paths.WritePath + 'mortem.txt';
+  FPlayer.WriteMortem( iFileName, TBerserkConfiguration( FRuntime.Configuration ).Version );
+  UI.RunLayer( TMortemLayer.Create( iFileName ) );
 end;
 
 function TBerserkSession.Run( aContinue, aQuick : Boolean ) : TBerserkSessionResult;
@@ -360,14 +534,7 @@ begin
     end;
   end
   else
-  begin
-    FCreating := True;
-    try
-      Player.CreateCharacter( aQuick );
-    finally
-      FCreating := False;
-    end;
-  end;
+    CreateCharacter( aQuick );
 
   if not Finished and not UI.QuitRequested then
   begin
@@ -376,37 +543,44 @@ begin
   end;
   while not Finished and not UI.QuitRequested do
   begin
-    Inc( Player.FNight );
-    Player.Detach;
-    Level.Clear;
-    case Player.FMode of
-      mode_Massacre : Level.Generate( Arena, Player.FMode, 1 );
+    Inc( FPlayer.FNight );
+    FPlayer.Detach;
+    FLevel.Clear;
+    case FPlayer.FMode of
+      mode_Massacre : FLevel.Generate( FArena, FPlayer.FMode, 1 );
       mode_Endless :
         begin
-          if Player.FNight > 1 then
+          if FPlayer.FNight > 1 then
           begin
-            UI.RunLayer( TNightLayer.Create );
+            UI.RunLayer( TNightLayer.Create( @SaveAndExit ) );
             if Finished or UI.QuitRequested then Break;
-            Player.Advance;
+            AdvancePlayer;
             if UI.QuitRequested then Break;
           end;
-          Level.Generate( 1, Player.FMode, Player.FNight );
+          FLevel.Generate( 1, FPlayer.FMode, FPlayer.FNight );
         end;
     end;
     UI.Screen := Game;
-    UI.CenterCamera( Player.Position );
+    UI.CenterCamera( FPlayer.Position );
     UI.PlayMusic( 'passive' );
     repeat
-      Level.Tick;
+      FLevel.Tick;
+      if NightActive and ( FPlayer.FSpeedCount > SPEEDLIMIT ) then PlayerTurn;
+      // No callback is running between steps.
       FContext.FlushDestroyed;
-    until Finished or UI.QuitRequested or Level.Flags[ LF_CLEARED ];
+    until not NightActive;
+    if FPlayer.Died then
+    begin
+      Finish( BSR_DEAD );
+      PresentDeath;
+    end;
     UI.PlayMusic( 'menu' );
     UI.Screen := Menu;
   end;
   UI.Screen := Menu;
   if UI.QuitRequested then Exit( BSR_QUIT );
   if FOutcome in [BSR_DEAD, BSR_ABANDONED] then
-    UI.RunLayer( THOFLayer.Create( FRuntime.Lua, FRuntime.Persistence, Player.Mode, FOutcome = BSR_DEAD ) );
+    UI.RunLayer( THOFLayer.Create( FRuntime.Lua, FRuntime.FPersistence, FPlayer.Mode, FOutcome = BSR_DEAD ) );
   if UI.QuitRequested then Exit( BSR_QUIT );
   Result := FOutcome;
 end;

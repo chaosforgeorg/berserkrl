@@ -3,7 +3,7 @@
 // @created(Oct 16, 2006)
 // @lastmod(Oct 22, 2006)
 
-// This unit holds the TLevel class -- the singleton class to represent
+// This unit holds the TLevel class -- the class to represent
 // the Berserk levels. It also holds additional data structures used by TLevel.
 
 //  @html <div class="license">
@@ -28,7 +28,7 @@ unit brlevel;
 
 interface
 
-uses sysutils, vluamapnode, vnode, vmath, vutil, vvision, vrandom, vrltools, vlua, brdata, brbeing, brplayer;
+uses sysutils, classes, vluamapnode, vluaentitynode, vnode, vmath, vutil, vrandom, vrltools, vlua, brdata, brbeing, brplayer;
 
 type
   // Data record on a single Map Cell on the map.
@@ -42,8 +42,6 @@ type
 
   // Specialization of the enumerator for TLevel
   TLevelEnumerator = specialize TGNodeEnumerator<TBeing>;
-
-  // Session owns the Level and publishes its non-owning compatibility alias.
 
   { TLevel }
 
@@ -73,8 +71,8 @@ type
     // Clears the map and being array and Destroys all Beings. To preserve the
     // Player, you need to remove him from the Beings array.
     procedure Clear;
-    // A single level Tick. Calls Tick on each being in the Beings array. Also
-    // handles Respawn, and all Level time scheduled operations.
+    // A single level Tick. Calls Tick on each being, then runs the generator's
+    // time scheduled operations. The Session runs the player's commands.
     procedure Tick;
     // Handeles bleeding -- amount is the information for greater
     // recursive blood flow.
@@ -118,7 +116,7 @@ type
     // Function returning being at given coord.
     function getTerrain( Coord : TCoord2D ) : TTerrainData;
     // Function returning the T at given coord.
-    function getBeing( const Coord : TCoord2D ) : TBeing;
+    function getBeing( const Coord : TCoord2D ) : TBeing; reintroduce;
   public
     // Alias for FTerrain[Map[x,y].Terrain].Flags
     function getFlags( Coord : TCoord2D ) : TFlags;
@@ -126,6 +124,8 @@ type
     function getMoveCost( Coord : TCoord2D ) : Byte;
     // numeric to string ID conversion
     function CellToID( const aCell : Byte ) : AnsiString; override;
+    // Levels are not saved; the Session regenerates them.
+    function EntityFromStream( aStream : TStream; aEntityID : Byte ) : TLuaEntityNode; override;
   public
     // Terrain definitions by cell ID.
     property TerrainData : TTerrainDataArray read FTerrain;
@@ -143,15 +143,9 @@ type
     property sprite_base : Word  read FSpriteBase write FSpriteBase;
   end;
 
-// The Level singleton, for access by other units of the program. Initialized
-// and disposed of by the active TBerserkSession.
-var
-  Level : TLevel = nil;
-
-
 implementation
 
-uses vluagamestack, vluatools, brmain, brui;
+uses vluagamestack, vluatools;
 
 { TLevel }
 
@@ -247,6 +241,12 @@ begin
   Exit( FTerrain[ aCell ].ID );
 end;
 
+function TLevel.EntityFromStream( aStream : TStream; aEntityID : Byte ) : TLuaEntityNode;
+begin
+  Result := nil;
+  raise Exception.Create( 'Levels are not saved.' );
+end;
+
 procedure TLevel.Clear;
 var iCoord : TCoord2D;
 begin
@@ -269,7 +269,7 @@ begin
   for iBeing in Self do
   begin
     iBeing.Tick;
-    if Berserk.Finished or UI.QuitRequested then Exit;
+    if FPlayer.Died then Exit;
   end;
 
   Inc( FTickCount );

@@ -31,9 +31,8 @@ uses sysutils, classes, vnode, vrltools, vlua, brbeing, brdata;
 
 type
 
-// The Berserk player object. Should be only one, and always referenced by the
-// Player pointer. TPlayer is a descendant of TBeing, and overrides it's methods
-// where needed.
+// The Berserk player object. The Session owns it. TPlayer is a descendant of
+// TBeing, and overrides it's methods where needed.
 
 { TPlayer }
 
@@ -82,22 +81,39 @@ TPlayer = class(TBeing)
   // Target being nid - used by targeting code
   FTarget      : TBeing;
 
+  // Set by Die; the Session ends the run. Not saved.
+  FDied        : Boolean;
+
   // Creates a new player. It automaticaly sets the id and nid of the player
   // reference to the Player.
   constructor Create( aContext : TNodeContext; pos : TCoord2D );
   // Initialize temporary stats
   procedure Init;
-  // Handles character creation. Should be called after Create.
-  procedure CreateCharacter( aQuick : Boolean );
-  // Resets the player for a new day, and runs advancement.
-  procedure Advance;
+  // Sets the derived stats and fills health and energy after character creation.
+  procedure FinishCreation;
+  // Applies the chosen advancement and resets the player for a new night.
+  procedure ApplyAdvancement;
   // Writes a post mortem to the given file.
   procedure WriteMortem( const aFileName, aVersion : AnsiString );
   // Overriden Die procedure. Contrary to TBeing.Die, the players Die procedure
   // DOES NOT free the player object!
   procedure Die; override;
-  // Overriden action procedure -- handles Input parsing, and acting accordingly.
-  procedure Action; override;
+  // What happens when the player's turn comes.
+  procedure BeginTurn;
+  // What happens before each command of a turn.
+  procedure BeginCommand;
+  // Whether the player loses footing instead of getting a command.
+  function Slips : Boolean;
+  // Slips in a random direction.
+  procedure ActionSlip;
+  // Moves, or attacks a being in the way.
+  procedure ActionMove( const aDirection : TDirection );
+  // Waits a turn.
+  procedure ActionWait;
+  // Starts or stops running.
+  procedure ActionToggleRun;
+  // What happens when the player's turn ends.
+  procedure EndTurn;
   // Returns True.
   function IsPlayer : Boolean; override;
   // Returns damage dice based on Strength + Berserk!
@@ -131,6 +147,11 @@ TPlayer = class(TBeing)
   // Write to stream
   procedure WriteToStream( Stream : TStream ); override;
   class procedure RegisterLuaAPI( aLua : TLua );
+private
+  // Recalculates the stats derived from attributes.
+  procedure RecalculateStats;
+public
+  property Died : Boolean read FDied;
 published
   property turn_count     : DWord    read FTurnCount;
   property mode           : Byte     read FMode       write FMode;
@@ -145,11 +166,8 @@ published
   property enemies_around : Byte     read enemiesAround;
 end;
 
-var Player : TPlayer = nil;
-
-
 implementation
-uses math, vutil, vluastack, vluatable, brconfiguration, brmain, brlevel, brui, bruiscreens;
+uses math, vutil, vluastack, vluatable, brlevel;
 
 { TPlayer }
 
@@ -174,6 +192,7 @@ end;
 procedure TPlayer.Init;
 var i : DWord;
 begin
+  FDied       := False;
   FLastEnemy  := '';
   FDefBonus   := 0;
   FHealthMark := 0;
@@ -182,88 +201,24 @@ begin
   for i := Low( FSkills ) to High( FSkills ) do FSkills[ i ] := 0;
 end;
 
-procedure TPlayer.CreateCharacter( aQuick : Boolean );
-var i, iSkills : Integer;
+procedure TPlayer.RecalculateStats;
 begin
-  UI.RunLayer( TGameModeLayer.Create );
-  if Berserk.Finished or UI.QuitRequested then Exit;
-  // Choose klass
-  FContext.Lua.ProtectedCall( ['klasses',FKlass,'OnCreate'], [Self, FMode]);
-
-  if FMode = mode_Massacre
-    then FPoints := 14
-    else FPoints := 8;
-
-  if aQuick then
-  begin
-    FName         := 'Epyon';
-    Berserk.Arena := ARENA_TOWN;
-    FPoints       := 0;
-    FContext.Lua.ProtectedCall( ['klasses',FKlass,'OnQuick'], [Self, FMode]);
-  end
-  else
-  begin
-    with TBerserkConfiguration( Berserk.Runtime.Configuration ) do
-    begin
-      Self.FName := FixedPlayerName;
-      if (Self.FName = '') and (not GetBoolean( 'always_random_name' )) then
-        UI.RunLayer( TGameNameLayer.Create );
-    end;
-    if Berserk.Finished or UI.QuitRequested then Exit;
-    UI.Console.HideCursor;
-    if FName = '' then
-    case Berserk.Runtime.GameRNG.RLongInt(8) of
-      0..1 : FName := 'Guts';
-      2    : FName := 'Glowie';
-      3    : FName := 'Turgor';
-      4    : FName := 'Fingerzam';
-      5    : FName := 'Malek';
-      6    : FName := 'Jorge';
-      7    : FName := 'Thomas';
-    end;
-
-    UI.RunLayer( TGameStatsLayer.Create );
-    if Berserk.Finished or UI.QuitRequested then Exit;
-
-    iSkills := 1;
-    if FMode = mode_Massacre then
-    begin
-      UI.RunLayer( TGameArenaLayer.Create );
-      if Berserk.Finished or UI.QuitRequested then Exit;
-      iSkills := 3;
-    end;
-    for i := 1 to iSkills do
-    begin
-      UI.RunLayer( TGameSkillsLayer.Create );
-      if Berserk.Finished or UI.QuitRequested then Exit;
-    end;
-  end;
-
-  FHPMax  := 100 + (En-10)*5 + FBonus[ BONUS_HP ];
-  FENMax  := 100 + (En-10)*5 + (WP-10)*5;
+  FHPMax  := 100 + (EN-10)*5 + FBonus[ BONUS_HP ];
+  FENMax  := 100 + (EN-10)*5 + (WP-10)*5;
   FSpeed  := 95+DX;
   FWeight := EN;
+end;
 
+procedure TPlayer.FinishCreation;
+begin
+  RecalculateStats;
   FHP := FHPMax;
   FEN := FENMax;
 end;
 
-procedure TPlayer.Advance;
+procedure TPlayer.ApplyAdvancement;
 begin
-  Inc( FPoints );
-  // Run advancement screens
-  UI.RunLayer( TGameStatsLayer.Create );
-  if Berserk.Finished or UI.QuitRequested then Exit;
-
-  // Choose skill
-  UI.RunLayer( TGameSkillsLayer.Create );
-  if Berserk.Finished or UI.QuitRequested then Exit;
-
-  // Recalculate stats
-  FHPMax  := 100 + (EN-10)*5 + FBonus[ BONUS_HP ];
-  FENMax  := 100 + (EN-10)*5 + (WP-10) * 5;
-  FSpeed  := 95+DX;
-  FWeight := EN;
+  RecalculateStats;
 
   // Update current stats.
   FEN := FENMax;
@@ -279,7 +234,7 @@ begin
   FHealthMark  := 0;
   FEnergyMark  := 0;
   FDefBonus    := 0;
-  
+
   FPain        := 0;
   FFreeze      := 0;
 end;
@@ -377,23 +332,10 @@ begin
 end;
 
 procedure TPlayer.Die;
-var iLast     : DWord;
-    iFileName : AnsiString;
 begin
   FKills.Update(FTurnCount);
   FKills.Update(FTurnCount);
-  Berserk.Finish( BSR_DEAD );
-  UI.Blink(Red,200,0);
-  UI.Msg('You die!...');
-  UI.Msg('Press <{^'+UI.GetKeybinding(COMMAND_OK)+'}>...');
-  UI.Draw;
-  UI.PressEnter;
-  UI.Screen := Menu;
-  iLast := FContext.Lua.Get(['beings',FLastEnemy,'nid']);
-  Berserk.Runtime.Persistence.Add(FKills.Count, FName, FMode,  FKlass, FKills.Count, FTurnCount, FNight, iLast );
-  iFileName := Berserk.Runtime.Paths.WritePath + 'mortem.txt';
-  WriteMortem( iFileName, TBerserkConfiguration( Berserk.Runtime.Configuration ).Version );
-  UI.RunLayer( TMortemLayer.Create( iFileName ) );
+  FDied := True;
 end;
 
 function TPlayer.UseSkill( aSkillID : DWord; aCommand : Byte; aAlt : Boolean ) : Boolean;
@@ -421,113 +363,92 @@ begin
     Exit( FContext.Lua.ProtectedCall(['skills',aSkillID,'OnUse'],[Self,FSkills[aSkillID], aCommand ] ) );
 end;
 
-procedure TPlayer.Action;
-var Command    : Byte;
-    MoveCoord  : TCoord2D;
-    MoveResult : Byte;
-    Direction  : TDirection;
-    Amount     : Word;
-    dxa,dya    : Word;
-    dxv,dyv    : ShortInt;
-    AFlags     : TFlags;
-    Cost       : Word;
-    Slip       : Boolean;
+procedure TPlayer.BeginTurn;
 begin
   Inc(FTurnCount);
   FDefBonus  := 0;
   FContext.Lua.ProtectedCall(['klasses',FKlass,'OnTick'],[Self]);
-  if FKills.ThisTurn > 5 then UI.Msg(IntToStr(FKills.ThisTurn)+' kills!');
+  if FKills.ThisTurn > 5 then TLevel( Parent ).Presentation.Msg(IntToStr(FKills.ThisTurn)+' kills!');
   FKills.Update(FTurnCount);
+end;
 
-repeat
+procedure TPlayer.BeginCommand;
+var iLevel : TLevel;
+begin
+  iLevel := TLevel( Parent );
   if FEN < 10 then Exclude(FFlags,BF_RUNNING);
-  Command := 0;
-  UI.Draw;
+  iLevel.Presentation.Draw;
   FAttackCount := 0;
+  iLevel.RunCellHook( FPosition, TileHook_OnStanding, [Self] );
+end;
 
-  Level.RunCellHook( FPosition, TileHook_OnStanding, [Self] );
+function TPlayer.Slips : Boolean;
+var iLevel : TLevel;
+begin
+  iLevel := TLevel( Parent );
+  Exit( ( TF_ICE in iLevel.getFlags( FPosition ) ) and ( iLevel.GameRNG.Dice( 3, 6 ) > DX ) );
+end;
 
-  Slip := False;
-  
-  if ( TF_ICE in Level.getFlags( FPosition ) ) and
-     ( Berserk.Runtime.GameRNG.Dice( 3, 6 ) > DX ) then
-    Slip := True;
+procedure TPlayer.ActionSlip;
+var iLevel     : TLevel;
+    iDirection : TDirection;
+begin
+  iLevel := TLevel( Parent );
+  iDirection.Create( iLevel.GameRNG.RLongInt( 9 ) + 1 );
+  iLevel.Presentation.Msg('You slip!');
+  FSpeedCount -= 500;
+  ActionMove( iDirection );
+end;
 
-  if not Slip then
+procedure TPlayer.ActionMove( const aDirection : TDirection );
+var iLevel  : TLevel;
+    iCoord  : TCoord2D;
+    iResult : Byte;
+    iCost   : Word;
+begin
+  iLevel  := TLevel( Parent );
+  iCoord  := FPosition + aDirection;
+  iResult := TryMove( iCoord );
+  if (iResult = Move_Ok) or (iCoord = FPosition) then
   begin
-    repeat
-      Command := UI.GetCommand;
-      if Berserk.Finished or UI.QuitRequested then Exit;
-      if Command in [COMMAND_ESCAPE, COMMAND_QUIT] then
-      begin
-        UI.RunLayer( TInGameMenuLayer.Create );
-        if Berserk.Finished or UI.QuitRequested then Exit;
-      end;
-    until not ( Command in [COMMAND_ESCAPE, COMMAND_QUIT] );
-    UI.MsgUpdate;
-  end;
-  
-  if (Command in COMMANDS_MOVE) or Slip then
+    iLevel.Presentation.AddMove( UID, FPosition, iCoord );
+    Displace( iCoord );
+    FDefBonus  := Max(1,FDefBonus);
+    if isRunning then
+    begin
+      Dec(FEN,10-FBonus[BONUS_RUN]);
+      iCost := 750-FBonus[BONUS_RUN] * 50;
+      FDefBonus  := Max(2,FDefBonus);
+    end else iCost := 1000;
+    FSpeedCount -= Round((iCost / 200)*(iLevel.getMoveCost( FPosition )+iLevel.getMoveCost( iCoord )));
+  end
+  else
+  if iResult = Move_Being then
   begin
-    if Slip then
-    begin
-      Direction.Create( Berserk.Runtime.GameRNG.RLongInt( 9 ) + 1 );
-      UI.Msg('You slip!');
-      FSpeedCount -= 500;
-    end
-    else Direction := UI.CommandDirection(Command);
-    MoveCoord := FPosition + Direction;
-    MoveResult := TryMove( MoveCoord );
-    if (MoveResult = Move_Ok) or (MoveCoord = FPosition) then
-    begin
-      UI.AddMove( UID, FPosition, MoveCoord );
-      Displace( MoveCoord );
-      FDefBonus  := Max(1,FDefBonus);
-      if isRunning then
-      begin
-        Dec(FEN,10-FBonus[BONUS_RUN]);
-        Cost := 750-FBonus[BONUS_RUN] * 50;
-        FDefBonus  := Max(2,FDefBonus);
-      end else Cost := 1000;
-      FSpeedCount -= Round((Cost / 200)*(Level.getMoveCost( FPosition )+Level.getMoveCost( MoveCoord )));
-    end
+    if (iLevel.Being[ iCoord ].FAI <> AI_MONSTER) and (not isBerserk) then iLevel.Presentation.Msg('Let them live... a little longer.')
     else
-    if (MoveResult = Move_Being) then
     begin
-      if (Level.Being[ MoveCoord ].FAI <> AI_MONSTER) and (not isBerserk) then UI.Msg('Let them live... a little longer.')
-      else
-      begin
-        Attack(Level.Being[ MoveCoord ]);
-        FSpeedCount -= 1000;
-      end;
+      Attack(iLevel.Being[ iCoord ]);
+      FSpeedCount -= 1000;
     end;
-     // TEMPORARY
   end;
-  
-  case Command of
-    COMMAND_WAIT : begin FSpeedCount -= 1000; FDefBonus := Max(3,FDefBonus); end;
-    COMMAND_LOOK : begin
-        UI.Msg('Look mode, <{^Esc}> to exit.');
-        UI.Msg('You see:');
-        UI.ChooseTarget( TM_LOOK, COMMAND_LOOK );
-      end;
+end;
 
-    COMMAND_RUNNING :
-      if FEN < 10   then UI.Msg('You''re to exhausted to run!') else
-      if isRunning  then Exclude(FFlags,BF_RUNNING)
-                    else Include(FFlags,BF_RUNNING);
+procedure TPlayer.ActionWait;
+begin
+  FSpeedCount -= 1000;
+  FDefBonus := Max(3,FDefBonus);
+end;
 
-    COMMAND_HELP      : UI.RunLayer( THelpLayer.Create( FContext.Lua ) );
-    COMMAND_PLAYERINFO: UI.RunLayer( TGamePlayerLayer.Create );
-    COMMAND_MESSAGES  : UI.RunLayer( TMessagesLayer.Create );
+procedure TPlayer.ActionToggleRun;
+begin
+  if FEN < 10   then TLevel( Parent ).Presentation.Msg('You''re to exhausted to run!') else
+  if isRunning  then Exclude(FFlags,BF_RUNNING)
+                else Include(FFlags,BF_RUNNING);
+end;
 
-      
-    COMMAND_SKILL1   ..COMMAND_SKILL0    : UseSkill( FSkillSlots[Command-COMMAND_SKILL1+1], Command );
-    COMMAND_SKILLALT1..COMMAND_SKILLALT0 : UseSkill( FSkillSlots[Command-COMMAND_SKILLALT1+1], Command, True );
-
-  end;
-  if Berserk.Finished or UI.QuitRequested then Exit;
-until FSpeedCount <= SPEEDLIMIT;
+procedure TPlayer.EndTurn;
+begin
   if FHP <= FHPMax div 10 then FDefBonus += FBonus[ BONUS_SURVIVE ];
 end;
 

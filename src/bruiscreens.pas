@@ -45,37 +45,42 @@ protected
   procedure BeginMenu( aHeight : Integer ); override;
 end;
 
-type TMainMenuResult = ( MMR_QUIT, MMR_NEW_GAME, MMR_CONTINUE );
+// Layers report what happened through these; the caller's handler acts on it.
+type TBerserkEvent      = procedure of object;
+     TBerserkArenaEvent = procedure( aArena : Byte ) of object;
 
+type TMainMenuResult = ( MMR_QUIT, MMR_NEW_GAME, MMR_CONTINUE );
+     PMainMenuResult = ^TMainMenuResult;
+
+// The choice is the value of the blocking run, so it is written to aResult.
 type TMainMenuLayer = class( TLogoMenuLayer )
-  constructor Create( aLua : TLua; aPersistence : TPersistence; const aSavePath : AnsiString;
-    var aResult : TMainMenuResult );
+  constructor Create( aPersistence : TPersistence; const aSavePath : AnsiString;
+    aResult : PMainMenuResult );
 protected
   procedure DrawMenu; override;
 private
-  FLua : TLua; // borrowed from Runtime
   FPersistence : TPersistence;
   FSavePath : AnsiString;
-  FHasSave, FNewGame : Boolean;
-  FResult : ^TMainMenuResult;
+  FHasSave : Boolean;
+  FResult : PMainMenuResult;
+  procedure NewGameConfirmed;
 end;
 
 type THighscoreMenuLayer = class( TLogoMenuLayer )
-  constructor Create( aLua : TLua; aPersistence : TPersistence );
+  constructor Create( aPersistence : TPersistence );
 protected
   procedure DrawMenu; override;
 private
-  FLua : TLua; // borrowed from Runtime
   FPersistence : TPersistence;
 end;
 
 type TNewGameMenuLayer = class( TLogoMenuLayer )
-  constructor Create( const aSavePath : AnsiString; var aConfirmed : Boolean );
+  constructor Create( const aSavePath : AnsiString; aOnConfirmed : TBerserkEvent );
 protected
   procedure DrawMenu; override;
 private
   FSavePath : AnsiString;
-  FConfirmed : ^Boolean;
+  FOnConfirmed : TBerserkEvent;
   FRemoveFailed : Boolean;
 end;
 
@@ -88,19 +93,28 @@ private
 end;
 
 type TInGameMenuLayer = class( TMenuLayer )
-  constructor Create;
+  constructor Create( aOnAbandon : TBerserkEvent );
 protected
   procedure DrawMenu; override;
+private
+  FOnAbandon : TBerserkEvent;
+  procedure Abandoned;
 end;
 
 type TAbandonRunLayer = class( TMenuLayer )
-  constructor Create;
+  constructor Create( aOnAbandon : TBerserkEvent );
 protected
   procedure DrawMenu; override;
+private
+  FOnAbandon : TBerserkEvent;
 end;
 
+// Without aOnCancel the layer cannot be cancelled.
 type TCreationLayer = class( TScreenLayer )
+  constructor Create( aOnCancel : TBerserkEvent = nil );
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
+private
+  FOnCancel : TBerserkEvent;
 end;
 
 type TIntroLayer = class( TScreenLayer )
@@ -112,9 +126,12 @@ type TOutroLayer = class( TScreenLayer )
 end;
 
 type TNightLayer = class( TScreenLayer )
-  constructor Create;
+  constructor Create( aOnSave : TBerserkEvent );
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
 protected
+  procedure Setup; override;
+protected
+  FOnSave : TBerserkEvent;
   FQuote  : Ansistring;
   FError  : AnsiString;
 end;
@@ -124,20 +141,25 @@ type TGameModeLayer = class( TCreationLayer )
 end;
 
 type TGameArenaLayer = class( TCreationLayer )
+  constructor Create( aOnCancel : TBerserkEvent; aOnArena : TBerserkArenaEvent );
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
+private
+  FOnArena : TBerserkArenaEvent;
 end;
 
 type TGameNameLayer = class( TCreationLayer )
-  constructor Create;
   destructor Destroy; override;
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
+protected
+  procedure Setup; override;
 protected
   FName : array[0..32] of Char;
 end;
 
 type TGameStatsLayer = class( TCreationLayer )
-  constructor Create;
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
+protected
+  procedure Setup; override;
 protected
   FInitial  : array[0..3] of Integer;
   FText     : Ansistring;
@@ -156,15 +178,17 @@ type TGameSkillInfo = record
 end;
 
 type TGameSkillsLayer = class( TCreationLayer )
-  constructor Create;
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
+protected
+  procedure Setup; override;
 protected
   FSkillData : array of TGameSkillInfo;
 end;
 
 type TGamePlayerLayer = class( TScreenLayer )
-  constructor Create;
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
+protected
+  procedure Setup; override;
 protected
   FStyle  : TTIGStyle;
   FAmmo   : Ansistring;
@@ -175,6 +199,8 @@ type TFullScreenLayer = class( TIOLayer )
   constructor Create;
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
   function IsModal : Boolean; override;
+protected
+  procedure Setup; override;
 protected
   FHeader   : Ansistring;
   FFooter   : Ansistring;
@@ -196,6 +222,8 @@ end;
 
 type TMessagesLayer = class( TScrollingLayer )
   constructor Create;
+protected
+  procedure Setup; override;
 end;
 
 type THOFLayer = class( TScrollingLayer )
@@ -206,9 +234,11 @@ protected
 end;
 
 type THelpLayer = class( TScrollingLayer )
-  constructor Create( aLua : TLua );
+  constructor Create;
   procedure Update( aDTime : Integer; aActive : Boolean ); override;
   destructor Destroy; override;
+protected
+  procedure Setup; override;
 protected
   FKeys  : TIOStringArray;
 //  FStyle : TTIGStyle;
@@ -216,7 +246,7 @@ end;
 
 implementation
 
-uses sysutils, vutil, vtig, vtigio, vluatable, vxmldata, brdata, brui, brplayer, brmain;
+uses sysutils, vutil, vtig, vtigio, vluatable, vxmldata, brdata, brui, brplayer;
 
 constructor TScreenLayer.Create;
 begin
@@ -275,66 +305,63 @@ begin
   VTIG_BringToTop( FID );
 end;
 
-constructor TMainMenuLayer.Create( aLua : TLua; aPersistence : TPersistence;
-  const aSavePath : AnsiString; var aResult : TMainMenuResult );
+constructor TMainMenuLayer.Create( aPersistence : TPersistence;
+  const aSavePath : AnsiString; aResult : PMainMenuResult );
 begin
   inherited Create( 'main_menu' );
-  FLua := aLua;
   FPersistence := aPersistence;
   FSavePath := aSavePath;
   FHasSave := FileExists( FSavePath );
-  FResult := @aResult;
-  aResult := MMR_QUIT;
+  FResult := aResult;
+  FResult^ := MMR_QUIT;
+end;
+
+procedure TMainMenuLayer.NewGameConfirmed;
+begin
+  FResult^ := MMR_NEW_GAME;
+  FFinished := True;
 end;
 
 procedure TMainMenuLayer.DrawMenu;
 begin
-  if FNewGame then
-  begin
-    FResult^ := MMR_NEW_GAME;
-    FFinished := True;
-    Exit;
-  end;
   BeginMenu( 8 );
   if VTIG_Selectable( 'New Game' ) then
     if FHasSave
-      then UI.PushLayer( TNewGameMenuLayer.Create( FSavePath, FNewGame ) )
+      then UI.PushLayer( TNewGameMenuLayer.Create( FSavePath, @NewGameConfirmed ) )
       else begin FResult^ := MMR_NEW_GAME; FFinished := True; end;
   if VTIG_Selectable( 'Continue', FHasSave ) then
   begin
     FResult^ := MMR_CONTINUE;
     FFinished := True;
   end;
-  if VTIG_Selectable( 'Hall of Fame' ) then UI.PushLayer( THighscoreMenuLayer.Create( FLua, FPersistence ) );
-  if VTIG_Selectable( 'Help' ) then UI.PushLayer( THelpLayer.Create( FLua ) );
+  if VTIG_Selectable( 'Hall of Fame' ) then UI.PushLayer( THighscoreMenuLayer.Create( FPersistence ) );
+  if VTIG_Selectable( 'Help' ) then UI.PushLayer( THelpLayer.Create );
   if VTIG_Selectable( 'Settings' ) then
     UI.ShowSettings;
   if VTIG_Selectable( 'Quit' ) or VTIG_EventCancel then FFinished := True;
   VTIG_End;
 end;
 
-constructor THighscoreMenuLayer.Create( aLua : TLua; aPersistence : TPersistence );
+constructor THighscoreMenuLayer.Create( aPersistence : TPersistence );
 begin
   inherited Create( 'highscore_menu' );
-  FLua := aLua;
   FPersistence := aPersistence;
 end;
 
 procedure THighscoreMenuLayer.DrawMenu;
 begin
   BeginMenu( 5 );
-  if VTIG_Selectable( 'Endless' ) then UI.PushLayer( THOFLayer.Create( FLua, FPersistence, mode_Endless ) );
-  if VTIG_Selectable( 'Massacre' ) then UI.PushLayer( THOFLayer.Create( FLua, FPersistence, mode_Massacre ) );
+  if VTIG_Selectable( 'Endless' ) then UI.PushLayer( THOFLayer.Create( UI.Lua, FPersistence, mode_Endless ) );
+  if VTIG_Selectable( 'Massacre' ) then UI.PushLayer( THOFLayer.Create( UI.Lua, FPersistence, mode_Massacre ) );
   if VTIG_Selectable( 'Back' ) or VTIG_EventCancel then FFinished := True;
   VTIG_End;
 end;
 
-constructor TNewGameMenuLayer.Create( const aSavePath : AnsiString; var aConfirmed : Boolean );
+constructor TNewGameMenuLayer.Create( const aSavePath : AnsiString; aOnConfirmed : TBerserkEvent );
 begin
   inherited Create( 'new_game_menu' );
   FSavePath := aSavePath;
-  FConfirmed := @aConfirmed;
-  aConfirmed := False;
+  FOnConfirmed := aOnConfirmed;
 end;
 
 procedure TNewGameMenuLayer.DrawMenu;
@@ -360,8 +387,8 @@ begin
     begin
       if DeleteFile( FSavePath ) then
       begin
-        FConfirmed^ := True;
         FFinished := True;
+        FOnConfirmed();
       end
       else
       begin
@@ -390,18 +417,20 @@ begin
   if VTIG_EventConfirm or VTIG_EventCancel then FFinished := True;
 end;
 
-constructor TInGameMenuLayer.Create;
+constructor TInGameMenuLayer.Create( aOnAbandon : TBerserkEvent );
 begin
   inherited Create( 'in_game_menu' );
+  FOnAbandon := aOnAbandon;
+end;
+
+procedure TInGameMenuLayer.Abandoned;
+begin
+  FFinished := True;
+  FOnAbandon();
 end;
 
 procedure TInGameMenuLayer.DrawMenu;
 begin
-  if Berserk.Finished then
-  begin
-    FFinished := True;
-    Exit;
-  end;
   if UI.Screen = Menu then
   begin
     UI.Screen := Game;
@@ -415,16 +444,17 @@ begin
     UI.Screen := Menu;
     UI.StatusVisible := False;
     UI.Console.Clear;
-    UI.PushLayer( THelpLayer.Create( Player.Context.Lua ) );
+    UI.PushLayer( THelpLayer.Create );
   end;
   if VTIG_Selectable( 'Settings' ) then UI.ShowSettings;
-  if VTIG_Selectable( 'Abandon run' ) then UI.PushLayer( TAbandonRunLayer.Create );
+  if VTIG_Selectable( 'Abandon run' ) then UI.PushLayer( TAbandonRunLayer.Create( @Abandoned ) );
   VTIG_End;
 end;
 
-constructor TAbandonRunLayer.Create;
+constructor TAbandonRunLayer.Create( aOnAbandon : TBerserkEvent );
 begin
   inherited Create( 'abandon_run' );
+  FOnAbandon := aOnAbandon;
 end;
 
 procedure TAbandonRunLayer.DrawMenu;
@@ -437,19 +467,25 @@ begin
   if VTIG_Selectable( 'Keep playing' ) or VTIG_EventCancel then FFinished := True;
   if VTIG_Selectable( 'Abandon run' ) then
   begin
-    Berserk.Finish( BSR_ABANDONED );
     FFinished := True;
+    FOnAbandon();
   end;
   VTIG_End;
+end;
+
+constructor TCreationLayer.Create( aOnCancel : TBerserkEvent );
+begin
+  inherited Create;
+  FOnCancel := aOnCancel;
 end;
 
 procedure TCreationLayer.Update( aDTime : Integer; aActive : Boolean );
 begin
   inherited Update( aDTime, aActive );
-  if aActive and Berserk.Creating and VTIG_EventCancel then
+  if aActive and Assigned( FOnCancel ) and VTIG_EventCancel then
   begin
-    Berserk.Finish( BSR_CANCELLED );
     FFinished := True;
+    FOnCancel();
   end;
 end;
 
@@ -457,6 +493,11 @@ constructor TFullScreenLayer.Create;
 begin
   VTIG_EventClear;
   FHeader   := '';
+end;
+
+procedure TFullScreenLayer.Setup;
+begin
+  inherited Setup;
   FFooter   := ' Scroll: {!'+UI.GetUIKeybinding(VTIG_IE_UP)+'}/{!'+UI.GetUIKeybinding(VTIG_IE_DOWN)+'}, {!'+UI.GetUIKeybinding(VTIG_IE_PGUP)+'}/{!'+UI.GetUIKeybinding(VTIG_IE_PGDOWN)+'}. Exit: {!'+UI.GetUIKeybinding(VTIG_IE_CANCEL)+'}/{!'+UI.GetUIKeybinding(VTIG_IE_CONFIRM)+'}.';
 end;
 
@@ -511,14 +552,19 @@ begin
 end;
 
 constructor TMessagesLayer.Create;
-var iMsg    : AnsiString;
 begin
   inherited Create( nil );
   FHeader := ' {!Berserk!} Previous messages';
   FContent := TIOStringArray.Create;
+  FScrollDown := True;
+end;
+
+procedure TMessagesLayer.Setup;
+var iMsg : AnsiString;
+begin
+  inherited Setup;
   for iMsg in UI.Messages.Content do
     FContent.Push( iMsg );
-  FScrollDown := True;
 end;
 
 constructor THOFLayer.Create( aLua : TLua; aPersistence : TPersistence; aMode : Byte; aHighlight : Boolean );
@@ -594,19 +640,25 @@ const KeyData : array[0..5] of TKeyInfo = (
   ( Entry : 'Game menu';        Command : COMMAND_QUIT; ),
   ( Entry : 'Help';             Command : COMMAND_HELP; ) );
 
-constructor THelpLayer.Create( aLua : TLua );
-var i, iSid : Integer;
+constructor THelpLayer.Create;
 begin
   inherited Create( nil );
   FKeys := TIOStringArray.Create;
+  FStyle.Padding[ VTIG_WINDOW_PADDING ] := Point(0,1);
+end;
+
+procedure THelpLayer.Setup;
+var i, iSid : Integer;
+begin
+  inherited Setup;
   for i := 0 to High( KeyData ) do
     FKeys.Push( Padded( KeyData[i].Entry, 17 ) +' {!' + UI.GetKeybinding( KeyData[i].Command ) + '}' );
-  if Player <> nil then
+  if UI.Player <> nil then
     for i := 1 to SKILL_SLOTS do
     begin
-      iSid := Player.FSkillSlots[ i ];
-      if ( iSid > 0 ) and ( Player.FSkills[ i ] > 0 ) then
-      with aLua.GetTable( ['skills', iSid] ) do
+      iSid := UI.Player.FSkillSlots[ i ];
+      if ( iSid > 0 ) and ( UI.Player.FSkills[ i ] > 0 ) then
+      with UI.Lua.GetTable( ['skills', iSid] ) do
       try
         if IsFunction('OnUse')    then FKeys.Push( Padded( GetString('name_use'), 17 ) +' {!' + UI.GetKeybinding( COMMAND_SKILL1-1+i ) + '}' );
         if IsFunction('OnAltUse') then FKeys.Push( Padded( GetString('name_altuse'), 17 ) +' {!' + UI.GetKeybinding( COMMAND_SKILLALT1-1+i ) + '}' );
@@ -614,7 +666,6 @@ begin
         Free;
       end;
     end;
-  FStyle.Padding[ VTIG_WINDOW_PADDING ] := Point(0,1);
 end;
 
 procedure THelpLayer.Update( aDTime : Integer; aActive : Boolean );
@@ -722,15 +773,21 @@ begin
   if VTIG_EventConfirm or VTIG_EventCancel then FFinished := True;
 end;
 
-constructor TNightLayer.Create;
-var i : Integer;
+constructor TNightLayer.Create( aOnSave : TBerserkEvent );
 begin
   inherited Create;
-  i := Player.Context.Lua.GetTableSize('quotes');
+  FOnSave := aOnSave;
+end;
+
+procedure TNightLayer.Setup;
+var i : Integer;
+begin
+  inherited Setup;
+  i := UI.Lua.GetTableSize('quotes');
   i := UI.VisualRNG.RLongInt( i ) + 1;
-  FQuote  := Player.Context.Lua.Get( ['quotes', i, 'text'] ) +
+  FQuote  := UI.Lua.Get( ['quotes', i, 'text'] ) +
              #10+'                        {d-- }'+
-             Player.Context.Lua.Get( ['quotes', i, 'author'] );
+             UI.Lua.Get( ['quotes', i, 'author'] );
 end;
 
 procedure TNightLayer.Update( aDTime : Integer; aActive : Boolean );
@@ -739,7 +796,7 @@ begin
   VTIG_Begin( 'night', Point( 61, 20 ), Point( 10, 3 ) );
   VTIG_Text('');
   VTIG_Text('');
-  VTIG_Text('                   {RBERSERK!} {rNight }{R{0}}', [Player.Night] );
+  VTIG_Text('                   {RBERSERK!} {rNight }{R{0}}', [UI.Player.Night] );
   VTIG_Text('');
   VTIG_Text('');
   VTIG_Text('');
@@ -749,14 +806,13 @@ begin
   VTIG_Text('');
   VTIG_Text('');
   VTIG_Text('');
-  VTIG_Text('{R                {0} kills and counting...}', [Player.FKills.Count] );
+  VTIG_Text('{R                {0} kills and counting...}', [UI.Player.FKills.Count] );
   VTIG_Text('');
   if VTIG_Selectable('       Continue')      then FFinished := True;
   if VTIG_Selectable('       Save and Exit') then
   begin
     try
-      Berserk.Save;
-      Berserk.Finish( BSR_SAVED );
+      FOnSave();
       FFinished := True;
     except
       on E : Exception do FError := 'Save failed: '+E.Message;
@@ -776,13 +832,19 @@ begin
   VTIG_End;
   UI.RenderWindow( Point( 12, 5 ), Point( 65, 10 ) );
   VTIG_Begin( 'mode', Point( 12, 5 ), Point( 65, 10 ) );
-  if VTIG_Selectable('Endless')  then begin Player.Mode := Mode_Endless;  FFinished := True; end;
-  if VTIG_Selectable('Massacre') then begin Player.Mode := Mode_Massacre; FFinished := True; end;
+  if VTIG_Selectable('Endless')  then begin UI.Player.Mode := Mode_Endless;  FFinished := True; end;
+  if VTIG_Selectable('Massacre') then begin UI.Player.Mode := Mode_Massacre; FFinished := True; end;
   VTIG_End;
   inherited Update( aDTime, aActive );
 end;
 
 const ArenaData : array[0..3] of Ansistring = ('Fields','Forest','Town','Snow');
+
+constructor TGameArenaLayer.Create( aOnCancel : TBerserkEvent; aOnArena : TBerserkArenaEvent );
+begin
+  inherited Create( aOnCancel );
+  FOnArena := aOnArena;
+end;
 
 procedure TGameArenaLayer.Update( aDTime : Integer; aActive : Boolean );
 var i : Integer;
@@ -796,17 +858,16 @@ begin
   for i := 0 to 3 do
     if VTIG_Selectable(ArenaData[i]) then
     begin
-      Berserk.Arena := i+1;
       FFinished := True;
+      FOnArena( i+1 );
     end;
   VTIG_End;
   inherited Update( aDTime, aActive );
 end;
 
-constructor TGameNameLayer.Create;
+procedure TGameNameLayer.Setup;
 begin
-  inherited Create;
-  FName[0] := #0;
+  inherited Setup;
   UI.Driver.StartTextInput;
   UI.Console.ShowCursor;
 end;
@@ -818,7 +879,7 @@ begin
   VTIG_Text('What''s your name?');
   if VTIG_Input( @FName[0], 16 ) then
   begin
-    Player.Name := AnsiString(FName);
+    UI.Player.Name := AnsiString(FName);
     FFinished := True;
   end;
   VTIG_End;
@@ -827,8 +888,12 @@ end;
 
 destructor TGameNameLayer.Destroy;
 begin
-  UI.Driver.StopTextInput;
-  UI.Console.HideCursor;
+  // RunLayer frees a layer without pushing it once quit is requested.
+  if Owner <> nil then
+  begin
+    UI.Driver.StopTextInput;
+    UI.Console.HideCursor;
+  end;
   inherited Destroy;
 end;
 
@@ -844,20 +909,20 @@ const StatsData : array[0..3] of TStatsInfo = (
   ( Name : 'Endurance'; Cost : 1; Desc : '-- increases hitpoints'#10'-- increases energy'#10'-- decreases knockback'; ),
   ( Name : 'Willpower'; Cost : 1; Desc : '-- increases energy'#10'-- quickens pain recovery'#10'-- quickens energy recovery'#10'-- affects berserking' ) );
 
-constructor TGameStatsLayer.Create;
+procedure TGameStatsLayer.Setup;
 var i : Integer;
 begin
-  inherited Create;
+  inherited Setup;
   for i := 0 to 3 do
-    FInitial[i] := Player.FStats[i];
-  if Player.Mode = MODE_MASSACRE then
+    FInitial[i] := UI.Player.FStats[i];
+  if UI.Player.Mode = MODE_MASSACRE then
   begin
     FText     := 'Choose your basic statistics. Up and down to navigate, right to increase, and left lower.';
     FDoneText := 'Press {!'+UI.GetUIKeybinding(VTIG_IE_CONFIRM)+'} to accept the chosen stats. Excess points will be lost.';
   end
   else
   begin
-    if Player.Night < 2
+    if UI.Player.Night < 2
       then FText := 'Choose your basic statistics. Up and down to navigate, right to increase, and left lower. Unspent points may be used in the next avancement.'
       else FText := 'Choose which statistics to upgrade. Up and down to navigate, right to increase, and left lower. Unspent points will be kept.';
       FDoneText := 'Press {!'+UI.GetUIKeybinding(VTIG_IE_CONFIRM)+'} to accept the chosen stats. Excess points will be kept.';
@@ -870,25 +935,25 @@ var i : Integer;
    var iCurrent : Integer;
        iCost    : Integer;
    begin
-     iCurrent := Player.FStats[ aIndex ];
+     iCurrent := UI.Player.FStats[ aIndex ];
      iCost    := StatsData[ aIndex ].Cost * aValue;
      if ( aValue < 0 ) and ( iCurrent <= FInitial[ aIndex ] ) then Exit( False );
-     if ( aValue > 0 ) and ( Player.Points < iCost )          then Exit( False );
-     Player.Points := Player.Points - iCost;
-     Player.FStats[ aIndex ] += aValue;
+     if ( aValue > 0 ) and ( UI.Player.Points < iCost )          then Exit( False );
+     UI.Player.Points := UI.Player.Points - iCost;
+     UI.Player.FStats[ aIndex ] += aValue;
      Exit( True );
    end;
 begin
   UI.RenderWindow( Point( 54, 13 ),     Point( 14, 5 ) );
   VTIG_Begin( 'stats', Point( 54, 13 ), Point( 14, 5 ) );
     VTIG_Text(FText);
-    VTIG_Text( 'Points : {!{0}}',[Player.Points] );
+    VTIG_Text( 'Points : {!{0}}',[UI.Player.Points] );
     VTIG_Text('');
 
     VTIG_BeginGroup( 10, True );
       VTIG_BeginGroup( 20 );
         for i := 0 to 3 do
-          if VTIG_Selectable(StatsData[i].Name+' [{L'+IntToStr( Player.FStats[i])+'}]')  then
+          if VTIG_Selectable(StatsData[i].Name+' [{L'+IntToStr( UI.Player.FStats[i])+'}]')  then
             Modify( i, 1 );
         if VTIG_Selectable('Done') then
           FFinished := True;
@@ -915,42 +980,42 @@ begin
   inherited Update( aDTime, aActive );
 end;
 
-constructor TGameSkillsLayer.Create;
+procedure TGameSkillsLayer.Setup;
 var i, iMax, iV, iC : Integer;
     iReq            : Ansistring;
     iPair           : TLuaValuePair;
 begin
-  inherited Create;
-  iMax := Player.Context.Lua.Get(['skills','__counter']);
+  inherited Setup;
+  iMax := UI.Lua.Get(['skills','__counter']);
   SetLength( FSkillData, iMax );
   iC := 0;
   for i := 0 to iMax - 1 do
     with FSkillData[iC] do
-      with Player.Context.Lua.GetTable(['skills',i+1]) do
+      with UI.Lua.GetTable(['skills',i+1]) do
         try
           if GetBoolean('pickable',False) then
           begin
             Index := i+1;
             Name  := GetString( 'name' );
             Entry := Name;
-            if Player.FSkills[ Index ] > 0 then
-              Entry += ' ('+IntToStr( Player.FSkills[ Index ] + 1 )+')';
+            if UI.Player.FSkills[ Index ] > 0 then
+              Entry += ' ('+IntToStr( UI.Player.FSkills[ Index ] + 1 )+')';
             Max   := GetInteger( 'max_level' );
             Desc  := GetString( 'description' );
             Pic   := GetString( 'picture' );
-            Allow := Player.ReqsMet( Index );
+            Allow := UI.Player.ReqsMet( Index );
             Reqs  := '';
-            with Player.Context.Lua.GetTable(['skills',Index,'reqs']) do
+            with UI.Lua.GetTable(['skills',Index,'reqs']) do
             try
               for iPair in Pairs do
               begin
                 iReq := iPair.Key.ToString;
                 iV   := iPair.Value.ToInteger;
                 if Reqs <> '' then Reqs += '            ';
-                if Player.ReqMet( iReq, iV )
+                if UI.Player.ReqMet( iReq, iV )
                   then Reqs += '{g'
                   else Reqs += '{r';
-                Reqs += Player.ReqToString( iReq, iV );
+                Reqs += UI.Player.ReqToString( iReq, iV );
                 Reqs += '}'#10;
               end;
             finally
@@ -974,7 +1039,7 @@ begin
       with FSkillData[i] do
         if VTIG_Selectable( Entry, Allow ) then
         begin
-          Player.IncSkill( Index );
+          UI.Player.IncSkill( Index );
           FFinished := True;
         end;
     i := VTIG_Selected;
@@ -998,20 +1063,20 @@ begin
   inherited Update( aDTime, aActive );
 end;
 
-constructor TGamePlayerLayer.Create;
+procedure TGamePlayerLayer.Setup;
 var i, iMax, iAmmo, iQs, iC : Integer;
 begin
-  inherited Create;
+  inherited Setup;
   FSkills := '';
   FAmmo   := '';
-  iMax := Player.Context.Lua.Get(['skills','__counter']);
+  iMax := UI.Lua.Get(['skills','__counter']);
   iC   := 0;
   for i := 1 to iMax do
-    if Player.FSkills[ i ] > 0 then
-    with Player.Context.Lua.GetTable(['skills',i]) do
+    if UI.Player.FSkills[ i ] > 0 then
+    with UI.Lua.GetTable(['skills',i]) do
       try
         if GetBoolean('pickable',False) then
-          FSkills += ' '+GetString( 'name' )+' (level {!'+IntToStr(Player.FSkills[ i ])+'})'#10;
+          FSkills += ' '+GetString( 'name' )+' (level {!'+IntToStr(UI.Player.FSkills[ i ])+'})'#10;
         iAmmo := GetInteger('ammo_slot');
         if iAmmo > 0 then
         begin
@@ -1019,8 +1084,8 @@ begin
           if iC mod 2 = 0 then FAmmo += ' ';
           FAmmo += Padded( GetString( 'name' ), 10 );
           if iQs = 0
-            then FAmmo += Padded( '{!'+IntToStr( Player.FAmmo[ iAmmo ] ) + '}', 9 )
-            else FAmmo += Padded( '{!'+IntToStr( Player.FAmmo[ iAmmo ] ) + '}/{!'+IntToStr( Player.FAmmo[ iQs ] )+'}',12);
+            then FAmmo += Padded( '{!'+IntToStr( UI.Player.FAmmo[ iAmmo ] ) + '}', 9 )
+            else FAmmo += Padded( '{!'+IntToStr( UI.Player.FAmmo[ iAmmo ] ) + '}/{!'+IntToStr( UI.Player.FAmmo[ iQs ] )+'}',12);
           if iC mod 2 = 1 then FAmmo += #10;
           Inc( iC );
         end;
@@ -1046,32 +1111,32 @@ begin
     VTIG_Text('');
     VTIG_BeginGroup( 15, True );
       VTIG_BeginGroup( 31 );
-        VTIG_Text(' Name     : {!{0}}', [Player.Name] );
-        VTIG_Text(' Game type: {!{0}}', [ModeToString( Player.Mode )]);
-        VTIG_Text(' Strength : {!{0}}  Dexterity: {!{1}}', [ Player.ST, Player.DX ] );
-        VTIG_Text(' Endurance: {!{0}}  Willpower: {!{1}}', [ Player.EN, Player.WP ] );
-        VTIG_Text(' Weight   : {!{0}}  Speed    : {!{1}}', [ Player.Weight, Player.Speed ] );
-        VTIG_Text(' Base damage - {!{0}}d6{1}', [Player.dmg_dice,BonusStr(Player.dmg_mod)] );
+        VTIG_Text(' Name     : {!{0}}', [UI.Player.Name] );
+        VTIG_Text(' Game type: {!{0}}', [ModeToString( UI.Player.Mode )]);
+        VTIG_Text(' Strength : {!{0}}  Dexterity: {!{1}}', [ UI.Player.ST, UI.Player.DX ] );
+        VTIG_Text(' Endurance: {!{0}}  Willpower: {!{1}}', [ UI.Player.EN, UI.Player.WP ] );
+        VTIG_Text(' Weight   : {!{0}}  Speed    : {!{1}}', [ UI.Player.Weight, UI.Player.Speed ] );
+        VTIG_Text(' Base damage - {!{0}}d6{1}', [UI.Player.dmg_dice,BonusStr(UI.Player.dmg_mod)] );
         VTIG_Text('');
         VTIG_Text('-- {!Skills} '+StringOfChar('-',20));
         VTIG_Text('');
         VTIG_Text(FSkills);
       VTIG_EndGroup;
       VTIG_BeginGroup;
-        VTIG_Text(' Monsters killed : {!{0}}', [Player.FKills.Count] );
-        if Player.Mode <> MODE_MASSACRE
-          then VTIG_Text(' Nights survived : {!{0}}', [Integer(Player.Night-1)] )
+        VTIG_Text(' Monsters killed : {!{0}}', [UI.Player.FKills.Count] );
+        if UI.Player.Mode <> MODE_MASSACRE
+          then VTIG_Text(' Nights survived : {!{0}}', [Integer(UI.Player.Night-1)] )
           else VTIG_Text('');
         VTIG_Text('');
         VTIG_Text(FAmmo);
         VTIG_Text('');
         VTIG_Text('-- {!Achievements} '+StringOfChar('-',16));
         VTIG_Text('');
-        VTIG_Text(' Kills in 1 turn   : {!{0}}', [ Player.FKills.BestTurn ] );
-        VTIG_Text(' Killing sequence  : {!{0}}', [ Player.FKills.BestSequence ] );
-        VTIG_Text(' Sequence duration : {!{0}t}',[ Player.FKills.BestSequenceLength ] );
-        VTIG_Text(' Kills w/o damage  : {!{0}}', [ Player.FKills.BestNoDamageSequence ] );
-        VTIG_Text(' Survived for      : {!{0}t}',[ Player.turn_count ] );
+        VTIG_Text(' Kills in 1 turn   : {!{0}}', [ UI.Player.FKills.BestTurn ] );
+        VTIG_Text(' Killing sequence  : {!{0}}', [ UI.Player.FKills.BestSequence ] );
+        VTIG_Text(' Sequence duration : {!{0}t}',[ UI.Player.FKills.BestSequenceLength ] );
+        VTIG_Text(' Kills w/o damage  : {!{0}}', [ UI.Player.FKills.BestNoDamageSequence ] );
+        VTIG_Text(' Survived for      : {!{0}t}',[ UI.Player.turn_count ] );
       VTIG_EndGroup;
     VTIG_EndGroup;
     VTIG_FreeLabel( '-- Press <{!'+UI.GetUIKeybinding(VTIG_IE_CONFIRM)+'}> to exit... '+StringOfChar('-',37), Point(0,20) );

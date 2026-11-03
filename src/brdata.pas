@@ -3,8 +3,8 @@
 // @created(Oct 16, 2006)
 // @lastmod(Oct 22, 2006)
 //
-// This unit holds the global variables and the game data for Berserk. It also
-// implements some global helper functions.
+// This unit holds the game data for Berserk. It also implements some global
+// helper functions.
 //
 //  @html <div class="license">
 //  This file is part of BerserkRL.

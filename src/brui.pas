@@ -29,7 +29,7 @@ unit brui;
 interface
 
 uses vutil, vio, viorl, vrltools, viotypes, vioevent, vioconsole, vbindings, vsound, vmessages, vlua,
-     brdata, brconfiguration;
+     brdata, brconfiguration, brbeing, brplayer, brlevel;
 
 const
     COMMAND_SKILLS    = [ COMMAND_SKILL1,COMMAND_SKILL2,
@@ -82,8 +82,6 @@ type
     // Graphical effect of a screen flash, of the given color, and Duration in
     // miliseconds.
     procedure Blink( aColor : Byte; aDuration : Word; aSequence : Word ); virtual; abstract;
-    // Cleaning up everything that was initialized in TBerserkUI.Create.
-    destructor Destroy; override;
     // Converts Commands to Direction values
     function CommandDirection(Command : byte) : TDirection;
     // Moves the cursor to the position x,y in terms of Map coords.
@@ -112,8 +110,13 @@ type
     // Plays the sound bound to the given being and event
     procedure PlayBeingSound( const aID, aSound : AnsiString; const aWhere : TCoord2D );
     procedure PlayMusic( const aMusicID : AnsiString );
+    // The being with the given UID in the current Session, if any.
+    function BeingByUID( aUID : TUID ) : TBeing;
     // Register API
     procedure RegisterLuaAPI( aLua : TLua );
+  private
+    function GetPlayer : TPlayer;
+    function GetLevel : TLevel;
   protected
     FConfiguration : TBerserkConfiguration;
     FAudio         : TSound;
@@ -127,21 +130,31 @@ type
     // Non-owning reference to Runtime's Lua generation.
     property Lua           : TLua    read FLua write FLua;
     property HelpPath      : AnsiString read FHelpPath;
+    // The Session's player and level, borrowed; nil outside a Session.
+    property Player        : TPlayer read GetPlayer;
+    property Level         : TLevel  read GetLevel;
     property QuitRequested : Boolean read FQuitRequested;
     property StatusVisible : Boolean read FStatusVisible write FStatusVisible;
   end;
 
 
-// Singleton for the TBerserkUI class
-const UI : TBerserkUI = nil;
+// Layers reach their IO through their owner, which is set when they are pushed.
+type TBerserkLayerHelper = class helper for TIOLayer
+  function UI : TBerserkUI;
+end;
 
 implementation
 
 uses sysutils, dateutils, variants, math,
      vtigstyle, vtig, vluagamestack, vlualibrary,
-     brlevel, brplayer, brmain, bruiscreens, brsettingsview;
+     bruiscreens, brsettingsview;
 
 const MESSAGE_BUFFER = 100;
+
+function TBerserkLayerHelper.UI : TBerserkUI;
+begin
+  Exit( TBerserkUI( Owner ) );
+end;
 
 { TBerserkUI }
 
@@ -186,7 +199,6 @@ begin
 
   Msg('Berserk!');
   Msg('Press {^'+GetKeybinding(COMMAND_HELP)+'} for help.');
-  UI := Self;
 end;
 
 procedure TBerserkUI.Reconfigure;
@@ -427,6 +439,22 @@ begin
   if iSound <> '' then FAudio.PlaySample( iSound, aWhere );
 end;
 
+function TBerserkUI.GetPlayer : TPlayer;
+begin
+  Exit( TPlayer( FPlayer ) );
+end;
+
+function TBerserkUI.GetLevel : TLevel;
+begin
+  Exit( TLevel( FLevel ) );
+end;
+
+function TBerserkUI.BeingByUID( aUID : TUID ) : TBeing;
+begin
+  if FLevel = nil then Exit( nil );
+  Exit( FLevel.Context.UIDs.Get( aUID ) as TBeing );
+end;
+
 procedure TBerserkUI.PlayMusic( const aMusicID : AnsiString );
 begin
   if FAudio <> nil then FAudio.PlayMusic( aMusicID );
@@ -434,14 +462,14 @@ end;
 
 procedure TBerserkUI.MsgCoord ( Coord : TCoord2D ) ;
 begin
-  UI.MsgKill;
+  MsgKill;
   if Level.Vision.isVisible( Coord ) then
     if Level.Being[ Coord ] <> nil then
-      UI.Msg(Level.Being[ Coord ].LookDescribe)
+      Msg(Level.Being[ Coord ].LookDescribe)
     else
-      UI.Msg(Level.Terrain[ Coord ].Name)
+      Msg(Level.Terrain[ Coord ].Name)
   else
-    UI.Msg('nothing');
+    Msg('nothing');
 end;
 
 function TBerserkUI.GetCommand( Valid : TCommandSet ) : Byte;
@@ -460,7 +488,7 @@ begin
     iAction := GameBindings.ResolveKey( FKeyCode );
     if iAction = BINDING_FORWARD_LUA then
     begin
-      if Berserk.Finished then Continue;
+      if Player.Died then Continue;
       iValue := FConfiguration.LuaConfig.RunGodKey( FKeyCode );
       if VarIsOrdinal( iValue ) and not VarIsType( iValue, varBoolean )
         then iAction := Integer( iValue )
@@ -551,13 +579,6 @@ begin
   if Screen <> Game then Exit;
   Focus(Player.Position);
   Level.Vision.Run(Player.Position,Player.LightRadius);
-end;
-
-destructor TBerserkUI.Destroy;
-begin
-  // Layer destructors can still use the driver to end text input.
-  inherited Destroy;
-  UI := nil;
 end;
 
 function TBerserkUI.CommandDirection(Command : byte) : TDirection;

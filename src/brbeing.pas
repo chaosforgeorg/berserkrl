@@ -124,10 +124,10 @@ TBeing = class(TLuaEntityNode)
   procedure Die; virtual;
   
   // Action method -- called by Tick if enough SpeedCount is accumulated.
-  procedure Action; virtual;
+  procedure Action;
   
   // Tick method -- called by TLevel.Tick. Processes SpeedCount accumulation and
-  // regeneration rates is applicable.
+  // regeneration rates is applicable. The Session runs the player's commands.
   procedure Tick;
   
   // Melee Attack against the Target being
@@ -251,7 +251,7 @@ TBeing = class(TLuaEntityNode)
 end;
 
 implementation
-uses variants, vluaext, vvision, vlualibrary, brlevel, brmain, brplayer, brui;
+uses variants, vluaext, vvision, vlualibrary, brlevel, brplayer;
 
 
 { TBeing }
@@ -523,12 +523,13 @@ begin
   if FFreeze > FSpeed-10 then FFreeze := FSpeed - 10;
   if iLevel.Presentation.VisualRNG.RLongInt(1000) = 0 then PlaySound('passive');
   FSpeedCount += FSpeed - FFreeze;
-  while FSpeedCount > SPEEDLIMIT do
-  begin
-    Action;
-    // Action may kill this being, e.g. a self-destructing OnAction hook.
-    if Dead or Berserk.Finished or UI.QuitRequested then Exit;
-  end;
+  if not isPlayer then
+    while FSpeedCount > SPEEDLIMIT do
+    begin
+      Action;
+      // Action may kill this being, e.g. a self-destructing OnAction hook.
+      if Dead or iLevel.Player.Died then Exit;
+    end;
   if (FPain > 0) or (FFreeze > 0) or (FEN < FENMAX) then
   begin
     FWillCount += WP*WP;
@@ -691,7 +692,7 @@ begin
         Target.RandomShift( iLevel.GameRNG, 2 );
   end;
 
-  Ray.Init(Level,FPosition,Target);
+  Ray.Init(iLevel,FPosition,Target);
   repeat
     Ray.Next;
     if not iLevel.isProperCoord(Ray.Current) then Exit;

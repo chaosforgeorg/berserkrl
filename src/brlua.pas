@@ -40,7 +40,6 @@ public
   constructor Create( aUI : TBerserkUI ); reintroduce;
   procedure OnError( const Message : AnsiString ); override;
   procedure Load( const aDataPath : AnsiString );
-  procedure RegisterPlayer( aPlayer : TPlayer; aLevel : TLevel );
   // Terrain definitions of this Lua generation.
   property Terrain : TTerrainDataArray read FTerrain;
 end;
@@ -142,13 +141,6 @@ begin
     Free;
   end;
 
-end;
-
-procedure TBerserkLua.RegisterPlayer( aPlayer : TPlayer; aLevel : TLevel );
-begin
-  SetValue( 'player', aPlayer );
-  SetValue( 'level', aLevel );
-  RegisterKillsClass( Raw, aPlayer.FKills );
 end;
 
 procedure TBerserkLua.OnError( const Message : AnsiString );

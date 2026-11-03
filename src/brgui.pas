@@ -28,7 +28,7 @@ interface
 
 uses vapp, brconfiguration, brdisplay, vioevent, SysUtils, vutil, vgenerics, vrltools, vvision, vtextures, vglimage, viotypes,
      vimage, brui, brdata, vglquadrenderer, vgltypes, vspriteengine,
-     vanimation, branimation;
+     vanimation;
 
 type
 
@@ -106,16 +106,13 @@ TBerserkGUI = class(TBerserkUI)
     property Sprites : TSpriteDataSet read FSprites;
   end;
 
-var GUI : TBerserkGUI = nil;
-
-
 implementation
 
 uses {$IFDEF WINDOWS}Windows,{$ENDIF}
      vuid, vgl3library, vtig,
      vioconsole, vsdlio, vsdl3library, vglconsole, vlog,
      vmath, vdebug, math, vcolor,
-     brbeing, brplayer, brlevel, brmain;
+     brbeing, brplayer, brlevel, branimation;
 
 { TBerserkTextures }
 
@@ -284,7 +281,6 @@ begin
   FPostQuads := TGLQuadList.Create;
 
   inherited Create( aConfiguration, aPaths.DataPath );
-  GUI := Self;
 
   FTarget.Create( 0,0 );
 
@@ -516,15 +512,13 @@ begin
 
   if (aType <> MTENERGY) and (aType <> MTICE) then
   begin
-    FAnimations.AddAnimation( TGLMissileAnimation.Create(
-      iFull, aSequence, 113, 0,
+    FAnimations.AddAnimation( TGLMissileAnimation.Create( Self, iFull, aSequence, 113, 0,
       aSource, aTarget, GLVec2i(24,2), iColor, True, 1.0
     ) );
   end
   else
   begin
-    FAnimations.AddAnimation( TGLMissileAnimation.Create(
-      iFull, aSequence, 113, 0,
+    FAnimations.AddAnimation( TGLMissileAnimation.Create( Self, iFull, aSequence, 113, 0,
       aSource, aTarget, GLVec2i(24,24), iColor, False, 0.5
     ) );
   end;
@@ -548,7 +542,7 @@ begin
     LightRed: iGLColor.Init(1.2,1.2,1.2,1.0);
   end;
 
-  FAnimations.AddAnimation( TGLExplAnimation.Create( aDrawDelay * aRange, aSequence, aWhere, GLVec2i( 24*aRange, 24*aRange ), iGLColor ) );
+  FAnimations.AddAnimation( TGLExplAnimation.Create( Self, aDrawDelay * aRange, aSequence, aWhere, GLVec2i( 24*aRange, 24*aRange ), iGLColor ) );
 end;
 
 procedure TBerserkGUI.Breath( aWhere : TCoord2D; aDirection : TDirection; aColor : byte;
@@ -586,8 +580,7 @@ begin
     if not Level.Vision.isVisible( iCoord ) then Continue;
     if not Level.isEyeContact( iCoord, aWhere ) then Continue;
 
-    FAnimations.AddAnimation( TGLExplAnimation.Create(
-       aDrawDelay * 6,
+    FAnimations.AddAnimation( TGLExplAnimation.Create( Self, aDrawDelay * 6,
        iDist*aDrawDelay+VisualRNG.RLongInt(aDrawDelay*3),
        iCoord, GLVec2i( 48, 48 ), iGLColor ) );
   end;
@@ -597,7 +590,7 @@ procedure TBerserkGUI.Blink( aColor : Byte; aDuration : Word; aSequence : Word )
 begin
   with GLFloatColors[ aColor ] do
     FAnimations.AddAnimation(
-      TGLBlinkAnimation.Create( aDuration, aSequence,
+      TGLBlinkAnimation.Create( Self, aDuration, aSequence,
       GLVec4f( Data[0], Data[1], Data[2], 0.7 ) )
     );
 end;
@@ -605,13 +598,13 @@ end;
 procedure TBerserkGUI.AddMove(aWho: TUID; const aFrom, aTo: TCoord2D);
 var iBeing : TBeing;
 begin
-  iBeing := Berserk.UIDs.Get( aWho ) as TBeing;
+  iBeing := BeingByUID( aWho );
   if Level.Vision.isVisible( aFrom ) or Level.Vision.isVisible( aTo ) then
   if (iBeing <> nil) and (aFrom <> aTo) then
   begin
-    FAnimations.AddAnimation( TGLMoveAnimation.Create( 150, 0, iBeing, aFrom, aTo ) );
+    FAnimations.AddAnimation( TGLMoveAnimation.Create( Self, 150, 0, iBeing, aFrom, aTo ) );
     if iBeing.isPlayer then
-      FAnimations.AddAnimation( TGLScreenMoveAnimation.Create( 150, 0, Level.UID, aFrom, aTo ) );
+      FAnimations.AddAnimation( TGLScreenMoveAnimation.Create( Self, 150, 0, Level.UID, aFrom, aTo ) );
   end;
 end;
 
@@ -620,13 +613,13 @@ procedure TBerserkGUI.AddAttack(aWho: TUID; aHit: Boolean; const aFrom,
 var iBeing : TBeing;
     iDelay : DWord;
 begin
-  iBeing := Berserk.UIDs.Get( aWho ) as TBeing;
+  iBeing := BeingByUID( aWho );
   if Level.Vision.isVisible( aFrom ) or Level.Vision.isVisible( aTo ) then
   if (iBeing <> nil) and (aFrom <> aTo) then
   begin
-    iDelay := FAnimations.AddAnimation( TGLAttackAnimation.Create( 80, 0, iBeing, aFrom, aTo ) );
+    iDelay := FAnimations.AddAnimation( TGLAttackAnimation.Create( Self, 80, 0, iBeing, aFrom, aTo ) );
     if aHit then
-      FAnimations.AddAnimation( TGLMarkAnimation.Create( 200, iDelay + 50, 44, ToAbsPos( aTo, GMODE_EFFECT_Z ), GLVec2i(24,32), GLVec4f(1,1,1,1), VisualRNG.RLongInt(2) = 1 ) );
+      FAnimations.AddAnimation( TGLMarkAnimation.Create( Self, 200, iDelay + 50, 44, ToAbsPos( aTo, GMODE_EFFECT_Z ), GLVec2i(24,32), GLVec4f(1,1,1,1), VisualRNG.RLongInt(2) = 1 ) );
     FAnimations.AddAnimation( TSoundAnimation.Create( FAudio, iDelay div 2, iBeing.Position, ResolveSoundID( iBeing.id, Iif( aHit, 'hit', 'miss' ) ) ) );
   end;
 end;
@@ -763,7 +756,6 @@ end;
 destructor TBerserkGUI.Destroy;
 begin
   FreeAndNil(FAnimations);
-  GUI := nil;
   FreeAndNil(FSpriteEngine);
   FreeAndNil(FQuadRenderer);
   FreeAndNil(FBackgroundQuads);
