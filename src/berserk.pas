@@ -30,7 +30,9 @@
 program berserkrl;
 uses
   {$IFDEF HEAPTRACE}heaptrc,{$ENDIF}
-  SysUtils, vapp, brapplication;
+  SysUtils, brapplication;
+
+var Application : TBerserkApplication;
 
 begin
   Application := TBerserkApplication.Create;
