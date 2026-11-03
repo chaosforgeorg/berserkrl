@@ -29,9 +29,9 @@ function being:play_sound( sound, id2 )
 	if audio then
 		local sid
 		if id2 then
-			sid = ui.resolve_sound_id( sid, id2 )
-		else 
-			sid = ui.resolve_sound_id( self.id, sid )
+			sid = ui.resolve_sound_id( sound, id2 )
+		else
+			sid = ui.resolve_sound_id( self.id, sound )
 		end
 		if sid ~= "" then
 			audio.play_sound( sid, self.position )
