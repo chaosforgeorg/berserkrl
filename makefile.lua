@@ -34,7 +34,7 @@ makefile = {
 	publish = {
 		exec = { "berserk" },
 		os = {
-			WINDOWS = { "lua5.1.dll", "zlib1.dll", "libpng12.dll", "SDL.dll", "SDL_image.dll", "fmod.dll", "fmod64.dll", "smpeg.dll", "SDL_mixer.dll", "libogg-0.dll", "libvorbis-0.dll", "libvorbisfile-3.dll" },
+			WINDOWS = { "lua5.1.dll", "SDL3.dll", "fmod64.dll" },
 			LINUX   = {  },
 			MACOSX  = {  },
 		},
@@ -84,14 +84,13 @@ makefile = {
 		dmg_size   = 64000,
 		app_icon   = "install/iconfile.icns",
 		app_bg     = "install/background.png",
+		-- Untested. SDL3.framework is the macos-arm64_x86_64 slice of
+		-- SDL3.xcframework from the official SDL3 release .dmg. The executable
+		-- loads every library at runtime from Contents/Frameworks.
 		app_fworks = {
-			"Frameworks/SDL.framework",
-			"Frameworks/SDL_image.framework",
-			"Frameworks/SDL_mixer.framework",
+			"Frameworks/SDL3.framework",
+			"Frameworks/libfmod.dylib",
 		},
-		app_exefix = function( file )
-			os.execute("install_name_tool -change @rpath/SDL.framework/Versions/A/SDL @executable_path/../Frameworks/SDL.framework/Versions/A/SDL "..file )
-		end,
 	}
 }
 
