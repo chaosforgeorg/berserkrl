@@ -79,7 +79,7 @@ var iLua           : TGameConfig;
 begin
   iLua := TGameConfig.Create( aPaths.ConfigurationPath );
   try
-    iAudioDriver     := iLua.Configure( 'audio.driver', 'SDL' );
+    iAudioDriver     := iLua.Configure( 'audio.driver', 'FMOD' );
     aPaths.DataPath  := iLua.Configure( 'DataPath', aPaths.DataPath );
     aPaths.WritePath := iLua.Configure( 'WritePath', aPaths.WritePath );
     aPaths.ScorePath := iLua.Configure( 'ScorePath', aPaths.ScorePath );
