@@ -76,7 +76,7 @@ TBerserkGUI = class(TBerserkUI)
     procedure DrawSprite( aTile : Word; const aAbsPos : TGLVec3i; const aSize : TGLVec2i; const aColor : TGLRawQColor; aFlip : Boolean; aZoom : Single = 1.0 );
     procedure RenderBlink( const aColor : TGLVec4f );
   protected
-    procedure DisplayChanged( const aMetrics : TIODisplayMetrics ); override;
+    procedure DisplayChanged; override;
   private
     procedure DrawSprites;
   private
@@ -94,7 +94,6 @@ TBerserkGUI = class(TBerserkUI)
 
     function ConfigureWindowSizes : Integer;
     function Projection( aScale : Integer ) : TMatrix44;
-    procedure FitDisplay;
     public
     property Layout : TBerserkDisplayLayout read FLayout;
     property SpriteEngine : TSpriteEngine read FSpriteEngine;
@@ -298,9 +297,15 @@ begin
   iEntry.SetNames( iNames );
 end;
 
-procedure TBerserkGUI.FitDisplay;
-var iMouse : TIOPoint;
+// The window keeps a 640x360 multiple, also after a density change; while
+// fullscreen the driver keeps the size for the next windowed mode.
+procedure TBerserkGUI.DisplayChanged;
+var iMouse      : TIOPoint;
+    iMultiplier : Integer;
 begin
+  iMultiplier := ConfigureWindowSizes;
+  TSDLIODriver( FIODriver ).SetWindowPixels(
+    vutil.Point( DISPLAY_WIDTH * iMultiplier, DISPLAY_HEIGHT * iMultiplier ) );
   // A drawable below 640x360 keeps the last layout.
   if not FLayout.Calculate( Integer( FIODriver.GetSizeX ), Integer( FIODriver.GetSizeY ),
     FConfiguration.GetInteger( 'scale_multiplier' ), FConfiguration.GetInteger( 'sprite_multiplier' ) ) then Exit;
@@ -308,11 +313,6 @@ begin
   TGLConsoleRenderer( FConsole ).SetPositionScale( FLayout.Left, FLayout.Top, DISPLAY_LINE_SPACING,
     FLayout.FontScale, vutil.Point( FLayout.Width, FLayout.Height ) );
   if FPlayer <> nil then CenterCamera( FPlayer.Position );
-end;
-
-procedure TBerserkGUI.DisplayChanged( const aMetrics : TIODisplayMetrics );
-begin
-  FitDisplay;
 end;
 
 function TBerserkGUI.CameraFor( const aWhere : TCoord2D ) : TGLVec2i;
@@ -336,13 +336,8 @@ begin
 end;
 
 procedure TBerserkGUI.Reconfigure;
-var iMultiplier : Integer;
 begin
-  ApplyWindowSettings;
-  iMultiplier := ConfigureWindowSizes;
-  TSDLIODriver( FIODriver ).SetWindowPixels(
-    vutil.Point( DISPLAY_WIDTH * iMultiplier, DISPLAY_HEIGHT * iMultiplier ) );
-  FitDisplay;
+  ApplyDisplaySettings;
   inherited Reconfigure;
 end;
 
