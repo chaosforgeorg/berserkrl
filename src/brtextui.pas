@@ -69,24 +69,14 @@ type
 implementation
 
 uses vvision, vioconsole, vtig,
-{$IFDEF UNIX}
-     vcursesio, vcursesconsole,
-{$ELSE}
-     vtextio, vtextconsole,
-{$ENDIF}
      branimation, brlevel, brdata, brbeing, brplayer;
 
 { TBerserkTextUI }
 
 constructor TBerserkTextUI.Create( aConfiguration : TBerserkConfiguration; const aDataPath : AnsiString );
 begin
-{$IFDEF UNIX}
-  FIODriver := TCursesIODriver.Create( 80, 25 );
-  FConsole := TCursesConsoleRenderer.Create( 80, 25, [VIO_CON_BGCOLOR, VIO_CON_CURSOR] );
-{$ELSE}
-  FIODriver := TTextIODriver.Create( 80, 25 );
-  FConsole := TTextConsoleRenderer.Create( 80, 25, [VIO_CON_BGCOLOR, VIO_CON_CURSOR] );
-{$ENDIF}
+  FIODriver := CreateTerminalDriver( 80, 25 );
+  FConsole := CreateTerminalRenderer( 80, 25 );
   inherited Create( aConfiguration, aDataPath );
   FConsole.Clear;
   FTMap := TTextMap.Create( FConsole, Rectangle( 1, 1, 50, 25 ), Self );
