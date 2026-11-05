@@ -251,7 +251,7 @@ TBeing = class(TLuaEntityNode)
 end;
 
 implementation
-uses variants, vluaext, vvision, vlualibrary, brlevel, brplayer;
+uses variants, vvision, vlualibrary, brlevel, brplayer;
 
 
 { TBeing }
@@ -287,7 +287,6 @@ begin
 end;
 
 procedure TBeing.ApplyTemplate( const bid : AnsiString; lvl : byte );
-var Hook : Byte;
 begin
   with FContext.Lua.GetTable( ['beings', bid] ) do
   try
@@ -378,10 +377,8 @@ var mx, my     : Integer;
     MoveResult : Byte;
     TargetDist : Word;
     TargetVis  : Boolean;
-    Count      : Word;
     MoveCoord  : TCoord2D;
     WCoord     : TCoord2D;
-    Direction  : TDirection;
     Being      : TBeing;
     iLevel     : TLevel;
 begin
@@ -656,12 +653,10 @@ end;
 //
 // Hitting the target from range 4 always succeeds.
 procedure TBeing.SendMissile( Target : TCoord2D; MType : Byte; aSequence : Word);
-const HITDELAY  = 50;
 var Dist : byte;
     Roll : integer;
     Ray  : TVisionRay;
     Scan      : Byte;
-    DrawDelay : Word;
     Tgt  : TBeing;
     iLevel : TLevel;
 begin
@@ -671,15 +666,6 @@ begin
   UpdateFacing(FTargetCoord.X);
   iLevel.Player.FLastEnemy := FID;
   Dist := Distance(FPosition,Target);
-  DrawDelay := 10;
-  case mtype of
-    MTBOLT  : DrawDelay := 10;
-    MTKNIFE : DrawDelay := 20;
-    MTBOMB  : DrawDelay := 50;
-    MTENERGY: DrawDelay := 20;
-    MTICE   : DrawDelay := 30;
-    MTSPORE : DrawDelay := 80;
-  end;
 
 
   if Dist > 4 then

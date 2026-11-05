@@ -96,7 +96,7 @@ type TBerserkSessionResult = ( BSR_RUNNING, BSR_CANCELLED, BSR_SAVED,
 implementation
 
 uses zstream,
-     vmath, vrltools, vrandom, vioevent, vsdlsound, vfmodsound, vutil, vdebug, vluatools,
+     vrltools, vrandom, vioevent, vsdlsound, vfmodsound, vutil, vdebug, vluatools,
      brgui, brtextui;
 
 function TBerserkRuntime.GetUI : TBerserkUI;

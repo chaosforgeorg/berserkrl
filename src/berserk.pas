@@ -32,6 +32,8 @@ uses
   {$IFDEF HEAPTRACE}heaptrc,{$ENDIF}
   SysUtils, brapplication;
 
+{$IFDEF WINDOWS}{$R berserk.rc}{$ENDIF}
+
 var Application : TBerserkApplication;
 
 begin

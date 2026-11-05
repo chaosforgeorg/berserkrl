@@ -26,8 +26,8 @@
 unit brgui;
 interface
 
-uses vapp, brconfiguration, brdisplay, vioevent, SysUtils, vutil, vgenerics, vrltools, vvision, vtextures, vglimage, viotypes,
-     vimage, brui, brdata, vglquadrenderer, vgltypes, vspriteengine,
+uses vapp, brconfiguration, brdisplay, vioevent, SysUtils, vutil, vrltools, vvision, vtextures, viotypes,
+     brui, brdata, vglquadrenderer, vgltypes, vspriteengine,
      vanimation;
 
 type
@@ -38,11 +38,9 @@ TBerserkGUI = class(TBerserkUI)
     // Initialization of all data.
     constructor Create( aConfiguration : TBerserkConfiguration; const aPaths : TGamePaths );
     procedure Reconfigure; override;
-    procedure FullUpdate; override;
     procedure PreUpdate; override;
     function OnEvent( const aEvent : TIOEvent ) : Boolean; override;
     function DeviceCoordToConsoleCoord( aCoord : TIOPoint ) : TIOPoint; override;
-    function ConsoleCoordToDeviceCoord( aCoord : TIOPoint ) : TIOPoint; override;
     procedure CenterCamera( const aWhere : TCoord2D ); override;
     function CameraFor( const aWhere : TCoord2D ) : TGLVec2i;
     // Sends missile
@@ -77,12 +75,12 @@ TBerserkGUI = class(TBerserkUI)
     function ToAbsPos( const aCoord : TCoord2D; aDepth : Integer ) : TGLVec3i;
     procedure DrawSprite( aTile : Word; const aAbsPos : TGLVec3i; const aSize : TGLVec2i; const aColor : TGLRawQColor; aFlip : Boolean; aZoom : Single = 1.0 );
     procedure RenderBlink( const aColor : TGLVec4f );
-    private
+  protected
+    procedure DisplayChanged( const aMetrics : TIODisplayMetrics ); override;
+  private
     procedure DrawSprites;
   private
-    FAppliedDisplay : TBerserkDisplaySettings;
     FLayout : TBerserkDisplayLayout;
-    FWindowSize, FLastWindowSize : TIOPoint;
     FLightQVecMap: array [1..MAP_MAXX, 1..MAP_MAXY] of TGLRawQColor;
     FBackgroundQuads : TGLQuadList;
     FPreQuads    : TGLQuadList;
@@ -94,12 +92,9 @@ TBerserkGUI = class(TBerserkUI)
     FTextures    : TTextureManager;
     FAnimations  : TAnimations;
 
-    procedure ConfigureWindowResolutions( aConfiguration : TBerserkConfiguration );
+    function ConfigureWindowSizes : Integer;
     function Projection( aScale : Integer ) : TMatrix44;
-    function ReadDisplaySize( out aWindowSize, aPixels : TIOPoint ) : Boolean;
-    function RefreshDisplay( const aSettings : TBerserkDisplaySettings ) : Boolean;
-    procedure SetDisplayMode( const aSettings : TBerserkDisplaySettings );
-    procedure RestoreDisplay( aWindowSize : TIOPoint );
+    procedure FitDisplay;
     public
     property Layout : TBerserkDisplayLayout read FLayout;
     property SpriteEngine : TSpriteEngine read FSpriteEngine;
@@ -109,8 +104,8 @@ TBerserkGUI = class(TBerserkUI)
 implementation
 
 uses {$IFDEF WINDOWS}Windows,{$ENDIF}
-     vuid, vgl3library, vtig,
-     vioconsole, vsdlio, vsdl3library, vglconsole, vlog,
+     vgl3library, vtig,
+     vconfiguration, vio, vioconsole, vsdlio, vglconsole, vlog,
      vmath, vdebug, math, vcolor,
      brbeing, brplayer, brlevel, branimation;
 
@@ -244,7 +239,7 @@ end;
 { TBreserkGUI }
 
 constructor TBerserkGUI.Create( aConfiguration : TBerserkConfiguration; const aPaths : TGamePaths );
-var iFlags : TSDLIOFlags;
+var iSetup : TIOWindowSetup;
 begin
   {$IFDEF WINDOWS}
   if not GodMode then
@@ -255,17 +250,12 @@ begin
   end;
   {$ENDIF}
 
-  ConfigureWindowResolutions( aConfiguration );
-  FAppliedDisplay.Read( aConfiguration );
-  if not FAppliedDisplay.Valid then
-    raise EIOException.Create( 'Invalid display settings: use a listed resolution and nonnegative multipliers. Use --console to change them.' );
-  iFlags := [ SDLIO_OpenGL ];
-  if FAppliedDisplay.Fullscreen or aConfiguration.FullScreenOverride then Include( iFlags, SDLIO_DesktopFullScreen );
-  FIODriver := TSDLIODriver.Create( FAppliedDisplay.Width, FAppliedDisplay.Height, 32, iFlags );
-  if not SDL_SyncWindow( TSDLIODriver( FIODriver ).NativeWindow ) then
-    raise EIOException.Create( 'Could not initialize display: ' + SDL_GetError() + '. Use --console.' );
-  if not SDL_GetWindowSize( TSDLIODriver( FIODriver ).NativeWindow, @FLastWindowSize.X, @FLastWindowSize.Y ) then
-    raise EIOException.Create( 'Could not read initial window size: ' + SDL_GetError() );
+  // Reconfigure, run by the inherited constructor, applies the window multiplier.
+  iSetup := TIO.WindowSetup( aConfiguration );
+  iSetup.Fullscreen := iSetup.Fullscreen or aConfiguration.FullScreenOverride;
+  iSetup.MinimumPixels := vutil.Point( DISPLAY_WIDTH, DISPLAY_HEIGHT );
+  iSetup.Resizable := False;
+  FIODriver := TSDLIODriver.CreateWindow( iSetup, False );
 
   FTextures := TTextureManager.Create( False );
   FTextures.LoadTextureFolder(aPaths.DataPath+'graphics');
@@ -281,90 +271,48 @@ begin
   FPostQuads := TGLQuadList.Create;
 
   inherited Create( aConfiguration, aPaths.DataPath );
+  BindWindowSettings( aConfiguration );
 
   FTarget.Create( 0,0 );
 
   FAnimations  := TAnimations.Create;
 end;
 
-procedure TBerserkGUI.ConfigureWindowResolutions( aConfiguration : TBerserkConfiguration );
-var iMaximum, i : Integer;
-    iNames : array of AnsiString;
-    iNativeSize, iUsableSize : TIOPoint;
-    iBounds : SDL_Rect;
+// Lists the 640x360 multiples below the display size and returns the one to
+// apply: the saved choice, or the largest for Automatic or a smaller display.
+function TBerserkGUI.ConfigureWindowSizes : Integer;
+var iDisplay : TIOPoint;
+    iMaximum, i : Integer;
+    iNames : TStringArray;
+    iEntry : TIntegerConfigurationEntry;
 begin
-  if not TSDLIODriver.GetCurrentResolution( iNativeSize ) then
-    raise EIOException.Create( 'Could not read native display size. Use --console.' );
-  iUsableSize := iNativeSize;
-  if SDL_GetDisplayUsableBounds( SDL_GetPrimaryDisplay(), @iBounds ) then
-    iUsableSize := vutil.Point( iBounds.w, iBounds.h );
-  // Native stays separate; every numbered choice is a smaller 640x360 multiple.
-  iMaximum := Max( 0, Min( 25, Min(
-    Min( ( iNativeSize.X - 1 ) div DISPLAY_WIDTH, ( iNativeSize.Y - 1 ) div DISPLAY_HEIGHT ),
-    Min( iUsableSize.X div DISPLAY_WIDTH, iUsableSize.Y div DISPLAY_HEIGHT ) ) ) );
-  SetLength( iNames, iMaximum + 1 );
-  iNames[0] := 'Native';
-  for i := 1 to iMaximum do
+  iDisplay := TSDLIODriver( FIODriver ).DisplaySize;
+  iMaximum := Max( 1, Min( ( iDisplay.X - 1 ) div DISPLAY_WIDTH, ( iDisplay.Y - 1 ) div DISPLAY_HEIGHT ) );
+  iEntry := FConfiguration.CastInteger( 'window_multiplier' );
+  Result := iEntry.Value;
+  if ( Result <= 0 ) or ( Result > iMaximum ) then Result := iMaximum;
+  iNames := [ 'Automatic' ];
+  SetLength( iNames, Max( iMaximum, iEntry.Value ) + 1 );
+  for i := 1 to High( iNames ) do
     iNames[i] := IntToStr( DISPLAY_WIDTH * i ) + 'x' + IntToStr( DISPLAY_HEIGHT * i );
-  with aConfiguration.CastInteger( 'window_multiplier' ) do
-  begin
-    SetRange( 0, iMaximum ).SetNames( iNames );
-    // A saved window from a larger monitor falls back to this desktop's Native.
-    if ( Value < 0 ) or ( Value > iMaximum ) then Value := 0;
-  end;
+  iEntry.SetNames( iNames );
 end;
 
-function TBerserkGUI.ReadDisplaySize( out aWindowSize, aPixels : TIOPoint ) : Boolean;
-var iWindow : PSDL_Window;
+procedure TBerserkGUI.FitDisplay;
+var iMouse : TIOPoint;
 begin
-  iWindow := TSDLIODriver( FIODriver ).NativeWindow;
-  Result := False;
-  if SDL_GetWindowFlags( iWindow ) and SDL_WINDOW_MINIMIZED <> 0 then Exit;
-  if not SDL_GetWindowSize( iWindow, @aWindowSize.X, @aWindowSize.Y ) or
-     not SDL_GetWindowSizeInPixels( iWindow, @aPixels.X, @aPixels.Y ) then
-    raise EIOException.Create( 'Could not read display size: ' + SDL_GetError() );
-  Result := ( aWindowSize.X > 0 ) and ( aWindowSize.Y > 0 ) and
-            ( aPixels.X > 0 ) and ( aPixels.Y > 0 );
-end;
-
-procedure TBerserkGUI.SetDisplayMode( const aSettings : TBerserkDisplaySettings );
-var iFlags : TSDLIOFlags;
-    iWindow : PSDL_Window;
-    iFullscreen : Boolean;
-begin
-  iWindow := TSDLIODriver( FIODriver ).NativeWindow;
-  iFullscreen := aSettings.Fullscreen or FConfiguration.FullScreenOverride;
-  iFlags := [ SDLIO_OpenGL ];
-  if iFullscreen then Include( iFlags, SDLIO_DesktopFullScreen )
-  else if SDL_GetWindowFlags( iWindow ) and SDL_WINDOW_MAXIMIZED <> 0 then
-    if not SDL_RestoreWindow( iWindow ) then
-      raise EIOException.Create( 'Could not restore window: ' + SDL_GetError() );
-  if not TSDLIODriver( FIODriver ).ResetVideoMode( aSettings.Width, aSettings.Height, 32, iFlags ) or
-     not SDL_SyncWindow( iWindow ) then
-    raise EIOException.Create( 'Could not change display mode: ' + SDL_GetError() );
-  if ( SDL_GetWindowFlags( iWindow ) and SDL_WINDOW_FULLSCREEN <> 0 ) <> iFullscreen then
-    raise EIOException.Create( 'The window system did not accept the display mode.' );
-end;
-
-function TBerserkGUI.RefreshDisplay( const aSettings : TBerserkDisplaySettings ) : Boolean;
-var iWindowSize, iPixels, iMouse : TIOPoint;
-    iLayout : TBerserkDisplayLayout;
-begin
-  Result := ReadDisplaySize( iWindowSize, iPixels );
-  if not Result then Exit;
-  if not iLayout.Calculate( iPixels.X, iPixels.Y, aSettings.FontMultiplier, aSettings.SpriteMultiplier ) then
-    raise EIOException.Create( 'The drawable must fit 640x360 pixels. Use --console if this display cannot fit x1.' );
-  FWindowSize := iWindowSize;
-  if not TSDLIODriver( FIODriver ).FullScreen then FLastWindowSize := iWindowSize;
-  if ( FLayout.Width = iLayout.Width ) and
-     ( FLayout.Height = iLayout.Height ) and ( FLayout.FontScale = iLayout.FontScale ) and
-     ( FLayout.SpriteScale = iLayout.SpriteScale ) then Exit;
-  FLayout := iLayout;
-  if FIODriver.GetMousePos( iMouse ) then
-    FMouse := FLayout.WindowToConsole( iMouse, FWindowSize );
+  // A drawable below 640x360 keeps the last layout.
+  if not FLayout.Calculate( Integer( FIODriver.GetSizeX ), Integer( FIODriver.GetSizeY ),
+    FConfiguration.GetInteger( 'scale_multiplier' ), FConfiguration.GetInteger( 'sprite_multiplier' ) ) then Exit;
+  if FIODriver.GetMousePos( iMouse ) then FMouse := FLayout.WindowToConsole( iMouse );
   TGLConsoleRenderer( FConsole ).SetPositionScale( FLayout.Left, FLayout.Top, DISPLAY_LINE_SPACING,
     FLayout.FontScale, vutil.Point( FLayout.Width, FLayout.Height ) );
   if FPlayer <> nil then CenterCamera( FPlayer.Position );
+end;
+
+procedure TBerserkGUI.DisplayChanged( const aMetrics : TIODisplayMetrics );
+begin
+  FitDisplay;
 end;
 
 function TBerserkGUI.CameraFor( const aWhere : TCoord2D ) : TGLVec2i;
@@ -387,88 +335,20 @@ begin
     -FLayout.Top / aScale, -1000, 1000 );
 end;
 
-procedure TBerserkGUI.RestoreDisplay( aWindowSize : TIOPoint );
-var iPrevious : TBerserkDisplaySettings;
-begin
-  iPrevious := FAppliedDisplay;
-  iPrevious.Width := aWindowSize.X;
-  iPrevious.Height := aWindowSize.Y;
-  SetDisplayMode( iPrevious );
-  RefreshDisplay( FAppliedDisplay );
-end;
-
 procedure TBerserkGUI.Reconfigure;
-var iSettings : TBerserkDisplaySettings;
-    iPreviousSize : TIOPoint;
-    iResize, iModeChange, iAttempted : Boolean;
-    iError : AnsiString;
+var iMultiplier : Integer;
 begin
-  iSettings.Read( FConfiguration );
-  iPreviousSize := FLastWindowSize;
-  iAttempted := False;
-  try
-    if not iSettings.Valid then
-      raise EIOException.Create( 'Choose a listed window resolution and nonnegative multipliers (0 = Automatic).' );
-    iResize := ( iSettings.Width <> FAppliedDisplay.Width ) or ( iSettings.Height <> FAppliedDisplay.Height );
-    iModeChange := ( iSettings.Fullscreen or FConfiguration.FullScreenOverride ) <>
-      TSDLIODriver( FIODriver ).FullScreen;
-    if iModeChange or ( iResize and not ( iSettings.Fullscreen or FConfiguration.FullScreenOverride ) ) then
-    begin
-      iAttempted := True;
-      SetDisplayMode( iSettings );
-    end;
-    if not RefreshDisplay( iSettings ) then
-      raise EIOException.Create( 'Restore the window before applying display changes.' );
-    if iResize and ( iSettings.Width > 0 ) and not ( iSettings.Fullscreen or FConfiguration.FullScreenOverride ) and
-       ( ( FWindowSize.X <> iSettings.Width ) or ( FWindowSize.Y <> iSettings.Height ) ) then
-      raise EIOException.Create( 'The window system did not accept the requested window size.' );
-    FAppliedDisplay := iSettings;
-    FAppliedDisplay.Write( FConfiguration );
-  except
-    on E : Exception do
-    begin
-      iError := E.Message;
-      FAppliedDisplay.Write( FConfiguration );
-      if iAttempted then
-        try
-          RestoreDisplay( iPreviousSize );
-        except
-          on R : Exception do
-            raise EIOException.Create( iError + ' Could not restore display: ' + R.Message );
-        end;
-      raise EIOException.Create( iError );
-    end;
-  end;
+  ApplyWindowSettings;
+  iMultiplier := ConfigureWindowSizes;
+  TSDLIODriver( FIODriver ).SetWindowPixels(
+    vutil.Point( DISPLAY_WIDTH * iMultiplier, DISPLAY_HEIGHT * iMultiplier ) );
+  FitDisplay;
   inherited Reconfigure;
-end;
-
-procedure TBerserkGUI.FullUpdate;
-var iError : AnsiString;
-    iPreviousSize : TIOPoint;
-begin
-  iPreviousSize := FLastWindowSize;
-  try
-    // Refresh once before starting a frame, including after DPI changes.
-    if not RefreshDisplay( FAppliedDisplay ) then
-    begin
-      FLastUpdate := FIODriver.GetMs;
-      Exit;
-    end;
-  except
-    on E : Exception do
-    begin
-      iError := E.Message;
-      RestoreDisplay( iPreviousSize );
-      ShowSettingsError( iError );
-    end;
-  end;
-  inherited FullUpdate;
 end;
 
 procedure TBerserkGUI.PreUpdate;
 begin
   inherited PreUpdate;
-  glViewport( 0, 0, FLayout.Width, FLayout.Height );
   glScissor( FLayout.Left, FLayout.Height - FLayout.Top - DISPLAY_HEIGHT * FLayout.FontScale,
     DISPLAY_WIDTH * FLayout.FontScale, DISPLAY_HEIGHT * FLayout.FontScale );
   glEnable( GL_SCISSOR_TEST );
@@ -476,12 +356,7 @@ end;
 
 function TBerserkGUI.DeviceCoordToConsoleCoord( aCoord : TIOPoint ) : TIOPoint;
 begin
-  Result := FLayout.WindowToConsole( aCoord, FWindowSize );
-end;
-
-function TBerserkGUI.ConsoleCoordToDeviceCoord( aCoord : TIOPoint ) : TIOPoint;
-begin
-  Result := FLayout.ConsoleToWindow( aCoord, FWindowSize );
+  Result := FLayout.WindowToConsole( aCoord );
 end;
 
 function TBerserkGUI.OnEvent( const aEvent : TIOEvent ) : Boolean;

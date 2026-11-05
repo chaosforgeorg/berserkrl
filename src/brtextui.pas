@@ -68,7 +68,7 @@ type
 
 implementation
 
-uses vuid, vvision, vioconsole, vtig,
+uses vvision, vioconsole, vtig,
 {$IFDEF UNIX}
      vcursesio, vcursesconsole,
 {$ELSE}
@@ -142,6 +142,7 @@ var iCoord   : TCoord2D;
     iDist    : Word;
     iAngle   : Single;
 begin
+  iExpl := nil;
   SetLength( iExpl, 5 );
   iExpl[0].Time := aDrawDelay;
   iExpl[1].Time := aDrawDelay;

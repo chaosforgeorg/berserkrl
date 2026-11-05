@@ -46,7 +46,7 @@ end;
 
 implementation
 
-uses SysUtils;
+uses SysUtils, vio;
 
 constructor TBerserkConfiguration.Create( var aLuaConfig : TGameConfig );
 var iGroup : TConfigurationGroup;
@@ -63,12 +63,10 @@ begin
     .SetName( 'Extended ASCII' )
     .SetDescription( 'Use extended block glyphs after Apply. Console only.' );
 
-  iGroup.AddToggle( 'fullscreen', False )
-    .SetName( 'Desktop fullscreen' )
-    .SetDescription( 'Use the native desktop without changing its resolution. --fullscreen overrides this preference.' );
-  iGroup.AddInteger( 'window_multiplier', 0 ).SetRange( 0, 25 ).SetNames( [ 'Native' ] )
+  TIO.RegisterWindowSettings( iGroup );
+  iGroup.AddInteger( 'window_multiplier', 0 ).SetRange( 0, 25 ).SetNames( [ 'Automatic' ] )
     .SetName( 'Window resolution' )
-    .SetDescription( 'Native desktop size or a smaller 16:9 window. Fullscreen always uses native size. Takes effect on Apply.' );
+    .SetDescription( 'Windowed size in pixels. Automatic uses the largest 640x360 multiple that fits the display.' );
   iGroup.AddInteger( 'scale_multiplier', 0 ).SetRange( 0, High( Integer ) )
     .SetNames( [ 'Automatic', 'x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7', 'x8' ] )
     .SetName( 'Font multiplier' )

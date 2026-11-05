@@ -281,7 +281,6 @@ procedure TLevel.Bleed( const Coord : TCoord2D; amount : byte = 1 );
 var
   Shift : TCoord2D;
   Count : Byte;
-  Terra : Byte;
 begin
   with FMap[Coord.x, Coord.y] do
   begin

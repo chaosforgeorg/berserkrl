@@ -21,7 +21,7 @@
 {$INCLUDE brinclude.inc}
 unit brpersistence;
 interface
-uses DOM, vxml, vxmldata;
+uses DOM, vxmldata;
 
 const MAX_SCORE_ENTRIES = 500;
 const SCORE_FILE_NAME   = 'score.dat';
@@ -42,7 +42,7 @@ public
 end;
 
 implementation
-uses SysUtils, Classes, vutil;
+uses SysUtils, Classes;
 
 { TPersistence }
 
@@ -66,13 +66,13 @@ begin
     iEntry := FScoreFile.Add( aScore );
     if iEntry <> nil then 
     begin
-      iEntry.SetAttribute('name',  aName );
-      iEntry.SetAttribute('mode',  IntToStr(aMode) );
-      iEntry.SetAttribute('klass', IntToStr(aKlass) );
-      iEntry.SetAttribute('kills', IntToStr(aKills) );
-      iEntry.SetAttribute('turns', IntToStr(aTurns) );
-      iEntry.SetAttribute('nights', IntToStr(aNights) );
-      iEntry.SetAttribute('result', IntToStr(aResult) );
+      iEntry.SetAttribute( 'name', UnicodeString( aName ) );
+      iEntry.SetAttribute( 'mode', UnicodeString( IntToStr(aMode) ) );
+      iEntry.SetAttribute( 'klass', UnicodeString( IntToStr(aKlass) ) );
+      iEntry.SetAttribute( 'kills', UnicodeString( IntToStr(aKills) ) );
+      iEntry.SetAttribute( 'turns', UnicodeString( IntToStr(aTurns) ) );
+      iEntry.SetAttribute( 'nights', UnicodeString( IntToStr(aNights) ) );
+      iEntry.SetAttribute( 'result', UnicodeString( IntToStr(aResult) ) );
       FScoreFile.Save;
     end;
   finally

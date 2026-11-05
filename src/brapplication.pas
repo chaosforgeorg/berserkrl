@@ -18,7 +18,7 @@ end;
 
 implementation
 
-uses Classes, vos, brconfig, brconfiguration, brmain, brdata;
+uses Classes, brconfig, brconfiguration, brmain, brdata;
 
 // The version is the first line of the file.
 function ReadVersionFile( const aFileName : AnsiString ) : AnsiString;

@@ -60,7 +60,6 @@ type
     procedure ResetSession;
     procedure Reconfigure; virtual;
     procedure PostUpdate; override;
-    procedure ShowSettingsError( const aError : AnsiString );
     procedure ShowSettings( aRecoverInput : Boolean = False );
     function GetKeybinding( aCommand : Byte ) : AnsiString;
     function GetUIKeybinding( aAction : TBindingAction ) : AnsiString;
@@ -238,12 +237,6 @@ begin
   if not FLayers.IsEmpty then
     if FLayers.Top is TBerserkSettingsView then
       TBerserkSettingsView( FLayers.Top ).ApplyPending;
-end;
-
-procedure TBerserkUI.ShowSettingsError( const aError : AnsiString );
-begin
-  if FLayers.IsEmpty or not ( FLayers.Top is TBerserkSettingsView ) then ShowSettings;
-  TBerserkSettingsView( FLayers.Top ).ReportError( aError );
 end;
 
 procedure TBerserkUI.ShowSettings( aRecoverInput : Boolean = False );

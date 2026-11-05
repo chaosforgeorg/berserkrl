@@ -587,12 +587,12 @@ begin
     Inc( i );
     iEntry := aPersistence.Get( i );
     if iEntry = nil then Break;
-    if iEntry.GetAttribute('mode') = iMode then
+    if iEntry.GetAttribute( 'mode' ) = UnicodeString( iMode ) then
     begin
-      iName := iEntry.GetAttribute('name');
-      iT    := iEntry.GetAttribute('turns');
-      iK    := iEntry.GetAttribute('kills');
-      iR    := StrToInt( iEntry.GetAttribute('result') );
+      iName := AnsiString( iEntry.GetAttribute( 'name' ) );
+      iT    := AnsiString( iEntry.GetAttribute( 'turns' ) );
+      iK    := AnsiString( iEntry.GetAttribute( 'kills' ) );
+      iR    := StrToInt( AnsiString( iEntry.GetAttribute( 'result' ) ) );
       iLine := Padded('{!'+iName+'}',17)+' '+Padded('survived {!'+iT+'} turns', 25) + ' ' + Padded('{!'+iK+'} kills',15)+' ';
       if ( iR > 1 ) and ( iR <= iMaxB )
         then iLine += 'killed by {!'+aLua.Get(['beings',iR,'name'])+'}'

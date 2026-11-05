@@ -62,7 +62,7 @@ const CStates : array[ TBerserkSettingsState ] of record
         State : TBerserkSettingsState;
         Name, Description : AnsiString;
       end = (
-        ( State: BSS_DISPLAY;  Name: 'Display'; Description: 'Backend, desktop fullscreen, window size, separate font/sprite scales and kill counter.' ),
+        ( State: BSS_DISPLAY;  Name: 'Display'; Description: 'Backend, fullscreen, window size, separate font/sprite scales and kill counter.' ),
         ( State: BSS_GAME;     Name: 'Gameplay'; Description: 'Name choices for the next character.' ),
         ( State: BSS_AUDIO;    Name: 'Audio'; Description: 'Sound and music enable/volume.' ),
         ( State: BSS_INPUT;    Name: 'Input'; Description: 'Configure keyboard input.' ),
@@ -181,9 +181,6 @@ var iGroup : TConfigurationGroup;
     if FState <> BSS_DISPLAY then Exit;
     if ( aEntry.ID = 'graphics_mode' ) or ( aEntry.ID = 'high_ascii' ) or ( aEntry.ID = 'kill_count' ) then Exit;
     Result := FConfiguration.GraphicsMode;
-    if aEntry.ID = 'fullscreen' then Result := Result and not FConfiguration.FullScreenOverride;
-    if aEntry.ID = 'window_multiplier' then
-      Result := Result and not ( FConfiguration.GetBoolean( 'fullscreen' ) or FConfiguration.FullScreenOverride );
   end;
 begin
   if not aActive then Exit;
@@ -272,6 +269,8 @@ begin
         else
           for iEntry in iGroup.Entries do
           begin
+            // Unnamed entries are stored state, such as the window size.
+            if iEntry.Name = '' then Continue;
             if VTIG_Selectable( iEntry.Name, EntryEnabled( iEntry ) ) then
             begin
               if iCatalog <> nil then
@@ -309,14 +308,13 @@ begin
         if iGroup <> nil then
           for iEntry in iGroup.Entries do
           begin
+            if iEntry.Name = '' then Continue;
             if iCatalog <> nil then
             begin
               iKey := TIOKeyCode( iCatalog.ConfigurationValue( iCatalog.ActionForID( iEntry.ID ) ) );
               if iKey = 0 then iValue := 'Unbound' else iValue := IOKeyCodeToStringShort( iKey );
               VTIG_InputField( iValue );
             end
-            else if ( iEntry.ID = 'fullscreen' ) and FConfiguration.FullScreenOverride then
-              VTIG_InputField( 'Enabled (--fullscreen)' )
             else if iEntry is TToggleConfigurationEntry then
               VTIG_EnabledInput( TToggleConfigurationEntry( iEntry ).Access, EntryEnabled( iEntry ) and ( iIndex = iSelected ) )
             else if iEntry is TIntegerConfigurationEntry then

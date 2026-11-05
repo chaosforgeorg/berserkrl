@@ -23,7 +23,7 @@ unit branimation;
 interface
 
 uses Classes, SysUtils,
-     vutil, vrltools, vgenerics, vgltypes, vanimation, vsound,
+     vutil, vrltools, vgltypes, vanimation, vsound,
      brdata, brbeing, brgui;
 
 type
@@ -132,7 +132,7 @@ end;
 
 implementation
 
-uses vmath, math, vcolor, vdebug, vuid, brplayer;
+uses vmath, math, vcolor, vdebug, brplayer;
 
 { TSoundAnimation }
 
