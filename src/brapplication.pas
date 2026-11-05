@@ -38,13 +38,11 @@ end;
 
 procedure TBerserkApplication.DefineOptions;
 begin
+  inherited DefineOptions;
   AddFlag( 'god',         #0, 'Enable god mode and the debug console.' );
   AddFlag( 'quick',       #0, 'Use quick character creation after mode selection.' );
   AddFlag( 'nosound',     #0, 'Disable the audio backend.' );
-  AddFlag( 'console',     #0, 'Use the text console.' );
-  AddFlag( 'graphics',    #0, 'Use graphics; takes precedence over --console.' );
   AddFlag( 'lowascii',    #0, 'Use basic ASCII characters.' );
-  AddFlag( 'fullscreen',  #0, 'Start graphics in native desktop fullscreen.' );
   AddValueOption( 'name', #0, 'PLAYER_NAME', 'Override the default player name.' );
 end;
 
@@ -101,7 +99,7 @@ begin
   iConfiguration := TBerserkConfiguration( Configuration );
   iConfiguration.QuickStart         := HasOption( 'quick' );
   iConfiguration.LowASCIIOverride   := HasOption( 'lowascii' );
-  iConfiguration.FullScreenOverride := HasOption( 'fullscreen' );
+  iConfiguration.Launch             := Launch;
   iConfiguration.HasNameOverride    := HasOption( 'name' );
   if iConfiguration.HasNameOverride then iConfiguration.NameOverride := GetOptionValue( 'name' );
   if HasOption( 'nosound' ) then iConfiguration.AudioDriver := 'NONE';
@@ -119,9 +117,7 @@ begin
   // Diagnostics are ready before version/resource reads or Runtime creation.
   iConfiguration := TBerserkConfiguration( aConfiguration );
   iConfiguration.ReadSettings( aPaths.SettingsPath );
-  iConfiguration.GraphicsMode := iConfiguration.GetBoolean( 'graphics_mode' );
-  if HasOption( 'console' )  then iConfiguration.GraphicsMode := False;
-  if HasOption( 'graphics' ) then iConfiguration.GraphicsMode := True;
+  iConfiguration.GraphicsMode := Launch.GraphicsMode( iConfiguration.GetBoolean( 'graphics_mode' ) );
   iConfiguration.Version := ReadVersionFile( aPaths.DataPath + 'version.txt' );
   Result := TBerserkRuntime.Create( aPaths, aConfiguration );
 end;

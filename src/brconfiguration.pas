@@ -2,7 +2,7 @@
 unit brconfiguration;
 interface
 
-uses vconfiguration, vbindings, brconfig, brbindings;
+uses viotypes, vconfiguration, vbindings, brconfig, brbindings;
 
 const GAME_CONFIGURATION_GROUP_DISPLAY  = 'display';
       GAME_CONFIGURATION_GROUP_GAMEPLAY = 'gameplay';
@@ -31,7 +31,7 @@ private
 public
   // Effective launch choices, populated before Runtime's virtual IO factory.
   GraphicsMode       : Boolean;
-  FullScreenOverride : Boolean;
+  Launch             : TIOLaunchOptions;
   AudioDriver        : AnsiString;
   LowASCIIOverride   : Boolean;
   HasNameOverride    : Boolean;

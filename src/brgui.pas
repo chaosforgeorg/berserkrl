@@ -104,7 +104,7 @@ implementation
 
 uses {$IFDEF WINDOWS}Windows,{$ENDIF}
      vgl3library, vtig,
-     vconfiguration, vio, vioconsole, vsdlio, vglconsole, vlog,
+     vconfiguration, vio, vioconsole, vsdlio, vglconsole,
      vmath, vdebug, math, vcolor,
      brbeing, brplayer, brlevel, branimation;
 
@@ -240,18 +240,9 @@ end;
 constructor TBerserkGUI.Create( aConfiguration : TBerserkConfiguration; const aPaths : TGamePaths );
 var iSetup : TIOWindowSetup;
 begin
-  {$IFDEF WINDOWS}
-  if not GodMode then
-    FreeConsole
-  else
-  begin
-    Logger.AddSink( TConsoleLogSink.Create( LOGDEBUG, true ) );
-  end;
-  {$ENDIF}
-
+  ReleaseConsole( GodMode );
   // Reconfigure, run by the inherited constructor, applies the window multiplier.
-  iSetup := TIO.WindowSetup( aConfiguration );
-  iSetup.Fullscreen := iSetup.Fullscreen or aConfiguration.FullScreenOverride;
+  iSetup := TIO.WindowSetup( aConfiguration, aConfiguration.Launch );
   iSetup.MinimumPixels := vutil.Point( DISPLAY_WIDTH, DISPLAY_HEIGHT );
   iSetup.Resizable := False;
   FIODriver := TSDLIODriver.CreateWindow( iSetup, False );
