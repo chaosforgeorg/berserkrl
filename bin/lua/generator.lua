@@ -1,13 +1,13 @@
 function generator.drunkard_walks( amount, steps, cell, ignore, break_on_edge, drunk_area )
 	if amount <= 0 then return end
-	drunk_area = drunk_area or area.FULL_SHRINKED
+	drunk_area = drunk_area or level:get_area():shrinked()
 	for i=1,amount do
 		generator.run_drunkard_walk( level, drunk_area, drunk_area:random_coord(), steps, cell, ignore, break_on_edge )
 	end
 end
 
 function generator.scatter(fill,count,scatter_area)
-	scatter_area = scatter_area or area.FULL
+	scatter_area = scatter_area or level:get_area()
 	if type(fill) == "string" then fill = cells[fill].nid end
 	for c = 1, count do
 		local c = scatter_area:random_coord()
@@ -19,7 +19,7 @@ function generator.place_city()
 	local tries = 200
 	local dim_max = coord( 10, 10 )
 	local dim_min = coord( 6, 6 )
-	local city = area.shrinked( area.FULL, 3 )
+	local city = level:get_area():shrinked( 3 )
 
 	local good_cell  = cells["grass"].nid
 	local door_cell  = cells["open_door"].nid

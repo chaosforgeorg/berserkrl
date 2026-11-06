@@ -82,9 +82,9 @@ level.default = {}
 
 function level:clamp_area( a )
 	if a then 
-		return a:clamped( area.FULL )
+		return a:clamped( self:get_area() )
 	else
-		return area.FULL:clone()
+		return self:get_area()
 	end
 end
 
@@ -125,11 +125,12 @@ end
 function level:spawn_on_edge( id, amount, lvl )
 	lvl = lvl or 0
 	amount = amount or 1
+	local level_area = self:get_area()
 	local c
-	local result 
+	local result
 	repeat
-		repeat 
-			c = area.FULL:random_edge_coord()
+		repeat
+			c = level_area:random_edge_coord()
 		until self:placement_coord( c )
 		result = level:summon( id, c, lvl )
 		amount = amount - 1
@@ -140,11 +141,12 @@ end
 function level:spawn_on_map( id, amount, lvl )
 	lvl = lvl or 0
 	amount = amount or 1
+	local inner_area = self:get_area():shrinked()
 	local c
-	local result 
+	local result
 	repeat
-		repeat 
-			c = area.FULL_SHRINKED:random_coord()
+		repeat
+			c = inner_area:random_coord()
 		until self:placement_coord( c )
 		result = level:summon( id, c, lvl )
 		amount = amount - 1
