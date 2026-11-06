@@ -63,7 +63,6 @@ begin
 
   RegisterCoordClass( FRaw );
   RegisterAreaClass( FRaw );
-  RegisterAreaFull( FRaw, NewArea( NewCoord2D( 1, 1 ), NewCoord2D( MAP_MAXX, MAP_MAXY ) ) );
 
   RegisterPointClass( FRaw );
   RegisterRectClass( FRaw );
